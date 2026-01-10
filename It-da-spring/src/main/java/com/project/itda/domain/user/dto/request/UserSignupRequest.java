@@ -19,5 +19,14 @@ public class UserSignupRequest {
     @NotBlank(message = "이름은 필수입니다")
     private String username;
 
+    @NotBlank(message = "주소는 필수입니다")
+    private String address;
+
+    private String nickname;
+
     private String phone;
+
+
+    // ✅ 선호도 정보 추가
+    private UserPreferenceRequest preferences;
 }

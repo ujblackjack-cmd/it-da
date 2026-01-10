@@ -1,12 +1,15 @@
 package com.project.itda.domain.user.service;
 
+import com.project.itda.domain.user.dto.request.UserPreferenceRequest;
 import com.project.itda.domain.user.dto.request.UserSignupRequest;
 import com.project.itda.domain.user.dto.request.UserUpdateRequest;
 import com.project.itda.domain.user.dto.response.UserDetailResponse;
 import com.project.itda.domain.user.dto.response.UserResponse;
 import com.project.itda.domain.user.entity.User;
+import com.project.itda.domain.user.entity.UserPreference;
 import com.project.itda.domain.user.entity.UserSetting;
-import com.project.itda.domain.user.enums.UserStatus;
+import com.project.itda.domain.user.enums.*;
+import com.project.itda.domain.user.repository.UserPreferenceRepository;
 import com.project.itda.domain.user.repository.UserRepository;
 import com.project.itda.domain.user.repository.UserSettingRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserSettingRepository userSettingRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
@@ -37,12 +41,39 @@ public class UserService {
                 .email(request.getEmail())
                 .passwordHash(request.getPassword())  // ✅ password → passwordHash
                 .username(request.getUsername())
+                .address(request.getAddress())
+                .nickname(request.getNickname())
                 .phone(request.getPhone())
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        user = userRepository.save(user);
-        log.info("회원가입 완료: userId={}, email={}", user.getUserId(), user.getEmail());
+        User savedUser = userRepository.save(user);
+
+        // 3. 선호도 저장 (있으면)
+        if (request.getPreferences() != null) {
+            UserPreferenceRequest pref = request.getPreferences();
+
+            try {
+                UserPreference preference = UserPreference.builder()
+                        .user(savedUser)
+                        .energyType(EnergyType.valueOf(pref.getEnergyType()))
+                        .purposeType(PurposeType.valueOf(pref.getPurposeType()))
+                        .frequencyType(FrequencyType.valueOf(pref.getFrequencyType()))
+                        .locationType(LocationType.valueOf(pref.getLocationType()))
+                        .budgetType(BudgetType.valueOf(pref.getBudgetType()))
+                        .leadershipType(LeadershipType.valueOf(pref.getLeadershipType()))
+                        .timePreference(pref.getTimePreference())  // ✅ String 그대로 저장!
+                        .interests(pref.getInterests())
+                        .build();
+
+                userPreferenceRepository.save(preference);
+
+            } catch (IllegalArgumentException e) {
+                log.error("선호도 Enum 변환 실패: {}", e.getMessage());
+                // 사용자는 이미 저장됐으니 롤백 안 함
+                throw new IllegalArgumentException("잘못된 선호도 값입니다: " + e.getMessage());
+            }
+        }
 
         // 기본 UserSetting 생성
         UserSetting setting = UserSetting.builder()

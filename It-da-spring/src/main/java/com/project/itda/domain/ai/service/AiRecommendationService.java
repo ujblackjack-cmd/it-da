@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class AiRecommendationService {
 
     private final AIServiceClient aiServiceClient;
-    private final MeetingRepository meetingRepository;
+//    private final MeetingRepository meetingRepository;
     private final UserRepository userRepository;
 
     /**
@@ -67,12 +67,12 @@ public class AiRecommendationService {
             log.info("📋 AI 추천 모임 IDs: {}", meetingIds);
 
             // 4. DB에서 실제 모임 정보 조회
-            List<Meeting> meetings = meetingRepository.findAllById(meetingIds);
+//            List<Meeting> meetings = meetingRepository.findAllById(meetingIds);
 
-            if (meetings.isEmpty()) {
-                log.warn("⚠️ DB에서 모임을 찾을 수 없음 - meetingIds: {}", meetingIds);
-                return buildEmptyResponse(userId);
-            }
+//            if (meetings.isEmpty()) {
+//                log.warn("⚠️ DB에서 모임을 찾을 수 없음 - meetingIds: {}", meetingIds);
+//                return buildEmptyResponse(userId);
+//            }
 
             // 5. AI 점수와 DB 모임 정보 매칭
             Map<Long, MeetingRecommendResponse.RecommendedMeeting> scoreMap =
@@ -85,53 +85,53 @@ public class AiRecommendationService {
             // 6. DTO 변환 (AI 점수 순서 유지)
             List<RecommendedMeetingDTO> recommendations = meetingIds.stream()
                     .map(meetingId -> {
-                        Meeting meeting = meetings.stream()
-                                .filter(m -> m.getMeetingId().equals(meetingId))
-                                .findFirst()
-                                .orElse(null);
+//                        Meeting meeting = meetings.stream()
+////                                .filter(m -> m.getMeetingId().equals(meetingId))
+////                                .findFirst()
+//                                .orElse(null);
 
-                        if (meeting == null) return null;
+//                        if (meeting == null) return null;
 
                         MeetingRecommendResponse.RecommendedMeeting aiMeeting = scoreMap.get(meetingId);
 
                         // 거리 계산 (사용자 위치 - 모임 위치)
-                        Double distanceKm = calculateDistance(
-                                user.getLatitude(),
-                                user.getLongitude(),
-                                meeting.getLatitude(),
-                                meeting.getLongitude()
-                        );
+//                        Double distanceKm = calculateDistance(
+//                                user.getLatitude(),
+//                                user.getLongitude()
+//                                meeting.getLatitude(),
+//                                meeting.getLongitude()
+//                        );
 
                         // 추천 이유 생성
-                        String reason = generateRecommendReason(aiMeeting.getScore(), distanceKm);
+//                        String reason = generateRecommendReason(aiMeeting.getScore(), distanceKm);
 
                         return RecommendedMeetingDTO.builder()
                                 // 모임 기본 정보
-                                .meetingId(meeting.getMeetingId())
-                                .title(meeting.getTitle())
-                                .description(meeting.getDescription())
-                                .category(meeting.getCategory())
-                                .subcategory(meeting.getSubcategory())
-                                .meetingTime(meeting.getMeetingTime())
-                                .locationName(meeting.getLocationName())
-                                .locationAddress(meeting.getLocationAddress())
-                                .latitude(meeting.getLatitude())
-                                .longitude(meeting.getLongitude())
-                                .vibe(meeting.getVibe())
-                                .currentParticipants(meeting.getCurrentParticipants())
-                                .maxParticipants(meeting.getMaxParticipants())
-                                .expectedCost(meeting.getExpectedCost())
-                                .imageUrl(meeting.getImageUrl())
-                                .status(meeting.getStatus().name())
+//                                .meetingId(meeting.getMeetingId())
+//                                .title(meeting.getTitle())
+//                                .description(meeting.getDescription())
+//                                .category(meeting.getCategory())
+//                                .subcategory(meeting.getSubcategory())
+//                                .meetingTime(meeting.getMeetingTime())
+//                                .locationName(meeting.getLocationName())
+//                                .locationAddress(meeting.getLocationAddress())
+//                                .latitude(meeting.getLatitude())
+//                                .longitude(meeting.getLongitude())
+//                                .vibe(meeting.getVibe())
+//                                .currentParticipants(meeting.getCurrentParticipants())
+//                                .maxParticipants(meeting.getMaxParticipants())
+//                                .expectedCost(meeting.getExpectedCost())
+//                                .imageUrl(meeting.getImageUrl())
+//                                .status(meeting.getStatus().name())
                                 // AI 추천 정보
                                 .aiScore(aiMeeting.getScore())
                                 .rank(aiMeeting.getRank())
-                                .distanceKm(distanceKm)
-                                .recommendReason(reason)
+//                                .distanceKm(distanceKm)
+//                                .recommendReason(reason)
                                 // 주최자 정보
-                                .organizerId(meeting.getOrganizer().getUserId())
-                                .organizerUsername(meeting.getOrganizer().getUsername())
-                                .organizerProfileImage(meeting.getOrganizer().getProfileImage())
+//                                .organizerId(meeting.getOrganizer().getUserId())
+//                                .organizerUsername(meeting.getOrganizer().getUsername())
+//                                .organizerProfileImage(meeting.getOrganizer().getProfileImage())
                                 .build();
                     })
                     .filter(Objects::nonNull)
