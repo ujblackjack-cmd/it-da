@@ -8,12 +8,14 @@ import com.project.itda.domain.user.dto.response.UserResponse;
 import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserPreference;
 import com.project.itda.domain.user.entity.UserSetting;
+
 import com.project.itda.domain.user.enums.*;
 import com.project.itda.domain.user.repository.UserPreferenceRepository;
 import com.project.itda.domain.user.repository.UserRepository;
 import com.project.itda.domain.user.repository.UserSettingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,80 +29,55 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final UserSettingRepository userSettingRepository;
     private final UserPreferenceRepository userPreferenceRepository;
+    private final UserSettingRepository userSettingRepository;
+
+    private final PasswordEncoder passwordEncoder; // ✅ PasswordEncoder 주입
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
-        log.info("=== 회원가입 시작 ===");
-        log.info("요청 데이터: {}", request);
-
+        // 1. 이메일 중복 체크
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다");
         }
 
-        // 1. User 생성
+
+        // 2. User 생성 (✅ 비밀번호 암호화 + 주소/위경도 포함)
         User user = User.builder()
                 .email(request.getEmail())
-                .passwordHash(request.getPassword())
+                .passwordHash(passwordEncoder.encode(request.getPassword())) // ✅ 암호화!
                 .username(request.getUsername())
                 .address(request.getAddress())
                 .nickname(request.getNickname())
                 .phone(request.getPhone())
+                .address(request.getAddress()) // ✅ 주소 저장
+                .latitude(request.getLatitude()) // ✅ 위도 저장
+                .longitude(request.getLongitude()) // ✅ 경도 저장
                 .status(UserStatus.ACTIVE)
                 .build();
 
         User savedUser = userRepository.save(user);
         log.info("✅ User 저장 완료: userId={}", savedUser.getUserId());
 
-        // 2. 선호도 저장
+        // 3. UserPreference 저장 (✅ null 체크 후 저장)
         if (request.getPreferences() != null) {
-            UserPreferenceRequest pref = request.getPreferences();
+            UserPreference preference = UserPreference.builder()
+                    .user(user) // ✅ User 객체 전달
+                    .energyType(EnergyType.valueOf(request.getPreferences().getEnergyType()))
+                    .purposeType(PurposeType.valueOf(request.getPreferences().getPurposeType()))
+                    .frequencyType(FrequencyType.valueOf(request.getPreferences().getFrequencyType()))
+                    .locationType(LocationType.valueOf(request.getPreferences().getLocationType()))
+                    .budgetType(BudgetType.valueOf(request.getPreferences().getBudgetType()))
+                    .leadershipType(LeadershipType.valueOf(request.getPreferences().getLeadershipType()))
+                    .timePreference(request.getPreferences().getTimePreference())
+                    .interests(request.getPreferences().getInterests())
+                    .build();
 
-            // ✅ 디버깅 로그 추가
-            log.info("=== 선호도 데이터 ===");
-            log.info("energyType: {}", pref.getEnergyType());
-            log.info("purposeType: {}", pref.getPurposeType());
-            log.info("frequencyType: {}", pref.getFrequencyType());
-            log.info("locationType: {}", pref.getLocationType());
-            log.info("budgetType: {}", pref.getBudgetType());
-            log.info("leadershipType: {}", pref.getLeadershipType());
-            log.info("timePreference: {}", pref.getTimePreference());
-            log.info("interests: {}", pref.getInterests());
-
-            try {
-                // ✅ NULL 체크 추가
-                if (pref.getEnergyType() == null || pref.getEnergyType().isEmpty()) {
-                    throw new IllegalArgumentException("energyType이 비어있습니다");
-                }
-                if (pref.getPurposeType() == null || pref.getPurposeType().isEmpty()) {
-                    throw new IllegalArgumentException("purposeType이 비어있습니다");
-                }
-
-                UserPreference preference = UserPreference.builder()
-                        .user(savedUser)
-                        .energyType(EnergyType.valueOf(pref.getEnergyType()))
-                        .purposeType(PurposeType.valueOf(pref.getPurposeType()))
-                        .frequencyType(FrequencyType.valueOf(pref.getFrequencyType()))
-                        .locationType(LocationType.valueOf(pref.getLocationType()))
-                        .budgetType(BudgetType.valueOf(pref.getBudgetType()))
-                        .leadershipType(LeadershipType.valueOf(pref.getLeadershipType()))
-                        .timePreference(pref.getTimePreference())
-                        .interests(pref.getInterests())
-                        .build();
-
-                userPreferenceRepository.save(preference);
-                log.info("✅ UserPreference 저장 완료");
-
-            } catch (IllegalArgumentException e) {
-                log.error("❌ 선호도 Enum 변환 실패: {}", e.getMessage());
-                throw new IllegalArgumentException("잘못된 선호도 값입니다: " + e.getMessage());
-            }
-        } else {
-            log.warn("⚠️ preferences가 NULL입니다!");
+            userPreferenceRepository.save(preference);
+            log.info("선호도 저장 완료: userId={}", user.getUserId());
         }
 
-        // 3. UserSetting 생성
+        // 4. 기본 UserSetting 생성
         UserSetting setting = UserSetting.builder()
                 .user(savedUser)
                 .build();
@@ -130,7 +107,6 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
 
-        // Entity에 있는 필드만 업데이트!
         user.updateInfo(
                 request.getUsername(),
                 request.getPhone(),
@@ -138,7 +114,6 @@ public class UserService {
                 null,
                 null
         );
-
 
         log.info("사용자 정보 수정: userId={}", userId);
         return UserResponse.from(user);
