@@ -11,9 +11,6 @@ ENV/
 logs/
 *.log
 
-# Models
-it-da-ai-server/models/
-
 # IDE
 .idea/
 *.iml

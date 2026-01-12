@@ -1,5 +1,7 @@
 it-da-ai-server/data/nsmc/ratings_train_augmented.txt
 it-da-ai-server/data/nsmc/ratings_train.txt
+it-da-ai-server/venv/*
 
+venv/*
 data/nsmc/*.txt
 *.txt
