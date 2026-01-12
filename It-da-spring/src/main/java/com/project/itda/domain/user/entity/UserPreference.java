@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.entity;
 
+import com.project.itda.domain.user.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,29 +30,37 @@ public class UserPreference {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // ✅ Enum 타입으로 변경
+    @Enumerated(EnumType.STRING)
     @Column(name = "energy_type", nullable = false, length = 20)
-    private String energyType;
+    private EnergyType energyType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "purpose_type", nullable = false, length = 20)
-    private String purposeType;
+    private PurposeType purposeType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "frequency_type", nullable = false, length = 20)
-    private String frequencyType;
+    private FrequencyType frequencyType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "location_type", nullable = false, length = 20)
-    private String locationType;
+    private LocationType locationType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "budget_type", nullable = false, length = 20)
-    private String budgetType;
+    private BudgetType budgetType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "leadership_type", nullable = false, length = 20)
-    private String leadershipType;
+    private LeadershipType leadershipType;
 
-    @Column(name = "time_preference", nullable = false, length = 20)
+    // ✅ String으로 저장 (여러 개 가능: "MORNING,EVENING")
+    @Column(name = "time_preference", nullable = false, length = 50)
     private String timePreference;
 
     @Column(name = "interests", columnDefinition = "TEXT")
-    private String interests;  // JSON 문자열 (예: ["스포츠","카페"])
+    private String interests;  // JSON 문자열
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -61,8 +70,9 @@ public class UserPreference {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public void updatePreference(String energyType, String purposeType, String frequencyType,
-                                 String locationType, String budgetType, String leadershipType,
+    public void updatePreference(EnergyType energyType, PurposeType purposeType,
+                                 FrequencyType frequencyType, LocationType locationType,
+                                 BudgetType budgetType, LeadershipType leadershipType,
                                  String timePreference, String interests) {
         if (energyType != null) this.energyType = energyType;
         if (purposeType != null) this.purposeType = purposeType;

@@ -1,0 +1,70 @@
+import { useState, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/stores/useAuthStore';
+import toast from 'react-hot-toast';
+import './LoginPage.css';
+
+const LoginPage = () => {
+    const navigate = useNavigate();
+    const { login, isLoading } = useAuthStore();
+    const [formData, setFormData] = useState({
+        email: '',
+        password: '',
+    });
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+
+        if (!formData.email || !formData.password) {
+            toast.error('이메일과 비밀번호를 입력해주세요.');
+            return;
+        }
+
+        try {
+            await login(formData);
+            toast.success('로그인 성공!');
+            navigate('/');
+        } catch {
+            toast.error('로그인에 실패했습니다.');
+        }
+    };
+
+    return (
+        <div className="login-container">
+            <div className="login-box">
+                <h1 className="login-title">IT-DA</h1>
+                <p className="login-subtitle">취미메이트</p>
+
+                <form onSubmit={handleSubmit} className="login-form">
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="이메일"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="login-input"
+                        disabled={isLoading}
+                    />
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="비밀번호"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="login-input"
+                        disabled={isLoading}
+                    />
+                    <button type="submit" className="login-button" disabled={isLoading}>
+                        {isLoading ? '로그인 중...' : '로그인'}
+                    </button>
+                </form>
+
+                <div className="login-footer">
+                    <a href="/signup">회원가입</a>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default LoginPage;

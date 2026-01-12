@@ -1,22 +1,34 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter } from 'react-router-dom';
+import HomePage from '@/pages/home/HomePage';
+import LoginPage from '@/pages/auth/LoginPage';
+import SignupPage from '@/pages/auth/SignupPage';
+import OAuth2CallbackPage from '@/pages/auth/OAuth2CallbackPage';
+import ProtectedRoute from './ProtectedRoute';
+import PublicRoute from './PublicRoute';
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <div>취미메이트 - 홈페이지</div>,
-  },
-  {
-    path: "/login",
-    element: <div>로그인 페이지</div>,
-  },
-  {
-    path: "/signup",
-    element: <div>회원가입 페이지</div>,
-  },
-  {
-    path: "*",
-    element: <div>404 - 페이지를 찾을 수 없습니다</div>,
-  },
+export const router = createBrowserRouter([
+    {
+        path: '/',
+        element: <HomePage />,
+    },
+    {
+        path: '/login',
+        element: (
+            <PublicRoute>
+                <LoginPage />
+            </PublicRoute>
+        ),
+    },
+    {
+        path: '/signup',
+        element: (
+            <PublicRoute>
+                <SignupPage />
+            </PublicRoute>
+        ),
+    },
+    {
+        path: '/auth/callback/:provider',
+        element: <OAuth2CallbackPage />,
+    },
 ]);
-
-export default router;
