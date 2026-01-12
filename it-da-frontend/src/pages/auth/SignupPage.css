@@ -1,0 +1,353 @@
+.signup-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.signup-modal {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* 헤더 */
+.modal-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.logo-icon {
+  font-size: 32px;
+}
+
+.logo-text {
+  font-size: 28px;
+  font-weight: 700;
+  color: #667eea;
+  margin: 0;
+}
+
+.header-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+/* 진행 바 */
+.progress-container {
+  margin-bottom: 32px;
+}
+
+.progress-bar-bg {
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+}
+
+/* 컨텐츠 */
+.step-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 기본 정보 폼 */
+.basic-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* 밸런스 게임 */
+.question-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.question-subtitle {
+  font-size: 14px;
+  color: #999;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.options-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.option-card {
+  padding: 32px 20px;
+  background: #f8f9fa;
+  border: 3px solid #e0e0e0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.option-card:hover {
+  border-color: #667eea;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+}
+
+.option-card.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.option-emoji {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.option-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.option-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+  opacity: 0.9;
+}
+
+/* 관심사 선택 */
+.interests-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.interest-chip {
+  padding: 16px 12px;
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.interest-chip:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.interest-chip.selected {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.interest-emoji {
+  font-size: 28px;
+}
+
+.interest-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 버튼 */
+.back-btn {
+  width: 100%;
+  padding: 14px;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: #f5f7ff;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.final-buttons {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.footer-text {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.footer-text a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footer-text a:hover {
+  text-decoration: underline;
+}
+
+/* 시간대 그리드 (2x2) */
+.time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.time-card {
+  padding: 24px 16px;
+  background: #f8f9fa;
+  border: 3px solid #e0e0e0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.time-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.time-card.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.button-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.address-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.address-row {
+  display: flex;
+  gap: 8px;
+}
+
+.zipcode-input {
+  flex: 1;
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.address-search-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.address-search-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.address-search-btn:active {
+  transform: translateY(0);
+}

@@ -1,6 +1,5 @@
 package com.project.itda.domain.user.dto.request;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -22,12 +21,13 @@ public class UserSignupRequest {
 
     private String phone;
 
-    // ✅ 주소 관련 필드 추가
     private String address;
+
     private Double latitude;
+
     private Double longitude;
 
-    // ✅ Preferences 추가
-    @Valid
     private UserPreferenceRequest preferences;
+
+    private String nickname;
 }

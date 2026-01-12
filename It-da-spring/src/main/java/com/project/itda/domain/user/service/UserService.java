@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.service;
 
+import com.project.itda.domain.user.dto.request.UserPreferenceRequest;
 import com.project.itda.domain.user.dto.request.UserSignupRequest;
 import com.project.itda.domain.user.dto.request.UserUpdateRequest;
 import com.project.itda.domain.user.dto.response.UserDetailResponse;
@@ -7,7 +8,8 @@ import com.project.itda.domain.user.dto.response.UserResponse;
 import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserPreference;
 import com.project.itda.domain.user.entity.UserSetting;
-import com.project.itda.domain.user.enums.UserStatus;
+
+import com.project.itda.domain.user.enums.*;
 import com.project.itda.domain.user.repository.UserPreferenceRepository;
 import com.project.itda.domain.user.repository.UserRepository;
 import com.project.itda.domain.user.repository.UserSettingRepository;
@@ -29,6 +31,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final UserSettingRepository userSettingRepository;
+
     private final PasswordEncoder passwordEncoder; // ✅ PasswordEncoder 주입
 
     @Transactional
@@ -38,11 +41,14 @@ public class UserService {
             throw new IllegalArgumentException("이미 존재하는 이메일입니다");
         }
 
+
         // 2. User 생성 (✅ 비밀번호 암호화 + 주소/위경도 포함)
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword())) // ✅ 암호화!
                 .username(request.getUsername())
+                .address(request.getAddress())
+                .nickname(request.getNickname())
                 .phone(request.getPhone())
                 .address(request.getAddress()) // ✅ 주소 저장
                 .latitude(request.getLatitude()) // ✅ 위도 저장
@@ -50,19 +56,19 @@ public class UserService {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        user = userRepository.save(user);
-        log.info("회원가입 완료: userId={}, email={}", user.getUserId(), user.getEmail());
+        User savedUser = userRepository.save(user);
+        log.info("✅ User 저장 완료: userId={}", savedUser.getUserId());
 
         // 3. UserPreference 저장 (✅ null 체크 후 저장)
         if (request.getPreferences() != null) {
             UserPreference preference = UserPreference.builder()
                     .user(user) // ✅ User 객체 전달
-                    .energyType(request.getPreferences().getEnergyType())
-                    .purposeType(request.getPreferences().getPurposeType())
-                    .frequencyType(request.getPreferences().getFrequencyType())
-                    .locationType(request.getPreferences().getLocationType())
-                    .budgetType(request.getPreferences().getBudgetType())
-                    .leadershipType(request.getPreferences().getLeadershipType())
+                    .energyType(EnergyType.valueOf(request.getPreferences().getEnergyType()))
+                    .purposeType(PurposeType.valueOf(request.getPreferences().getPurposeType()))
+                    .frequencyType(FrequencyType.valueOf(request.getPreferences().getFrequencyType()))
+                    .locationType(LocationType.valueOf(request.getPreferences().getLocationType()))
+                    .budgetType(BudgetType.valueOf(request.getPreferences().getBudgetType()))
+                    .leadershipType(LeadershipType.valueOf(request.getPreferences().getLeadershipType()))
                     .timePreference(request.getPreferences().getTimePreference())
                     .interests(request.getPreferences().getInterests())
                     .build();
@@ -73,11 +79,13 @@ public class UserService {
 
         // 4. 기본 UserSetting 생성
         UserSetting setting = UserSetting.builder()
-                .user(user)
+                .user(savedUser)
                 .build();
         userSettingRepository.save(setting);
+        log.info("✅ UserSetting 저장 완료");
 
-        return UserResponse.from(user);
+        log.info("=== 회원가입 완료 ===");
+        return UserResponse.from(savedUser);
     }
 
     public UserDetailResponse getUserDetail(Long userId) {

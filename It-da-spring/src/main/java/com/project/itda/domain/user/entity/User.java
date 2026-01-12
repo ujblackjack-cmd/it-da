@@ -32,6 +32,9 @@ public class User {
     @Column(nullable = false, length = 50)
     private String username;
 
+    @Column
+    private String nickname;
+
     @Column(length = 20)
     private String phone;
 
