@@ -1,0 +1,55 @@
+/* src/components/chat/ChatMessage.css */
+
+.message-item {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.message-item.mine { flex-direction: row-reverse; }
+.message-item.others { flex-direction: row; }
+
+.sender-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2); /* */
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; flex-shrink: 0;
+}
+
+.message-bubble-wrapper {
+    max-width: 75%;
+    display: flex;
+    flex-direction: column;
+}
+
+.message-item.mine .message-bubble-wrapper { align-items: flex-end; }
+
+.sender-name {
+    font-size: 0.75rem; font-weight: 700;
+    color: #4b5563; margin-bottom: 0.25rem;
+}
+
+.chat-bubble {
+    padding: 0.6rem 1rem;
+    border-radius: 1.1rem;
+    font-size: 0.875rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    line-height: 1.5;
+}
+
+.message-item.mine .chat-bubble {
+    background: linear-gradient(135deg, #6366f1, #9333ea);
+    color: white; border-top-right-radius: 0;
+}
+
+.message-item.others .chat-bubble {
+    background: white;
+    color: #1f2937; border-top-left-radius: 0;
+    border: 1px solid #f3f4f6;
+}
+
+.chat-timestamp {
+    font-size: 10px; color: #9ca3af;
+    margin-top: 0.25rem;
+}

@@ -28,22 +28,25 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.session:spring-session-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 
     // ✅ Swagger (SpringDoc OpenAPI)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
 
-    // ✅ WebSocket
-    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // Jackson (JSON 파싱)
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
 
-    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    // MySQL
     runtimeOnly 'com.mysql:mysql-connector-j'
-// Jackson (JSON 파싱)
-    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // ✅ 테스트 의존성 추가
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 }
 
 tasks.named('test') {

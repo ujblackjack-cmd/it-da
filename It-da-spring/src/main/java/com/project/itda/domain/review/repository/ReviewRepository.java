@@ -101,4 +101,27 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             @Param("userId") Long userId,
             @Param("sentimentType") com.project.itda.domain.review.enums.SentimentType sentimentType
     );
+
+    /**
+     * 사용자 평균 평점 계산
+     */
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.user.id = :userId")
+    Double findAverageRatingByUserId(@Param("userId") Long userId);
+
+    /**
+     * 사용자 리뷰 개수
+     */
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.user.id = :userId")
+    Integer countReviewsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 사용자 평점 표준편차 계산
+     */
+    @Query("""
+        SELECT SQRT(AVG((r.rating - sub.avg) * (r.rating - sub.avg)))
+        FROM Review r,
+        (SELECT AVG(r2.rating) as avg FROM Review r2 WHERE r2.user.id = :userId) sub
+        WHERE r.user.id = :userId
+        """)
+    Double findRatingStdByUserId(@Param("userId") Long userId);
 }

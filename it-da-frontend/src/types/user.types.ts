@@ -1,15 +1,4 @@
-import {
-  Gender,
-  UserStatus,
-  ProfileVisibility,
-  BudgetType,
-  EnergyType,
-  FrequencyType,
-  LeadershipType,
-  LocationType,
-  PurposeType,
-  TimePreference,
-} from "./enums";
+import { Gender, UserStatus } from "./enums";
 
 // User 타입 (백엔드 User Entity 기반)
 export interface User {
@@ -59,4 +48,48 @@ export interface SessionInfoResponse {
     email: string;
     username: string;
     nickname?: string;
+}
+// ✅ 사용자 선호도
+export interface UserPreference {
+    id?: number;
+    userId?: number;
+
+    // 예시 필드들 (백엔드 스펙에 맞게 바꿔도 됨)
+    preferredLocation?: string;
+    preferredPurpose?: string;
+    preferredTime?: string;
+    budgetType?: string;
+    energyType?: string;
+    frequencyType?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface UserPreferenceRequest {
+    preferredLocation?: string;
+    preferredPurpose?: string;
+    preferredTime?: string;
+    budgetType?: string;
+    energyType?: string;
+    frequencyType?: string;
+}
+
+// ✅ 사용자 설정
+export interface UserSetting {
+    id?: number;
+    userId?: number;
+
+    notificationEnabled?: boolean;
+    emailNotificationEnabled?: boolean;
+    profileVisibility?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface UserSettingRequest {
+    notificationEnabled?: boolean;
+    emailNotificationEnabled?: boolean;
+    profileVisibility?: string;
 }

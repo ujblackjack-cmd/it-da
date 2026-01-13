@@ -2,12 +2,17 @@
 AI Routes for Spring Boot Integration
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from app.models.model_loader import model_loader
 from app.core.logging import logger
+from typing import Dict
+from app.schemas.ai_schemas import AISearchRequest, AISearchResponse
+from app.services.gpt_prompt_service import GPTPromptService
+from app.services.AIRecommendationService import AIRecommendationService
 import math
+import os
 
 router = APIRouter(prefix="/api/ai/recommendations", tags=["AI"])
 
@@ -152,6 +157,25 @@ def build_reasons(feat: dict) -> List[Dict]:
         })
 
     return reasons[:3]
+
+# ========================================
+# Dependency Injection
+# ========================================
+
+def get_gpt_service() -> GPTPromptService:
+    """GPT 서비스 의존성"""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    return GPTPromptService(api_key=api_key)
+
+def get_ai_recommendation_service(
+    gpt_service: GPTPromptService = Depends(get_gpt_service)
+) -> AIRecommendationService:
+    """AI 추천 서비스 의존성"""
+    spring_boot_url = os.getenv("SPRING_BOOT_URL", "http://localhost:8080")
+    return AIRecommendationService(gpt_service, spring_boot_url)
+
 
 # ========================================
 # API Endpoints
@@ -433,4 +457,83 @@ async def recommend_place(request: PlaceRecommendRequest):
 
     except Exception as e:
         logger.error(f"장소 추천 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/search", response_model=AISearchResponse)
+async def ai_search(
+        request: AISearchRequest,
+        ai_service: AIRecommendationService = Depends(get_ai_recommendation_service)
+):
+    """
+    GPT 기반 AI 검색 및 추천
+
+    POST /api/ai/search
+
+    Request Body:
+    {
+        "user_prompt": "오늘 저녁 강남에서 러닝할 사람~",
+        "user_id": 3,
+        "top_n": 5
+    }
+
+    Response:
+    {
+        "user_prompt": "...",
+        "parsed_query": {
+            "category": "스포츠",
+            "subcategory": "러닝",
+            "time_slot": "evening",
+            "location_query": "강남",
+            ...
+        },
+        "total_candidates": 42,
+        "recommendations": [
+            {
+                "meeting_id": 42,
+                "title": "한강 선셋 러닝",
+                "match_score": 96,
+                "predicted_rating": 4.8,
+                "key_points": [...],
+                "reasoning": "..."
+            }
+        ]
+    }
+    """
+    try:
+        logger.info(f"🔍 AI 검색 요청: user_id={request.user_id}, prompt='{request.user_prompt}'")
+
+        result = await ai_service.get_ai_recommendations(
+            user_prompt=request.user_prompt,
+            user_id=request.user_id,
+            top_n=request.top_n
+        )
+
+        logger.info(f"✅ AI 검색 완료: {len(result['recommendations'])}개 추천")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ AI 검색 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/parse-prompt")
+async def parse_prompt(
+        prompt: str,
+        gpt_service: GPTPromptService = Depends(get_gpt_service)
+):
+    """
+    GPT 프롬프트 파싱 테스트
+
+    GET /api/ai/parse-prompt?prompt=오늘 저녁 강남에서 러닝할 사람
+    """
+    try:
+        parsed = await gpt_service.parse_search_query(prompt)
+        return {
+            "prompt": prompt,
+            "parsed": parsed
+        }
+    except Exception as e:
+        logger.error(f"❌ 프롬프트 파싱 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))

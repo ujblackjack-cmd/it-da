@@ -193,6 +193,20 @@ public class Meeting {
     private LocalDateTime deletedAt;
 
     // ========================================
+// 필드 추가
+// ========================================
+
+    @Column(name = "rating_count")
+    private Integer ratingCount;  // 평점 개수
+
+    @Transient  // DB에 저장 안 함
+    private Double distanceKm;  // 사용자로부터의 거리 (검색 시 계산)
+
+    public void setDistanceKm(double distance) {
+        this.distanceKm = distance;
+    }
+
+    // ========================================
     // Enum 정의
     // ========================================
 

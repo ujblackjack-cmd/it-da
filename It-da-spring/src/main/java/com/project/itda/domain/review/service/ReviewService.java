@@ -11,6 +11,7 @@ import com.project.itda.domain.review.dto.request.ReviewCreateRequest;
 import com.project.itda.domain.review.dto.request.ReviewUpdateRequest;
 import com.project.itda.domain.review.dto.response.ReviewListResponse;
 import com.project.itda.domain.review.dto.response.ReviewResponse;
+import com.project.itda.domain.review.dto.response.UserReviewDTO;
 import com.project.itda.domain.review.entity.Review;
 import com.project.itda.domain.review.enums.SentimentType;
 import com.project.itda.domain.review.repository.ReviewRepository;
@@ -36,6 +37,27 @@ public class ReviewService {
     private final ParticipationRepository participationRepository;
     private final MeetingRepository meetingRepository;
     private final SentimentAnalysisService sentimentAnalysisService;
+
+
+    /**
+     * 사용자 리뷰 목록 조회 (AI SVD용)
+     */
+    public List<UserReviewDTO> getUserReviews(Long userId) {
+        log.info("📝 사용자 리뷰 조회: userId={}", userId);
+
+        List<Review> reviews = reviewRepository.findByUserId(userId);
+
+        List<UserReviewDTO> reviewDTOs = reviews.stream()
+                .map(review -> UserReviewDTO.builder()
+                        .meetingId(review.getMeeting().getMeetingId())
+                        .rating(review.getRating().doubleValue())
+                        .build())
+                .collect(Collectors.toList());
+
+        log.info("✅ 리뷰 조회 완료: {}개", reviewDTOs.size());
+
+        return reviewDTOs;
+    }
 
     /**
      * 후기 작성 (감성 분석 포함)

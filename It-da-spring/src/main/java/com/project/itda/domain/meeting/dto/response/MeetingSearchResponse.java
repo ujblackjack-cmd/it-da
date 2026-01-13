@@ -4,66 +4,26 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
 import java.util.List;
 
-/**
- * 모임 검색 결과 응답
- */
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class MeetingSearchResponse {
-
-    /**
-     * 성공 여부
-     */
-    private Boolean success;
-
-    /**
-     * 메시지
-     */
+    private boolean success;
     private String message;
-
-    /**
-     * 검색 결과 (모임 목록)
-     */
     private List<MeetingResponse> meetings;
-
-    /**
-     * 검색 키워드
-     */
     private String keyword;
+    private SearchFilter filters;  // ← 이거 사용
+    private int totalCount;
+    private int currentPage;
+    private int totalPages;
+    private int pageSize;
 
-    /**
-     * 필터 정보
-     */
-    private SearchFilter filters;
-
-    /**
-     * 총 검색 결과 수
-     */
-    private Integer totalCount;
-
-    /**
-     * 현재 페이지
-     */
-    private Integer currentPage;
-
-    /**
-     * 전체 페이지 수
-     */
-    private Integer totalPages;
-
-    /**
-     * 페이지 크기
-     */
-    private Integer pageSize;
-
-    /**
-     * 검색 필터 정보
-     */
+    // ========================================
+    // ✅ 이 내부 클래스 추가!
+    // ========================================
     @Getter
     @Builder
     @NoArgsConstructor

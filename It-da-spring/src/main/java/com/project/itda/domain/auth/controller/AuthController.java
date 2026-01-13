@@ -35,6 +35,11 @@ public class AuthController {
 
         // Redis에 세션 저장
         HttpSession session = httpRequest.getSession(true);
+        Object raw = session.getAttribute("userId");
+        Long userId = null;
+
+        if (raw instanceof Number n) userId = n.longValue();
+        else if (raw instanceof String s) userId = Long.parseLong(s);
         session.setAttribute("userId", user.getUserId());
         session.setAttribute("email", user.getEmail());
         session.setAttribute("username", user.getUsername());

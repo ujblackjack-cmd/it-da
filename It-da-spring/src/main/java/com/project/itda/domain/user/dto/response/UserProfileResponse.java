@@ -11,13 +11,31 @@ public class UserProfileResponse {
     private String username;
     private String email;
     private String phone;
+    private String address;
+    private String profileImageUrl;
 
-    public static UserProfileResponse from(User user) {
+    // 통계 정보
+    private Long followingCount;
+    private Long followerCount;
+    private Long participatedMeetingsCount;
+    private Long badgesCount;
+    private Double averageRating;
+
+    public static UserProfileResponse from(User user, Long followingCount, Long followerCount,
+                                           Long participatedMeetingsCount, Long badgesCount,
+                                           Double averageRating) {
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .address(user.getAddress())
+                .profileImageUrl(user.getProfileImageUrl())
+                .followingCount(followingCount)
+                .followerCount(followerCount)
+                .participatedMeetingsCount(participatedMeetingsCount)
+                .badgesCount(badgesCount)
+                .averageRating(averageRating)
                 .build();
     }
 }
