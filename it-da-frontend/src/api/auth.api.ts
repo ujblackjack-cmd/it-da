@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import { apiClient } from "./client";
 // @ts-ignore
 import type { LoginCredentials, SignupData, User } from "@/types/auth.types";
 
