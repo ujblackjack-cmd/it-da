@@ -248,46 +248,52 @@ const SignupPage = () => {
     { value: "사진", emoji: "📷", title: "사진" },
   ];
 
-  const handleFinalSubmit = async () => {
-    if (interests.length < 3) {
-      toast.error("관심 분야를 최소 3개 선택해주세요!");
-      return;
-    }
+    const handleFinalSubmit = async () => {
+        if (interests.length < 3) {
+            toast.error("관심 분야를 최소 3개 선택해주세요!");
+            return;
+        }
 
-    const fullAddress = formData.addressDetail
-      ? `${formData.address} ${formData.addressDetail}`.trim()
-      : formData.address;
+        // ✅ address 조합
+        const fullAddress = formData.addressDetail
+            ? `${formData.address} ${formData.addressDetail}`.trim()
+            : formData.address;
 
-    const signupData = {
-      email: formData.email,
-      password: formData.password,
-      username: formData.username,
-      address: fullAddress,
-      nickname: formData.nickname || undefined,
-      phone: formData.phone || undefined,
-      preferences: {
-        energyType: preferences.energyType,
-        purposeType: preferences.purposeType,
-        frequencyType: preferences.frequencyType,
-        locationType: preferences.locationType,
-        budgetType: preferences.budgetType,
-        leadershipType: preferences.leadershipType,
-        timePreference: timePreferences[0] || "FLEXIBLE",
-        interests: JSON.stringify(interests),
-      },
+        // ✅ 올바른 구조로 데이터 구성
+        const signupData = {
+            email: formData.email,
+            password: formData.password,
+            username: formData.username,
+            address: fullAddress,
+            nickname: formData.nickname || undefined,
+            phone: formData.phone || undefined,
+            preferences: {
+                energyType: preferences.energyType,
+                purposeType: preferences.purposeType,
+                frequencyType: preferences.frequencyType,
+                locationType: preferences.locationType,
+                budgetType: preferences.budgetType,
+                leadershipType: preferences.leadershipType,
+                timePreference: timePreferences[0] || "FLEXIBLE",
+                interests: JSON.stringify(interests),
+            },
+        };
+
+        console.log("=" .repeat(50));
+        console.log("📝 SignupPage에서 생성한 데이터:");
+        console.log(JSON.stringify(signupData, null, 2));
+        console.log("=" .repeat(50));
+
+        try {
+            await signup(signupData);
+            toast.success("회원가입 완료!");
+            navigate("/login");
+        } catch (error: any) {
+            console.error("❌ 회원가입 오류:", error);
+            console.error("❌ 에러 응답:", error.response?.data);
+            toast.error(error.response?.data?.message || "회원가입에 실패했습니다.");
+        }
     };
-
-    console.log("🚀 회원가입 데이터:", JSON.stringify(signupData, null, 2));
-
-    try {
-      await signup(signupData);
-      toast.success("회원가입 완료!");
-      navigate("/login");
-    } catch (error: any) {
-      console.error("❌ 회원가입 오류:", error);
-      toast.error(error.response?.data?.message || "회원가입에 실패했습니다.");
-    }
-  };
 
   const handleOptionClick = (key: string, value: string) => {
     setPreferences({ ...preferences, [key]: value });

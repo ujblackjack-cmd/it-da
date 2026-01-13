@@ -1,43 +1,51 @@
-import { apiClient } from "./client";
-// @ts-ignore
-import type { LoginCredentials, SignupData, User } from "@/types/auth.types";
+
+import axios from "axios";
+import type { LoginRequest, LoginResponse, SignupRequest, SessionInfoResponse } from "@/types/auth.types";
+
+const apiClient = axios.create({
+    baseURL: "http://localhost:8080/api",
+    timeout: 10000,
+    headers: {
+        "Content-Type": "application/json",
+    },
+    withCredentials: true,
+});
+
+apiClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            window.location.href = "/login";
+        }
+        return Promise.reject(error);
+    }
+);
 
 export const authAPI = {
-  // login: async (credentials: LoginCredentials) => {
-  //     const { data } = await apiClient.post('/api/users/login', credentials);
-  //     return data;
-  // },
+    login: async (credentials: LoginRequest): Promise<LoginResponse> => {
+        const { data } = await apiClient.post("/auth/login", credentials);
+        return data;
+    },
 
-  signup: async (signupData: SignupData) => {
-    const { data } = await apiClient.post("/api/users/signup", signupData);
-    return data;
-  },
+    // ✅ /users/signup으로 변경!
+    signup: async (signupData: SignupRequest): Promise<any> => {
+        console.log("=" .repeat(50));
+        console.log("🌐 API Client에서 서버로 전송하는 데이터:");
+        console.log(JSON.stringify(signupData, null, 2));
+        console.log("=" .repeat(50));
 
-  // logout: async () => {
-  //     const { data } = await apiClient.post('/api/users/logout');
-  //     return data;
-  // },
+        const { data } = await apiClient.post("/users/signup", signupData);
+        return data;
+    },
 
-  me: async (): Promise<{ user: User }> => {
-    const { data } = await apiClient.get("/api/users/me");
-    return data;
-  },
+    logout: async (): Promise<void> => {
+        await apiClient.post("/auth/logout");
+    },
 
-  // oauth2Login: async (provider: string, code: string) => {
-  //     const { data } = await apiClient.post(`/auth/oauth2/${provider}/callback`, { code });
-  //     return data;
-  // },
-  //
-  // changePassword: async (currentPassword: string, newPassword: string) => {
-  //     const { data } = await apiClient.put('/auth/password', {
-  //         currentPassword,
-  //         newPassword,
-  //     });
-  //     return data;
-  // },
-  //
-  // updateProfile: async (updates: Partial<User>) => {
-  //     const { data } = await apiClient.put('/auth/profile', updates);
-  //     return data;
-  // },
+    checkSession: async (): Promise<SessionInfoResponse> => {
+        const { data } = await apiClient.get("/auth/session");
+        return data;
+    },
 };
+
+export default apiClient;

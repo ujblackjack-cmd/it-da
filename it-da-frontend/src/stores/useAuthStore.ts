@@ -1,115 +1,112 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { authAPI } from "../api";
+import { authAPI } from "@/api/auth.api";
+import type { SignupRequest } from "@/types/auth.types";
 
 interface User {
-  id: number;
-  email: string;
-  username: string;
-  nickname?: string;
-  address: string;
-  phone?: string;
-}
-
-interface Preferences {
-  energyType: string;
-  purposeType: string;
-  frequencyType: string;
-  locationType: string;
-  budgetType: string;
-  leadershipType: string;
-  timePreference: string;
+    userId: number;
+    email: string;
+    username: string;
+    nickname?: string;
 }
 
 interface AuthStore {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
-  signup: (data: {
-    email: string;
-    password: string;
-    username: string;
-    address: string;
-    nickname?: string;
-    phone?: string;
-    preferences?: Preferences;
-  }) => Promise<void>;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
+    user: User | null;
+    isAuthenticated: boolean;
+    isLoading: boolean;
+    error: string | null;
+    login: (credentials: { email: string; password: string }) => Promise<void>;
+    signup: (data: SignupRequest) => Promise<void>;  // ✅ SignupRequest 타입
+    logout: () => Promise<void>;
+    checkAuth: () => Promise<void>;
+    clearError: () => void;
 }
 
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+export const useAuthStore = create<AuthStore>()((set) => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
 
-      login: async (credentials) => {
+    login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-          const data = await authAPI.login(credentials);
-          set({
-            user: data.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error: any) {
-          set({
-            error: "로그인 실패",
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
+            const response = await authAPI.login(credentials);
 
-      signup: async (signupData) => {
+            set({
+                user: {
+                    userId: response.userId,
+                    email: response.email,
+                    username: response.username,
+                    nickname: response.nickname,
+                },
+                isAuthenticated: true,
+                isLoading: false,
+            });
+        } catch (error: any) {
+            set({
+                error: error?.message || "로그인 실패",
+                isLoading: false,
+            });
+            throw error;
+        }
+    },
+
+    signup: async (signupData) => {
         set({ isLoading: true, error: null });
         try {
-          await authAPI.signup(signupData);
-          set({ isLoading: false });
+            console.log("=" .repeat(50));
+            console.log("📤 AuthStore에서 API로 전송하는 데이터:");
+            console.log(JSON.stringify(signupData, null, 2));
+            console.log("=" .repeat(50));
+
+            await authAPI.signup(signupData);
+            set({ isLoading: false });
         } catch (error: any) {
-          set({
-            error: "회원가입 실패",
-            isLoading: false,
-          });
-          throw error;
+            set({
+                error: error?.message || "회원가입 실패",
+                isLoading: false,
+            });
+            throw error;
         }
-      },
+    },
 
-      logout: async () => {
-        try {
-          await authAPI.logout();
-          set({
-            user: null,
-            isAuthenticated: false,
-          });
-        } catch (error) {
-          console.error("Logout error:", error);
-        }
-      },
-
-      checkAuth: async () => {
+    logout: async () => {
         set({ isLoading: true });
         try {
-          const data = await authAPI.me();
-          set({
-            user: data.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch {
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
+            await authAPI.logout();
+            set({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+            });
+        } catch (error) {
+            console.error("Logout error:", error);
+            set({ isLoading: false });
         }
-      },
-    }),
-    { name: "auth-storage" }
-  )
-);
+    },
+
+    checkAuth: async () => {
+        set({ isLoading: true });
+        try {
+            const data = await authAPI.checkSession();
+            set({
+                user: {
+                    userId: data.userId,
+                    email: data.email,
+                    username: data.username,
+                    nickname: data.nickname,
+                },
+                isAuthenticated: true,
+                isLoading: false,
+            });
+        } catch {
+            set({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+            });
+        }
+    },
+
+    clearError: () => set({ error: null }),
+}));
