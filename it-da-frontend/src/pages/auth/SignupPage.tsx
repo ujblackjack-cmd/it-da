@@ -22,21 +22,20 @@ const SignupPage = () => {
     password: "",
     passwordConfirm: "",
     username: "",
-    address: "", // 기본 주소
-    addressDetail: "", // 상세 주소
-    zipcode: "", // 우편번호
+    address: "",
+    addressDetail: "",
+    zipcode: "",
     nickname: "",
     phone: "",
   });
 
-  // ✅ 백엔드 Enum과 100% 매칭
   const [preferences, setPreferences] = useState({
-    energyType: "", // EXTROVERT, INTROVERT
-    purposeType: "", // RELATIONSHIP, TASK
-    frequencyType: "", // REGULAR, SPONTANEOUS
-    locationType: "", // INDOOR, OUTDOOR
-    budgetType: "", // VALUE, QUALITY
-    leadershipType: "", // LEADER, FOLLOWER
+    energyType: "",
+    purposeType: "",
+    frequencyType: "",
+    locationType: "",
+    budgetType: "",
+    leadershipType: "",
   });
 
   const [timePreferences, setTimePreferences] = useState<string[]>([]);
@@ -45,21 +44,18 @@ const SignupPage = () => {
   const handleAddressSearch = () => {
     new window.daum.Postcode({
       oncomplete: function (data: any) {
-        // 도로명 주소 또는 지번 주소
         const addr =
           data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress;
 
         setFormData({
           ...formData,
-          zipcode: data.zonecode, // 우편번호
-          address: addr, // 기본 주소
-          addressDetail: "", // 상세 주소 초기화
+          zipcode: data.zonecode,
+          address: addr,
+          addressDetail: "",
         });
 
-        // 상세 주소 입력란으로 포커스
-        document.getElementById("addressDetail")?.focus();
-
         toast.success("주소가 입력되었습니다!");
+        document.getElementById("addressDetail")?.focus();
       },
     }).open();
   };
@@ -258,7 +254,6 @@ const SignupPage = () => {
       return;
     }
 
-    // ✅ 주소 합치기
     const fullAddress = formData.addressDetail
       ? `${formData.address} ${formData.addressDetail}`.trim()
       : formData.address;
@@ -267,7 +262,7 @@ const SignupPage = () => {
       email: formData.email,
       password: formData.password,
       username: formData.username,
-      address: fullAddress, // ✅ 전체 주소
+      address: fullAddress,
       nickname: formData.nickname || undefined,
       phone: formData.phone || undefined,
       preferences: {
@@ -277,8 +272,8 @@ const SignupPage = () => {
         locationType: preferences.locationType,
         budgetType: preferences.budgetType,
         leadershipType: preferences.leadershipType,
-        timePreference: timePreferences.join(","),
-        interests: interests.join(","),
+        timePreference: timePreferences[0] || "FLEXIBLE",
+        interests: JSON.stringify(interests),
       },
     };
 
@@ -296,7 +291,6 @@ const SignupPage = () => {
 
   const handleOptionClick = (key: string, value: string) => {
     setPreferences({ ...preferences, [key]: value });
-
     setTimeout(() => {
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(currentQuestion + 1);
@@ -407,7 +401,6 @@ const SignupPage = () => {
                 required
               />
 
-              {/* ✅ 주소 검색 */}
               <div className="address-group">
                 <div className="address-row">
                   <input
@@ -477,7 +470,6 @@ const SignupPage = () => {
           <div className="step-content">
             <h2 className="question-title">{currentQ.title}</h2>
             <p className="question-subtitle">{currentQ.subtitle}</p>
-
             <div className="options-container">
               {currentQ.options?.map((option) => (
                 <button
@@ -497,7 +489,6 @@ const SignupPage = () => {
                 </button>
               ))}
             </div>
-
             <button
               type="button"
               className="back-btn"
@@ -512,7 +503,6 @@ const SignupPage = () => {
           <div className="step-content">
             <h2 className="question-title">{currentQ.title}</h2>
             <p className="question-subtitle">{currentQ.subtitle}</p>
-
             <div className="time-grid">
               {currentQ.options?.map((option) => (
                 <button
@@ -529,7 +519,6 @@ const SignupPage = () => {
                 </button>
               ))}
             </div>
-
             <div className="button-group-vertical">
               <button
                 type="button"
@@ -553,7 +542,6 @@ const SignupPage = () => {
           <div className="step-content">
             <h2 className="question-title">{currentQ.title}</h2>
             <p className="question-subtitle">{currentQ.subtitle}</p>
-
             <div className="interests-grid">
               {interestOptions.map((interest) => (
                 <button
@@ -569,7 +557,6 @@ const SignupPage = () => {
                 </button>
               ))}
             </div>
-
             <div className="final-buttons">
               <button
                 type="button"
@@ -587,7 +574,6 @@ const SignupPage = () => {
                 {isLoading ? "가입 중..." : "회원가입 완료"}
               </button>
             </div>
-
             <p className="footer-text">
               이미 계정이 있으신가요? <a href="/login">로그인</a>
             </p>

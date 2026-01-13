@@ -37,7 +37,8 @@ dependencies {
 
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     runtimeOnly 'com.mysql:mysql-connector-j'
-
+// Jackson (JSON 파싱)
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
