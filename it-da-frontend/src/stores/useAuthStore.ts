@@ -1,24 +1,12 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { authAPI } from "../api";
+import { authAPI } from "@/api/auth.api";
+import type { SignupRequest } from "@/types/auth.types";
 
 interface User {
-  id: number;
+  userId: number;
   email: string;
   username: string;
   nickname?: string;
-  address: string;
-  phone?: string;
-}
-
-interface Preferences {
-  energyType: string;
-  purposeType: string;
-  frequencyType: string;
-  locationType: string;
-  budgetType: string;
-  leadershipType: string;
-  timePreference: string;
 }
 
 interface AuthStore {
@@ -27,89 +15,111 @@ interface AuthStore {
   isLoading: boolean;
   error: string | null;
   login: (credentials: { email: string; password: string }) => Promise<void>;
-  signup: (data: {
-    email: string;
-    password: string;
-    username: string;
-    address: string;
-    nickname?: string;
-    phone?: string;
-    preferences?: Preferences;
-  }) => Promise<void>;
+  signup: (data: SignupRequest) => Promise<void>; // ✅ SignupRequest 타입
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  clearError: () => void;
 }
 
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+const storedUser = localStorage.getItem("user");
+console.log("💾 localStorage user:", storedUser);
 
-      login: async (credentials) => {
-        set({ isLoading: true, error: null });
-        try {
-          const data = await authAPI.login(credentials);
-          set({
-            user: data.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (error: any) {
-          set({
-            error: "로그인 실패",
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
+export const useAuthStore = create<AuthStore>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
 
-      signup: async (signupData) => {
-        set({ isLoading: true, error: null });
-        try {
-          await authAPI.signup(signupData);
-          set({ isLoading: false });
-        } catch (error: any) {
-          set({
-            error: "회원가입 실패",
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
+  login: async (credentials) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await authAPI.login(credentials);
 
-      logout: async () => {
-        try {
-          await authAPI.logout();
-          set({
-            user: null,
-            isAuthenticated: false,
-          });
-        } catch (error) {
-          console.error("Logout error:", error);
-        }
-      },
+      set({
+        user: {
+          userId: response.userId,
+          email: response.email,
+          username: response.username,
+          nickname: response.nickname,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      set({
+        error: error?.message || "로그인 실패",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
 
-      checkAuth: async () => {
-        set({ isLoading: true });
-        try {
-          const data = await authAPI.me();
-          set({
-            user: data.user,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch {
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-        }
-      },
-    }),
-    { name: "auth-storage" }
-  )
-);
+  signup: async (signupData) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log("=".repeat(50));
+      console.log("📤 AuthStore에서 API로 전송하는 데이터:");
+      console.log(JSON.stringify(signupData, null, 2));
+      console.log("=".repeat(50));
+
+      await authAPI.signup(signupData);
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error?.message || "회원가입 실패",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  logout: async () => {
+    set({ isLoading: true });
+    try {
+      await authAPI.logout();
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      set({ isLoading: false });
+    }
+  },
+
+  checkAuth: async () => {
+    console.log("🔥 checkAuth called");
+    set({ isLoading: true });
+
+    try {
+      const data = await authAPI.checkSession();
+      console.log("✅ session data:", data);
+
+      set({
+        user: {
+          userId: data.userId,
+          email: data.email,
+          username: data.username,
+          nickname: data.nickname,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      console.log("✅ store after set:", useAuthStore.getState()); // ⭐ 이게 핵심
+    } catch (e) {
+      console.log("❌ checkAuth failed:", e);
+
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+
+      console.log("❌ store after catch:", useAuthStore.getState());
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));

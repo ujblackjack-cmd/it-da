@@ -1,5 +1,7 @@
 package com.project.itda.domain.user.service;
 
+import com.project.itda.domain.review.repository.ReviewRepository;
+import com.project.itda.domain.user.dto.request.UserContextDTO;
 import com.project.itda.domain.user.dto.request.UserSignupRequest;
 import com.project.itda.domain.user.dto.request.UserUpdateRequest;
 import com.project.itda.domain.user.dto.response.UserDetailResponse;
@@ -32,6 +34,7 @@ public class UserService {
     private final UserSettingRepository userSettingRepository;
     private final PasswordEncoder passwordEncoder;
     private final GeocodingService geocodingService;
+    private final ReviewRepository reviewRepository;  // ✅ 추가 필요
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
@@ -132,5 +135,34 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
         userRepository.delete(user);
+    }
+
+    /**
+     * 사용자 컨텍스트 조회 (AI 추천용)
+     */
+    public UserContextDTO getUserContext(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+
+        // 사용자 평균 평점 계산
+        Double avgRating = reviewRepository.findAverageRatingByUserId(userId);
+
+        // 사용자 참여 모임 수
+        Integer meetingCount = reviewRepository.countReviewsByUserId(userId);
+
+        // 평점 표준편차 계산
+        Double ratingStd = reviewRepository.findRatingStdByUserId(userId);
+
+        return UserContextDTO.builder()
+                .userId(user.getUserId())
+                .latitude(user.getLatitude())
+                .longitude(user.getLongitude())
+                .interests(user.getPreference().getInterests())  // "스포츠,카페,문화예술"
+                .timePreference(user.getPreference().getTimePreference())  // "morning", "afternoon", "evening"
+                .budgetType(user.getPreference().getBudgetType() != null ? user.getPreference().getBudgetType().name() : "MODERATE")
+                .userAvgRating(avgRating != null ? avgRating : 0.0)
+                .userMeetingCount(meetingCount != null ? meetingCount : 0)
+                .userRatingStd(ratingStd != null ? ratingStd : 0.0)
+                .build();
     }
 }

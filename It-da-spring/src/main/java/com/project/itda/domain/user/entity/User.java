@@ -80,6 +80,16 @@ public class User {
     @Column(length = 100)
     private String providerId;
 
+    // ========================================
+// 필드 추가
+// ========================================
+
+    @Column(name = "rating")
+    private Double rating;  // 주최자 평균 평점
+
+    @Column(name = "meeting_count")
+    private Integer meetingCount;  // 주최한 모임 수
+
 
     public void updateInfo(String username, String phone, String address, Double latitude, Double longitude) {
         if (username != null) this.username = username;

@@ -7,24 +7,26 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080
 export const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
+    withCredentials: true,  // ✅ 세션 쿠키 전송 필수!
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// 요청 인터셉터: JWT 토큰 자동 추가
-api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('accessToken');
-        if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: AxiosError) => {
-        return Promise.reject(error);
-    }
-);
+// -> redis 라서 JWT 토큰 불필요
+// // 요청 인터셉터: JWT 토큰 자동 추가
+// api.interceptors.request.use(
+//     (config: InternalAxiosRequestConfig) => {
+//         const token = localStorage.getItem('accessToken');
+//         if (token && config.headers) {
+//             config.headers.Authorization = `Bearer ${token}`;
+//         }
+//         return config;
+//     },
+//     (error: AxiosError) => {
+//         return Promise.reject(error);
+//     }
+// );
 
 // 응답 인터셉터: 에러 핸들링
 api.interceptors.response.use(

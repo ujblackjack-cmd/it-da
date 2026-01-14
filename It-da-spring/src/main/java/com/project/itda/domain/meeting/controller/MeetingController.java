@@ -2,8 +2,11 @@ package com.project.itda.domain.meeting.controller;
 
 import com.project.itda.domain.meeting.dto.request.MeetingCreateRequest;
 import com.project.itda.domain.meeting.dto.request.MeetingUpdateRequest;
+import com.project.itda.domain.meeting.dto.request.MeetingSearchRequest;
+import com.project.itda.domain.meeting.dto.response.MeetingSearchResponse;
 import com.project.itda.domain.meeting.dto.response.MeetingDetailResponse;
 import com.project.itda.domain.meeting.dto.response.MeetingResponse;
+import com.project.itda.domain.meeting.service.MeetingSearchService;
 import com.project.itda.domain.meeting.service.MeetingService;
 import com.project.itda.domain.user.entity.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 public class MeetingController {
 
     private final MeetingService meetingService;
+    private final MeetingSearchService meetingSearchService;
 
     /**
      * 모임 생성
@@ -46,6 +50,35 @@ public class MeetingController {
         MeetingResponse response = meetingService.createMeeting(user, request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * 모임 목록 조회 (React용 GET)
+     * GET /api/meetings
+     */
+    @GetMapping
+    public ResponseEntity<MeetingSearchResponse> getAllMeetings(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        log.info("📍 GET /api/meetings - category: {}, keyword: {}, page: {}",
+                category, keyword, page);
+
+        MeetingSearchRequest request = new MeetingSearchRequest(
+                keyword,      // keyword
+                category,     // category
+                null,         // subcategory
+                null, null,   // startDate, endDate
+                null, null, null,  // latitude, longitude, radius
+                null, null, null, null,  // locationType, vibe, timeSlot, status
+                page, size, "createdAt", "desc"
+        );
+
+        MeetingSearchResponse response = meetingSearchService.searchMeetings(request);
+
+        return ResponseEntity.ok(response);
     }
 
     /**

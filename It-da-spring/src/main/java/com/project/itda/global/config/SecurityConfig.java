@@ -35,6 +35,21 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/**", "/login/**", "/oauth2/**").permitAll() // API 전체 허용
                         .anyRequest().permitAll() // 일단 전체 허용 (테스트용)
                 )
+
+                // ✅ Redis 세션 관리 설정 추가
+                .sessionManagement(session -> session
+                .maximumSessions(1)  // 동시 세션 1개로 제한
+                .maxSessionsPreventsLogin(false) // 새 로그인 시 기존 세션 무효화
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/api/auth/logout")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
+                        .logoutSuccessHandler((request, response, authentication) -> {
+                            response.setStatus(200);
+                        })
+                )
+
                 .oauth2Login(oauth2 -> oauth2
                 // 로그인 성공 시 프론트엔드(3000) 콜백 페이지로 이동시킵니다.
                 .defaultSuccessUrl("http://localhost:3000/auth/callback", true)

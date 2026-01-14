@@ -2,9 +2,9 @@ import { Gender, UserStatus } from "./enums";
 
 // User 타입 (백엔드 User Entity 기반)
 export interface User {
-  id: number;
+  userId: number;
   email: string;
-  name: string;
+  username: string;
   role?: "LEADER" | "MEMBER" | "ME";
   nickname?: string;
   phoneNumber?: string;
@@ -29,12 +29,67 @@ export interface SignupRequest {
 
 // 로그인 요청
 export interface LoginRequest {
-  email: string;
-  password: string;
+    email: string;
+    password: string;
 }
 
-// 로그인 응답
+// 로그인 응답 (Redis 세션 방식)
 export interface LoginResponse {
-  token: string;
-  user: User;
+    sessionId: string;       // ✅ 세션 ID
+    userId: number;          // ✅ userId
+    email: string;
+    username: string;        // ✅ 이름
+    nickname?: string;       // ✅ 별칭
+}
+
+// 세션 정보 응답
+export interface SessionInfoResponse {
+    userId: number;
+    email: string;
+    username: string;
+    nickname?: string;
+}
+// ✅ 사용자 선호도
+export interface UserPreference {
+    id?: number;
+    userId?: number;
+
+    // 예시 필드들 (백엔드 스펙에 맞게 바꿔도 됨)
+    preferredLocation?: string;
+    preferredPurpose?: string;
+    preferredTime?: string;
+    budgetType?: string;
+    energyType?: string;
+    frequencyType?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface UserPreferenceRequest {
+    preferredLocation?: string;
+    preferredPurpose?: string;
+    preferredTime?: string;
+    budgetType?: string;
+    energyType?: string;
+    frequencyType?: string;
+}
+
+// ✅ 사용자 설정
+export interface UserSetting {
+    id?: number;
+    userId?: number;
+
+    notificationEnabled?: boolean;
+    emailNotificationEnabled?: boolean;
+    profileVisibility?: string;
+
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface UserSettingRequest {
+    notificationEnabled?: boolean;
+    emailNotificationEnabled?: boolean;
+    profileVisibility?: string;
 }
