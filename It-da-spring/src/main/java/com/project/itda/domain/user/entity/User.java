@@ -130,4 +130,9 @@ public class User {
         this.profileImageUrl = picture;
         return this;
     }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+        this.status = UserStatus.DELETED;
+    }
 }

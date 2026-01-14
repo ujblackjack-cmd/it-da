@@ -1,8 +1,10 @@
 package com.project.itda.domain.user.repository;
 
+import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserSetting;
 import com.project.itda.domain.user.enums.ProfileVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -45,4 +47,9 @@ public interface UserSettingRepository extends JpaRepository<UserSetting, Long> 
     @Query("SELECT us.user.userId FROM UserSetting us " +
             "WHERE us.systemNotification = true")
     List<Long> findUserIdsWithSystemNotificationEnabled();
+
+    // ✅ 유저로 삭제
+    @Modifying
+    @Query("DELETE FROM UserSetting us WHERE us.user = :user")
+    void deleteByUser(@Param("user") User user);
 }

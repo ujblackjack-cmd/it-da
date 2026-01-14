@@ -1,8 +1,10 @@
 package com.project.itda.domain.user.repository;
 
+import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserPreference;
 import com.project.itda.domain.user.enums.*;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -46,10 +48,12 @@ public interface UserPreferenceRepository extends JpaRepository<UserPreference, 
     @Query("SELECT up.energyType, COUNT(up) FROM UserPreference up GROUP BY up.energyType")
     List<Object[]> countByEnergyTypeGrouped();
 
-    /**
-     * 사용자 ID로 성향 조회
-     */
     @Query("SELECT up FROM UserPreference up " +
             "WHERE up.user.userId = :userId")
     Optional<UserPreference> findByUserId(@Param("userId") Long userId);
+
+    // ✅ 유저로 삭제
+    @Modifying
+    @Query("DELETE FROM UserPreference up WHERE up.user = :user")
+    void deleteByUser(@Param("user") User user);
 }
