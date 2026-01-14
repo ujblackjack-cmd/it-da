@@ -7,6 +7,9 @@ import MyPage from "@/pages/mypage/MyPage";
 import ProfileEditPage from "@/pages/mypage/components/ProfileEditPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import OAuth2CallbackPage from "@/pages/auth/OAuth2CallbackPage";
+import ChatRoomPage from "@/pages/chat/ChatRoomPage";
+import TestChatPage from "@/pages/chat/TestChatPage.tsx";
 
 export const router = createBrowserRouter(
   [
@@ -95,6 +98,27 @@ export const router = createBrowserRouter(
     {
       path: "/profile/edit",
       element: <ProfileEditPage />,
+    },
+    // {
+    //   // 2. 백엔드에서 단순히 /auth/callback으로만 보낼 경우 (404 방지)
+    //   path: "/auth/callback",
+    //   element: <OAuth2CallbackPage />,
+    // },
+    {
+      path: "/chat/:roomId",
+      element: (
+        <ProtectedRoute>
+          <ChatRoomPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/test-chat", // ✅ 추가
+      element: (
+        <ProtectedRoute>
+          <TestChatPage />
+        </ProtectedRoute>
+      ),
     },
   ],
   {

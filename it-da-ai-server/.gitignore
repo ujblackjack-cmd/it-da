@@ -5,5 +5,3 @@ it-da-ai-server/venv/*
 venv/*
 data/nsmc/*.txt
 *.txt
-
-.env

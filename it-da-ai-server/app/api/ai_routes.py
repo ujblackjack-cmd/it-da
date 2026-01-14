@@ -262,6 +262,47 @@ async def get_models_info():
     }
 
 
+@router.get("/meetings")
+async def recommend_meetings(user_id: int, top_n: int = 10):
+    """
+    SVD 협업 필터링 모임 추천 (실시간 DB 연동)
+    GET /api/ai/recommendations/meetings?userId=3&topN=10
+    """
+    try:
+        if not model_loader.svd or not model_loader.svd.is_loaded():
+            raise HTTPException(status_code=503, detail="SVD 모델이 로드되지 않았습니다")
+
+        # topN 제한
+        if top_n > 50:
+            top_n = 50
+
+        # SVD 추천 (실시간 DB 조회)
+        recommendations = await model_loader.svd.recommend(
+            user_id=user_id,
+            top_n=top_n
+        )
+
+        # 응답 생성
+        recommended_meetings = [
+            {
+                "meeting_id": int(meeting_id),
+                "predicted_score": round(float(score), 4),
+                "rank": idx + 1
+            }
+            for idx, (meeting_id, score) in enumerate(recommendations)
+        ]
+
+        return {
+            "user_id": user_id,
+            "recommended_meetings": recommended_meetings,
+            "total_count": len(recommended_meetings)
+        }
+
+    except Exception as e:
+        logger.error(f"추천 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/recommend")
 async def recommend_meetings_post(request: RecommendRequest):
     """

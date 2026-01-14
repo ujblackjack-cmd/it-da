@@ -28,11 +28,16 @@ interface AuthStore {
   checkAuth: () => Promise<void>;
   clearError: () => void;
   setUser: (user: User | null) => void;
+  setSocialUser: (userData: User) => void;
 }
 
+const storedUser = localStorage.getItem("user");
+const initialUser = storedUser ? JSON.parse(storedUser) : null;
+console.log("💾 localStorage user:", storedUser);
+
 export const useAuthStore = create<AuthStore>()((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: initialUser,
+  isAuthenticated: !!initialUser,
   isLoading: false,
   error: null,
 
@@ -73,7 +78,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     set({ isLoading: true });
     try {
       await authAPI.logout();
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      localStorage.removeItem("user");
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     } catch (error) {
       console.error("Logout error:", error);
       set({ isLoading: false });
@@ -98,6 +108,18 @@ export const useAuthStore = create<AuthStore>()((set) => ({
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
+  setSocialUser: (userData: User) => {
+    console.log("💾 setSocialUser 호출됨:", userData);
 
+    localStorage.setItem("user", JSON.stringify(userData));
+
+    set({
+      user: userData,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+    });
+    console.log("✅ 스토어 업데이트 완료:", useAuthStore.getState());
+  },
   clearError: () => set({ error: null }),
 }));

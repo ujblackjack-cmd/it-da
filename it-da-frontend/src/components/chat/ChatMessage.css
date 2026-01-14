@@ -1,55 +1,91 @@
 /* src/components/chat/ChatMessage.css */
 
+/* 메시지 아이템 전체 레이아웃 */
 .message-item {
     display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 16px;
+    width: 100%;
 }
 
-.message-item.mine { flex-direction: row-reverse; }
-.message-item.others { flex-direction: row; }
-
-.sender-avatar {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2); /* */
-    display: flex; align-items: center; justify-content: center;
-    color: white; font-weight: 700; flex-shrink: 0;
+/* ❌ 줄바꿈 현상의 핵심 원인 해결 */
+.message-item.mine {
+    justify-content: flex-end; /* 본인 메시지는 오른쪽 정렬 */
+    flex-direction: row;       /* 가로 방향 유지 */
 }
 
+/* 말풍선과 텍스트 영역을 감싸는 박스 */
 .message-bubble-wrapper {
-    max-width: 75%;
     display: flex;
     flex-direction: column;
+    max-width: 65%; /* 화면의 65%까지만 너비 허용 */
 }
 
-.message-item.mine .message-bubble-wrapper { align-items: flex-end; }
-
-.sender-name {
-    font-size: 0.75rem; font-weight: 700;
-    color: #4b5563; margin-bottom: 0.25rem;
+.message-item.mine .message-bubble-wrapper {
+    align-items: flex-end; /* 본인 메시지는 타임스탬프 등을 오른쪽 정렬 */
 }
 
+/* 실제 말풍선 박스 */
 .chat-bubble {
-    padding: 0.6rem 1rem;
-    border-radius: 1.1rem;
-    font-size: 0.875rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
     line-height: 1.5;
+    /* ✅ 핵심 속성: 너비가 한 글자씩 떨어지지 않게 함 */
+    width: fit-content;
+    word-break: break-all;
+    white-space: pre-wrap;
 }
 
 .message-item.mine .chat-bubble {
-    background: linear-gradient(135deg, #6366f1, #9333ea);
-    color: white; border-top-right-radius: 0;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    color: white;
+    border-top-right-radius: 2px; /* 본인 쪽 모서리 뾰족하게 */
 }
 
 .message-item.others .chat-bubble {
-    background: white;
-    color: #1f2937; border-top-left-radius: 0;
-    border: 1px solid #f3f4f6;
+    background-color: #f1f3f5;
+    color: #333;
+    border-top-left-radius: 2px;
 }
 
+/* 타임스탬프 위치 조정 */
 .chat-timestamp {
-    font-size: 10px; color: #9ca3af;
-    margin-top: 0.25rem;
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+}
+.special-card {
+    min-width: 200px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    color: #333 !important; /* 가독성을 위해 검정색 유지 */
+    margin-top: 5px;
+}
+
+.poll-option-btn {
+    width: 100%;
+    margin-top: 5px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+
+.bill-amount {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #6366f1;
+    margin: 8px 0;
+}
+
+.pay-btn {
+    width: 100%;
+    padding: 10px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin-top: 10px;
 }

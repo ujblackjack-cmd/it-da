@@ -9,10 +9,6 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict
 import httpx
-import warnings
-
-# LightGBM 경고 무시
-warnings.filterwarnings('ignore', category=UserWarning, module='lightgbm')
 
 
 class SVDModel:
@@ -67,8 +63,10 @@ class SVDModel:
                         for review in reviews
                     }
                 else:
+                    print(f"⚠️ Spring Boot API 호출 실패: {response.status_code}")
                     return {}
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Spring Boot 연결 실패: {e}")
             return {}
 
     async def recommend(self, user_id: int, top_n: int = 10) -> List[Tuple[int, float]]:
@@ -144,62 +142,53 @@ class SVDModel:
         return [(int(row['meeting_id']), float(row['avg_rating']))
                 for _, row in popular.iterrows()]
 
-    async def predict_rating(self, user_id: int, meeting_id: int) -> float:
+    def predict_rating(self, user_id: int, meeting_id: int) -> float:
         """
-        특정 사용자-모임 조합의 예측 평점 (실시간 DB 연동)
+        특정 사용자-모임 조합의 예측 평점
 
         Args:
             user_id: 사용자 ID
             meeting_id: 모임 ID
 
         Returns:
-            예측 평점 (1.0~5.0)
+            예측 평점 (0~5)
         """
         if not self.is_loaded():
-            return 3.5
+            raise ValueError("Model not loaded. Call load() first.")
 
-        # 모임이 모델에 없으면 평균값 반환
+        # 사용자나 모임이 없으면 평균값 반환
+        if user_id not in self.user_ids:
+            meeting_avg = self.meeting_stats[
+                self.meeting_stats['meeting_id'] == meeting_id
+            ]['avg_rating'].values
+            return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.0
+
         if meeting_id not in self.meeting_ids:
-            return 3.5
+            user_avg = self.user_stats[
+                self.user_stats['user_id'] == user_id
+            ]['avg_rating'].values
+            return float(user_avg[0]) if len(user_avg) > 0 else 3.0
 
-        # ✅ Spring Boot에서 사용자 평점 조회
-        user_ratings_dict = await self._get_user_ratings(user_id)
+        # 예측
+        user_ratings = self.user_meeting_matrix.loc[user_id]
+        rated_meetings = user_ratings[user_ratings > 0]
 
-        # 평점 데이터가 없으면 모임 평균 반환
-        if not user_ratings_dict:
+        if len(rated_meetings) == 0:
             meeting_avg = self.meeting_stats[
                 self.meeting_stats['meeting_id'] == meeting_id
             ]['avg_rating'].values
-            return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.5
+            return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.0
 
-        # ✅ 유사도 기반 예측
-        rated_meeting_ids = list(user_ratings_dict.keys())
+        # 유사도 기반 예측
+        similarities = self.meeting_similarity.loc[meeting_id, rated_meetings.index]
+        top_similar = similarities.nlargest(10)
 
-        # 유사한 모임들 찾기
-        available_similarities = []
-        for rated_id in rated_meeting_ids:
-            if rated_id in self.meeting_similarity.index:
-                sim = self.meeting_similarity.loc[meeting_id, rated_id]
-                available_similarities.append((rated_id, sim))
-
-        if not available_similarities:
-            meeting_avg = self.meeting_stats[
-                self.meeting_stats['meeting_id'] == meeting_id
-            ]['avg_rating'].values
-            return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.5
-
-        # 상위 10개 유사 모임
-        available_similarities.sort(key=lambda x: x[1], reverse=True)
-        top_similar = available_similarities[:10]
-
-        sim_sum = sum(sim for _, sim in top_similar)
-
-        if sim_sum > 0:
+        if top_similar.sum() > 0:
             weighted_sum = sum(
-                sim * user_ratings_dict[rated_id]
-                for rated_id, sim in top_similar
+                top_similar[sim_meeting] * rated_meetings[sim_meeting]
+                for sim_meeting in top_similar.index
             )
-            predicted = weighted_sum / sim_sum
+            predicted = weighted_sum / top_similar.sum()
 
             # 모임 평균 반영
             meeting_avg = self.meeting_stats[
@@ -215,7 +204,7 @@ class SVDModel:
         meeting_avg = self.meeting_stats[
             self.meeting_stats['meeting_id'] == meeting_id
         ]['avg_rating'].values
-        return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.5
+        return float(meeting_avg[0]) if len(meeting_avg) > 0 else 3.0
 
     def is_loaded(self) -> bool:
         """로드 여부 확인"""

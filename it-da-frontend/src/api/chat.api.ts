@@ -1,45 +1,49 @@
+// src/api/chat.api.ts 수정
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import axios from "axios";
 
+const API_BASE_URL = "http://localhost:8080";
+
+// ✅ metadata를 위한 구체적 타입 정의 (any 제거)
 export interface ChatMessage {
-  id?: number;
-  senderEmail: string;
-  senderName?: string;
-  content: string;
-  roomId: number;
-  createdAt: string;
-  type: "TALK" | "IMAGE" | "POLL" | "BILL" | "LOCATION" | "NOTICE";
-  unreadCount?: number; // 읽음 처리용
-  metadata?: any; // 투표 데이터나 장소 좌표 등 저장
+    id?: number;
+    senderEmail: string;
+    senderName?: string;
+    content: string;
+    roomId: number;
+    createdAt: string;
+    type: "TALK" | "IMAGE" | "POLL" | "BILL" | "LOCATION" | "NOTICE";
+    unreadCount?: number;
+    metadata?: Record<string, unknown> | null; // ✅ any 대신 Record 사용
 }
 
 class ChatApi {
-  private client: Client | null = null;
+    private client: Client | null = null;
 
-  async getRooms() {
-    const response = await axios.get("/api/social/rooms");
-    return response.data;
-  }
+    async getRooms() {
+        const response = await axios.get(`${API_BASE_URL}/api/social/chat/rooms`, { withCredentials: true });
+        return response.data;
+    }
 
-  async getChatMessages(roomId: number) {
-    const response = await axios.get(`/api/social/messages/${roomId}`);
-    return response.data;
-  }
+    async getChatMessages(roomId: number) {
+        const response = await axios.get(`${API_BASE_URL}/api/social/messages/${roomId}`, { withCredentials: true });
+        return response.data;
+    }
 
-// chat.api.ts
+    async followUser(followingId: number) {
+        const response = await axios.post(`${API_BASE_URL}/api/social/follow/${followingId}`, {}, { withCredentials: true });
+        return response.data;
+    }
 
-// 1. 인자에 userEmail을 추가합니다.
     connect(roomId: number, userEmail: string, onMessageReceived: (msg: ChatMessage) => void) {
-        const socket = new SockJS("http://localhost:8080/ws");
+        const socket = new SockJS(`${API_BASE_URL}/ws`);
 
         this.client = new Client({
             webSocketFactory: () => socket,
             debug: (str) => console.log(str),
             onConnect: () => {
-                console.log(`채팅방 ${roomId} 연결 성공`);
-
-                // ✅ [추가] 접속하자마자 서버에 읽음 알림을 보냅니다.
+                console.log(`✅ 채팅방 ${roomId} 연결 성공`);
                 this.markAsRead(roomId, userEmail);
 
                 this.client?.subscribe(`/topic/room/${roomId}`, (message: IMessage) => {
@@ -50,23 +54,20 @@ class ChatApi {
         this.client.activate();
     }
 
-    // src/api/chat.api.ts 내 sendMessage 메서드 수정
-
     sendMessage(
         roomId: number,
         email: string,
         content: string,
-        type: ChatMessage['type'] = "TALK", // ✅ 기본값 설정
-        metadata: any = null // ✅ 기본값 설정으로 TS2554 해결
+        type: ChatMessage['type'] = "TALK",
+        metadata: Record<string, unknown> | null = null
     ) {
         if (this.client?.connected) {
-            const payload: ChatMessage = {
-                senderEmail: email,
+            const payload = {
+                email: email,
                 content: content,
                 roomId: roomId,
                 type: type,
                 metadata: metadata,
-                createdAt: new Date().toISOString()
             };
             this.client.publish({
                 destination: `/app/chat/send/${roomId}`,
@@ -74,12 +75,25 @@ class ChatApi {
             });
         }
     }
-  disconnect() {
-    this.client?.deactivate();
-  }
-  async markAsRead(roomId: number, email: string) {
-    await axios.post(`/api/social/rooms/${roomId}/read`, { email });
-  }
+
+    disconnect() {
+        this.client?.deactivate();
+    }
+
+    async markAsRead(roomId: number, email: string) {
+        try {
+            // 백엔드에 해당 컨트롤러 매핑이 생길 때까지 에러를 잡아서 처리합니다.
+            await axios.post(`${API_BASE_URL}/api/social/chat/rooms/${roomId}/read`, { email }, { withCredentials: true });
+        } catch {
+            console.warn("⚠️ 읽음 처리 API가 아직 서버에 구현되지 않았습니다.");
+        }
+    }
+
+    async getRoomMembers(roomId: number) {
+        // ✅ 404 에러 직접 해결 지점: 백엔드 포트 8080 및 정확한 경로 명시
+        const response = await axios.get(`${API_BASE_URL}/api/social/chat/rooms/${roomId}/members`, { withCredentials: true });
+        return response.data;
+    }
 }
 
 export const chatApi = new ChatApi();

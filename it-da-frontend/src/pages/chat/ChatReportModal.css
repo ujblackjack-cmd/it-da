@@ -1,0 +1,57 @@
+/* src/components/chat/ChatReportModal.css */
+.report-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+}
+
+.report-modal-content {
+    background: white;
+    width: 90%; max-width: 360px;
+    border-radius: 24px; padding: 24px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.report-modal-title {
+    font-size: 1.2rem; font-weight: 700; margin-bottom: 12px;
+}
+
+.report-modal-subtitle {
+    font-size: 0.95rem; color: #495057; margin-bottom: 20px;
+}
+
+.report-reason-list {
+    display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;
+}
+
+.report-reason-item {
+    width: 100%; padding: 14px; border-radius: 12px;
+    border: 1px solid #e9ecef; background: white;
+    text-align: left; font-size: 0.9rem; cursor: pointer;
+    transition: all 0.2s;
+}
+
+.report-reason-item:hover { background: #f8f9fa; }
+
+.report-reason-item.selected {
+    border: 2px solid #a5b4fc; background: #f5f7ff; font-weight: 600;
+}
+
+.report-modal-actions {
+    display: flex; gap: 12px;
+}
+
+.btn-modal-cancel, .btn-modal-submit {
+    flex: 1; padding: 12px; border-radius: 12px;
+    font-weight: 600; border: none; cursor: pointer;
+}
+
+.btn-modal-cancel { background: #f1f3f5; color: #495057; }
+
+.btn-modal-submit {
+    background: #f19da3; color: white; /* 이미지 속 분홍색 */
+}
+
+.btn-modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
