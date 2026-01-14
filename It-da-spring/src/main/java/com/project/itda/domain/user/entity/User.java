@@ -25,7 +25,6 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    //소셜 로그인 사용자를 위해 필드가 비어 있을수 있도록 설정
     @Column(name = "password_hash", nullable = true, length = 255)
     private String passwordHash;
 
@@ -52,6 +51,19 @@ public class User {
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
+    @Column(name = "bio", columnDefinition = "TEXT")
+    private String bio;
+
+    @Column(name = "mbti", length = 10)
+    private String mbti;
+
+    @Column(name = "interests")
+    private String interests;
+
+    @Column(name = "is_public")
+    @Builder.Default
+    private Boolean isPublic = true;
+
     @Column(name = "email_verified")
     @Builder.Default
     private Boolean emailVerified = false;
@@ -73,44 +85,45 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private UserSetting setting;
 
-
     @Column(length = 20)
-    private String provider; // google, kakao, naver
+    private String provider;
 
     @Column(length = 100)
     private String providerId;
 
-    // ========================================
-// 필드 추가
-// ========================================
-
     @Column(name = "rating")
-    private Double rating;  // 주최자 평균 평점
+    private Double rating;
 
     @Column(name = "meeting_count")
-    private Integer meetingCount;  // 주최한 모임 수
+    private Integer meetingCount;
 
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
-    public void updateInfo(String username, String phone, String address, Double latitude, Double longitude) {
+    @Column(columnDefinition = "ENUM('M','F','N')")
+    private String gender;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    public void updateInfo(String username, String phone, String address, Double latitude, Double longitude,
+                           String profileImageUrl, String bio, String gender, String mbti, String interests, Boolean isPublic) {
         if (username != null) this.username = username;
         if (phone != null) this.phone = phone;
         if (address != null) this.address = address;
         if (latitude != null) this.latitude = latitude;
         if (longitude != null) this.longitude = longitude;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        if (bio != null) this.bio = bio;
+        if (gender != null) this.gender = gender;
+        if (mbti != null) this.mbti = mbti;
+        if (interests != null) this.interests = interests;
+        if (isPublic != null) this.isPublic = isPublic;
     }
 
     public void updateLastLogin() {
         this.lastLoginAt = LocalDateTime.now();
     }
-
-    @Column(name = "birth_date")
-    private java.time.LocalDate birthDate; // 명세서의 birth_date (DATE) 반영 [cite: 22, 24]
-
-    @Column(columnDefinition = "ENUM('M','F','N')")
-    private String gender; // 명세서의 gender ENUM 반영 [cite: 25, 26]
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt; // 명세서의 deleted_at (소프트 삭제용) 반영 [cite: 41, 42]
 
     public User updateSocialInfo(String name, String picture) {
         this.username = name;

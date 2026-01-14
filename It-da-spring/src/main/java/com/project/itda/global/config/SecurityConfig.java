@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/api/**", "/login/**", "/oauth2/**").permitAll() // API 전체 허용
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/api/files/**").permitAll()
                         .anyRequest().permitAll() // 일단 전체 허용 (테스트용)
                 )
 

@@ -11,6 +11,10 @@ public class UserResponse {
     private String email;
     private String username;
     private String phone;
+    private String profileImageUrl;
+    private String bio;
+    private String gender;
+    private String address;
 
     public static UserResponse from(User user) {
         return UserResponse.builder()
@@ -18,6 +22,10 @@ public class UserResponse {
                 .email(user.getEmail())
                 .username(user.getUsername())
                 .phone(user.getPhone())
+                .profileImageUrl(user.getProfileImageUrl())
+                .bio(user.getBio())
+                .gender(user.getGender())
+                .address(user.getAddress())
                 .build();
     }
 }

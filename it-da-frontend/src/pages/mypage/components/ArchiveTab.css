@@ -1,0 +1,125 @@
+.archive-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.archive-section {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.archive-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+}
+
+.badge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.badge-card {
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 24px 16px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.badge-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.badge-card.locked {
+    opacity: 0.4;
+}
+
+.badge-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.badge-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.badge-desc {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 16px;
+    position: relative;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 40px;
+    bottom: -24px;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item:last-child::before {
+    display: none;
+}
+
+.timeline-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-content {
+    flex: 1;
+    padding-top: 8px;
+}
+
+.timeline-date {
+    color: #6c757d;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.timeline-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-size: 15px;
+}
+
+.timeline-desc {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .badge-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+}

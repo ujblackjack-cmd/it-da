@@ -1,6 +1,6 @@
 import React from "react";
 import type { PendingReview } from "../../../api/mypage.api";
-import "./MyReviews.css";
+import "./PendingReviews.css";
 
 interface Props {
     data: PendingReview[];
@@ -9,27 +9,31 @@ interface Props {
 
 const PendingReviews: React.FC<Props> = ({ data, onWriteReview }) => {
     if (!data || data.length === 0) {
-        return (
-            <div className="mypage-placeholder">
-                <h3>📝 남은 후기</h3>
-                <p>남겨야 할 후기가 없어요. 당신… 성실함 그 자체.</p>
-            </div>
-        );
+        return null;
     }
 
     return (
-        <div className="mypage-section">
-            <h3>📝 작성 대기 후기</h3>
-            <ul className="mypage-list">
-                {data.map((item) => (
-                    <li key={item.meetingId} className="mypage-list-item">
-                        <div>
-                            <div className="mypage-title">{item.meetingTitle}</div>
-                            <div className="mypage-sub">{item.meetingDateText}</div>
-                        </div>
+        <section className="pending-reviews-section">
+            <div className="pending-reviews-header">
+                <h3>
+                    📝 후기 작성 대기 중
+                    <span className="pending-count">{data.length}</span>
+                </h3>
+            </div>
 
+            <div className="pending-reviews-list">
+                {data.map((item) => (
+                    <div key={item.meetingId} className="pending-review-item">
+                        <div className="pending-review-info">
+                            <div className="pending-review-title">
+                                {item.meetingTitle}
+                            </div>
+                            <div className="pending-review-date">
+                                {item.meetingDateText}
+                            </div>
+                        </div>
                         <button
-                            className="mypage-btn"
+                            className="btn-write-review"
                             type="button"
                             onClick={() =>
                                 onWriteReview(item.meetingId, item.meetingTitle, item.meetingDateText)
@@ -37,10 +41,10 @@ const PendingReviews: React.FC<Props> = ({ data, onWriteReview }) => {
                         >
                             후기 쓰기
                         </button>
-                    </li>
+                    </div>
                 ))}
-            </ul>
-        </div>
+            </div>
+        </section>
     );
 };
 

@@ -122,13 +122,20 @@ public class UserService {
         user.updateInfo(
                 request.getUsername(),
                 request.getPhone(),
+                request.getAddress(),
                 null,
                 null,
-                null
+                request.getProfileImageUrl(),
+                request.getBio(),
+                request.getGender(),
+                request.getMbti(),
+                request.getInterests(),
+                request.getIsPublic()
         );
 
         return UserResponse.from(user);
     }
+
 
     @Transactional
     public void deleteUser(Long userId) {

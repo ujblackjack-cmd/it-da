@@ -1,128 +1,131 @@
-/* Header.css */
-
 .header {
-  background: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .header-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  cursor: pointer;
-  text-decoration: none;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    cursor: pointer;
+    text-decoration: none;
 }
 
 .nav-menu {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
 }
 
 .nav-item {
-  color: #495057;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s;
-  font-size: 1.05rem;
+    color: #495057;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s;
+    font-size: 1.05rem;
 }
 
 .nav-item:hover {
-  color: #667eea;
+    color: #667eea;
 }
 
 .header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-menu {
+    display: flex;
+    align-items: center;
 }
 
 .user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: transform 0.3s;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.3s;
 }
 
 .user-avatar:hover {
-  transform: scale(1.05);
+    transform: scale(1.05);
 }
 
 .auth-buttons {
-  display: flex;
-  gap: 1rem;
+    display: flex;
+    gap: 1rem;
 }
 
 .btn-login,
 .btn-signup {
-  padding: 0.6rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.3s;
-  font-size: 0.95rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+    font-size: 0.95rem;
 }
 
 .btn-login {
-  color: #667eea;
-  background: transparent;
-  border: 1px solid #667eea;
+    color: #667eea;
+    background: transparent;
+    border: 1px solid #667eea;
 }
 
 .btn-login:hover {
-  background: #f0f4ff;
+    background: #f0f4ff;
 }
 
 .btn-signup {
-  color: white;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border: none;
+    color: white;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
 }
 
 .btn-signup:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* 반응형 */
 @media (max-width: 768px) {
-  .header-content {
-    padding: 1rem;
-  }
+    .header-content {
+        padding: 1rem;
+    }
 
-  .nav-menu {
-    display: none; /* 모바일에서 숨김 - 햄버거 메뉴로 대체 */
-  }
+    .nav-menu {
+        display: none;
+    }
 
-  .logo {
-    font-size: 1.2rem;
-  }
+    .logo {
+        font-size: 1.2rem;
+    }
 
-  .btn-login,
-  .btn-signup {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
+    .btn-login,
+    .btn-signup {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
 }

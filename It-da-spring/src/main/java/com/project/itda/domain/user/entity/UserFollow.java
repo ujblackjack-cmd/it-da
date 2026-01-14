@@ -2,22 +2,23 @@ package com.project.itda.domain.user.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user_follow",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"follower_id", "following_id"})
-        })
+@Table(name = "user_follows")
 @Getter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Builder
+@EntityListeners(AuditingEntityListener.class)
 public class UserFollow {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_follow_id")
-    private Long userFollowId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "follower_id", nullable = false)
@@ -26,4 +27,8 @@ public class UserFollow {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "following_id", nullable = false)
     private User following;
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 }

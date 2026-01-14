@@ -100,9 +100,12 @@ public class UserSetting {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public void updateSettings(Boolean notificationEnabled, Boolean pushNotification, Boolean locationTracking) {
+    public void updateSettings(Boolean notificationEnabled, Boolean pushNotification,
+                               Boolean locationTracking, Boolean followMeetingNotification,
+                               Boolean followReviewNotification) {
         if (notificationEnabled != null) this.notificationEnabled = notificationEnabled;
         if (pushNotification != null) this.pushNotification = pushNotification;
         if (locationTracking != null) this.locationTracking = locationTracking;
-    }
-}
+        if (followMeetingNotification != null) this.followMeetingNotification = followMeetingNotification;
+        if (followReviewNotification != null) this.followReviewNotification = followReviewNotification;
+    }}

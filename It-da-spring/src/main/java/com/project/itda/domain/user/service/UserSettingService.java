@@ -33,10 +33,11 @@ public class UserSettingService {
         setting.updateSettings(
                 request.getNotificationEnabled(),
                 request.getPushNotification(),
-                request.getLocationTracking()
+                request.getLocationTracking(),
+                request.getFollowMeetingNotification(),
+                request.getFollowReviewNotification()
         );
 
         log.info("사용자 설정 수정: userId={}", userId);
         return UserSettingResponse.from(setting);
-    }
-}
+    }}

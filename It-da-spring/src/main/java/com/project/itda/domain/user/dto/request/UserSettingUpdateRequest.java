@@ -9,4 +9,6 @@ public class UserSettingUpdateRequest {
     private Boolean notificationEnabled;
     private Boolean pushNotification;
     private Boolean locationTracking;
+    private Boolean followMeetingNotification;
+    private Boolean followReviewNotification;
 }
