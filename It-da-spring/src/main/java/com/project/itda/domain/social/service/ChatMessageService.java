@@ -1,5 +1,6 @@
 package com.project.itda.domain.social.service;
 
+import com.project.itda.domain.social.dto.response.ChatMessageResponse;
 import com.project.itda.domain.social.entity.ChatMessage;
 import com.project.itda.domain.social.entity.ChatRoom;
 import com.project.itda.domain.social.enums.MessageType;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -43,5 +45,35 @@ public class ChatMessageService {
                 .build();
 
         chatMessageRepository.save(message);
+    }
+    @Transactional(readOnly = true)
+    public List<ChatMessageResponse> getChatMessages(Long roomId) {
+        // 1. 해당 방의 메시지 내역 조회
+        List<ChatMessage> messages = chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId);
+
+        // 2. ChatMessageResponse DTO로 변환하여 순환 참조 끊기
+        return messages.stream()
+                .map(msg -> ChatMessageResponse.builder()
+                        .messageId(msg.getId())
+                        .senderId(msg.getSender().getUserId())
+                        .senderNickname(msg.getSender().getNickname() != null ?
+                                msg.getSender().getNickname() : msg.getSender().getUsername())
+                        .content(msg.getContent())
+                        .type(msg.getType())
+                        .sentAt(msg.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+    public List<ChatMessageResponse> getMessageHistory(Long roomId) {
+        return chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId).stream()
+                .map(msg -> ChatMessageResponse.builder()
+                        .messageId(msg.getId())
+                        .senderId(msg.getSender().getUserId())
+                        .senderNickname(msg.getSender().getNickname())
+                        .content(msg.getContent())
+                        .sentAt(msg.getCreatedAt())
+                        .type(msg.getType())
+                        .build())
+                .toList();
     }
 }

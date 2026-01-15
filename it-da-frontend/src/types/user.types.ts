@@ -67,12 +67,14 @@ export interface UserPreference {
 }
 
 export interface UserPreferenceRequest {
-    preferredLocation?: string;
-    preferredPurpose?: string;
-    preferredTime?: string;
-    budgetType?: string;
     energyType?: string;
+    purposeType?: string;
     frequencyType?: string;
+    locationType?: string;
+    budgetType?: string;
+    leadershipType?: string;
+    timePreference?: string;
+    interests?: string;
 }
 
 // ✅ 사용자 설정

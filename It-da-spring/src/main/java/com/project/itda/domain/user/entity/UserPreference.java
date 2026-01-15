@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.project.itda.domain.user.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,6 +29,7 @@ public class UserPreference {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     // ✅ Enum 타입으로 변경

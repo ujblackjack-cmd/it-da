@@ -1,5 +1,6 @@
 package com.project.itda.domain.social.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.project.itda.domain.social.enums.ChatRole;
 import com.project.itda.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -23,6 +24,7 @@ public class ChatParticipant {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_room_id", nullable = false) // [cite: 285]
+    @JsonIgnore
     private ChatRoom chatRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)

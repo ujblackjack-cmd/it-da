@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.project.itda.domain.user.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -80,9 +81,11 @@ public class User {
     private LocalDateTime updatedAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private UserPreference preference;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private UserSetting setting;
 
     @Column(length = 20)

@@ -45,6 +45,8 @@ const ChatRoomPage: React.FC = () => {
     const [reportTarget, setReportTarget] = useState<{ id: number; name: string } | null>(null);
     const [activeModal, setActiveModal] = useState<"BILL" | "POLL" | null>(null);
 
+    const [roomTitle,setRoomTitle]=useState<string>("채팅방");
+
     const handleFeatureSubmit = (type: "BILL" | "POLL", data: BillData | PollData) => {
         if (!roomId || !currentUser?.email) return;
 
@@ -53,6 +55,7 @@ const ChatRoomPage: React.FC = () => {
         chatApi.sendMessage(
             Number(roomId),
             currentUser.email,
+            currentUser.userId,
             content,
             type,
             data as unknown as Record<string, unknown>
@@ -70,6 +73,13 @@ const ChatRoomPage: React.FC = () => {
                 const history = await chatApi.getChatMessages(Number(roomId));
                 setMessages(history);
 
+                // 2. 방 제목 동적 세팅 추가
+                const rooms = await chatApi.getRooms(); //
+                const currentRoom = rooms.find((r: any) => r.chatRoomId === Number(roomId)); //
+                if (currentRoom) {
+                    setRoomTitle(currentRoom.roomName); //
+                }
+
                 const rawMembers: RawMemberResponse[] = await chatApi.getRoomMembers(Number(roomId));
                 const formattedMembers: User[] = rawMembers.map((m: RawMemberResponse) => ({
                     id: m.userId,
@@ -81,7 +91,7 @@ const ChatRoomPage: React.FC = () => {
                     createdAt: m.createdAt || new Date().toISOString(),
                     updatedAt: m.updatedAt || new Date().toISOString(),
                     profileImageUrl: m.profileImageUrl || "",
-                    role: m.userId === currentUser.userId ? "ME" : "MEMBER"
+                    role: m.userId === currentUser.userId ? "ME" : m.role === "ORGANIZER" ? "LEADER" : "MEMBER"
                 }));
                 setMembers(formattedMembers);
             } catch (e) {
@@ -98,9 +108,17 @@ const ChatRoomPage: React.FC = () => {
             // 기존 연결이 있다면 명시적으로 해제하여 중복 구독을 막습니다.
             chatApi.disconnect();
 
-            chatApi.connect(Number(roomId), currentUser.email, (newMsg) => {
+            chatApi.connect(Number(roomId), currentUser.email, (newMsg: any) => { // ✅ any 추가로 email 접근 허용
                 if (isSubscribed) {
-                    addMessage(newMsg);
+                    // ✅ 실시간 수신 메시지 보정 로직
+                    const validatedMsg = {
+                        ...newMsg,
+                        // 수신된 메시지에 senderId가 없을 경우, email 비교를 통해 내 ID를 주입
+                        senderId: newMsg.senderId || (newMsg.email === currentUser.email ? currentUser.userId : null)
+                    };
+
+                    // ✅ 보정된 메시지를 스토어에 추가 (이제 실시간으로 보라색 정렬이 적용됩니다)
+                    addMessage(validatedMsg);
                 }
             });
         }
@@ -113,26 +131,26 @@ const ChatRoomPage: React.FC = () => {
 
 
     const handleSendMessage = (text: string) => {
-        if (!roomId || !currentUser?.email) {
+        if (!roomId || !currentUser?.email || !currentUser?.userId) {
             toast.error("로그인 세션이 만료되었습니다.");
             return;
         }
-        chatApi.sendMessage(Number(roomId), currentUser.email, text, "TALK");
+        chatApi.sendMessage(Number(roomId), currentUser.email, currentUser.userId, text, "TALK");
     };
 
     const handleFeatureAction = (feature: string) => {
         if (!roomId || !currentUser?.email) return;
-        const rId = Number(roomId);
 
         switch (feature) {
-            case "📊":
-                setActiveModal("POLL");
-                break;
-            case "💰":
-                setActiveModal("BILL");
-                break;
+            // case "📊":
+            //     setActiveModal("POLL");
+            //     break;
+            // case "💰":
+            //     setActiveModal("BILL");
+            //     break;
             case "📍":
-                chatApi.sendMessage(rId, currentUser.email, "📍 모임 장소 확인하세요.", "LOCATION", {
+                chatApi.sendMessage(Number(roomId),currentUser.email,
+                    currentUser.userId, "📍 모임 장소 확인하세요.", "LOCATION", {
                     placeName: "여의도 한강공원",
                     lat: 37.5271,
                     lng: 126.9328
@@ -160,13 +178,22 @@ const ChatRoomPage: React.FC = () => {
         toast.success("신고가 정상적으로 접수되었습니다.");
         setReportTarget(null);
     };
+    const messageEndRef = React.useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
     return (
         <div className="chat-room-container">
             <header className="chat-header">
                 <div className="header-left">
                     <button onClick={() => window.history.back()} className="icon-btn">←</button>
-                    <h2>🌅 한강 선셋 피크닉</h2>
+                    <h2> {roomTitle} </h2>
                 </div>
                 <button onClick={() => setIsMenuOpen(true)} className="icon-btn">☰</button>
             </header>
@@ -174,16 +201,20 @@ const ChatRoomPage: React.FC = () => {
             <div className="notice-banner">
                 📢 공지: 모임 D-2! 여의도 한강공원 물빛광장에서 만나요
             </div>
-
             <div className="message-list-area">
                 {messages.map((msg, idx) => {
-                    const isMine = msg.senderEmail === currentUser?.email;
+                    const isMine = Number(msg.senderId) === Number(currentUser?.userId);
+
                     return (
-                        <div key={msg.id || idx} className={`message-row ${isMine ? 'mine' : 'others'}`}>
+                        <div
+                            key={msg.messageId || idx}
+                            className={`message-row ${isMine ? 'mine' : 'others'}`}
+                        >
                             <ChatMessageItem message={msg} isMine={isMine} />
                         </div>
                     );
                 })}
+                <div ref={messageEndRef} />
             </div>
 
             <div className="chat-input-wrapper">

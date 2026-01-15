@@ -1,73 +1,138 @@
-/* CategoryGrid.css */
+/* src/components/chat/ChatRoomGrid.css */
 
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1.5rem;
-}
-
-.category-card {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem 1.5rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  border: 2px solid transparent;
-}
-
-.category-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.1);
-  border-color: #667eea;
-}
-
-.category-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  filter: grayscale(30%);
-  transition: filter 0.3s;
-}
-
-.category-card:hover .category-icon {
-  filter: grayscale(0%);
-}
-
-.category-name {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #212529;
-  margin-bottom: 0.5rem;
-}
-
-.category-count {
-  font-size: 0.85rem;
-  color: #6c757d;
-}
-
-/* 반응형 */
-@media (max-width: 768px) {
-  .category-grid {
+/* 그리드 레이아웃: 3열 배치 */
+.chatroom-grid {
+    display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-  }
-
-  .category-card {
-    padding: 1.5rem 1rem;
-  }
-
-  .category-icon {
-    font-size: 2.5rem;
-  }
-
-  .category-name {
-    font-size: 1rem;
-  }
+    gap: 1.5rem;
+    margin-bottom: 3rem;
 }
 
-@media (max-width: 480px) {
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* 개별 카드 스타일 */
+.chatroom-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05); /* 기본 그림자 */
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.chatroom-card:hover {
+    transform: translateY(-5px); /* 호버 시 위로 이동 */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* 카드 상단 이미지 영역 */
+.chatroom-image-container {
+    width: 100%;
+    height: 180px;
+    position: relative;
+    background-color: #f1f3f5;
+}
+
+.chatroom-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* LIVE 배지 및 펄스 애니메이션 */
+.live-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #ff4757;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* 카드 텍스트 콘텐츠 영역 */
+.chatroom-content {
+    padding: 1.5rem;
+}
+
+.chatroom-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #212529;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chatroom-meta {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+/* ✅ 참가자 아바타 겹치기 스타일 */
+.chatroom-participants {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.participant-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2); /* 테마 그라데이션 */
+    border: 2px solid white;
+    margin-left: -10px; /* 아바타 겹치기 핵심 */
+}
+
+.participant-avatar:first-child {
+    margin-left: 0;
+}
+
+.participant-count {
+    margin-left: 0.5rem;
+    font-weight: 600;
+    color: #667eea;
+    font-size: 0.85rem;
+}
+
+/* 태그 바지 */
+.chatroom-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tag-badge {
+    background: #f8f9fa;
+    color: #667eea;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* 반응형 처리 */
+@media (max-width: 1024px) {
+    .chatroom-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .chatroom-grid { grid-template-columns: 1fr; }
 }

@@ -1,17 +1,27 @@
 import { create } from "zustand";
-import { ChatMessage } from "../types/chat.types";
+
+export interface ChatMessage { // ✅ 이 부분이 Page의 인터페이스와 일치해야 함
+    messageId: number;
+    senderId: number;
+    senderNickname: string;
+    content: string;
+    type: string;
+    sentAt: string;
+}
 
 interface ChatState {
-  messages: ChatMessage[];
-  addMessage: (msg: ChatMessage) => void;
-  setMessages: (msgs: ChatMessage[]) => void;
+    messages: ChatMessage[];
+    addMessage: (message: ChatMessage) => void;
+    setMessages: (messages: ChatMessage[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
     messages: [],
-    // ✅ 수정: 기존 메시지 목록에 동일한 ID가 없을 때만 추가합니다.
+    // ✅ 수정: 새로운 DTO 필드명인 messageId를 기준으로 중복을 체크합니다.
     addMessage: (msg) => set((state) => {
-        const isDuplicate = state.messages.some(m => m.id === msg.id && msg.id !== undefined);
+        const isDuplicate = state.messages.some(
+            (m) => m.messageId === msg.messageId && msg.messageId !== undefined
+        );
         if (isDuplicate) return state;
         return { messages: [...state.messages, msg] };
     }),

@@ -56,4 +56,14 @@ public interface UserPreferenceRepository extends JpaRepository<UserPreference, 
     @Modifying
     @Query("DELETE FROM UserPreference up WHERE up.user = :user")
     void deleteByUser(@Param("user") User user);
+
+    /**
+     * 사용자 ID로 선호도 조회
+     */
+    Optional<UserPreference> findByUserUserId(Long userId);
+
+    /**
+     * 사용자 ID로 선호도 존재 여부 확인
+     */
+    boolean existsByUserUserId(Long userId);
 }

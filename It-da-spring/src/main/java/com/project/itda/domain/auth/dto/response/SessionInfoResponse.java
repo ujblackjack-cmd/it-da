@@ -14,4 +14,5 @@ public class SessionInfoResponse {
     private String email;
     private String username;
     private String nickname;
+    private boolean hasPreference;
 }

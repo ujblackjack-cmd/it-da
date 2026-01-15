@@ -1,4 +1,3 @@
-// src/api/chat.api.ts 수정
 import { Client, IMessage } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import axios from "axios";
@@ -7,15 +6,13 @@ const API_BASE_URL = "http://localhost:8080";
 
 // ✅ metadata를 위한 구체적 타입 정의 (any 제거)
 export interface ChatMessage {
-    id?: number;
-    senderEmail: string;
-    senderName?: string;
+    messageId: number;
+    senderId: number;
+    senderNickname: string;
     content: string;
-    roomId: number;
-    createdAt: string;
     type: "TALK" | "IMAGE" | "POLL" | "BILL" | "LOCATION" | "NOTICE";
-    unreadCount?: number;
-    metadata?: Record<string, unknown> | null; // ✅ any 대신 Record 사용
+    sentAt: string;
+    metadata?: Record<string, unknown> | null;
 }
 
 class ChatApi {
@@ -26,7 +23,7 @@ class ChatApi {
         return response.data;
     }
 
-    async getChatMessages(roomId: number) {
+    async getChatMessages(roomId: number): Promise<ChatMessage[]> {
         const response = await axios.get(`${API_BASE_URL}/api/social/messages/${roomId}`, { withCredentials: true });
         return response.data;
     }
@@ -57,6 +54,7 @@ class ChatApi {
     sendMessage(
         roomId: number,
         email: string,
+        userId: number,
         content: string,
         type: ChatMessage['type'] = "TALK",
         metadata: Record<string, unknown> | null = null
@@ -64,6 +62,7 @@ class ChatApi {
         if (this.client?.connected) {
             const payload = {
                 email: email,
+                senderId:userId,
                 content: content,
                 roomId: roomId,
                 type: type,

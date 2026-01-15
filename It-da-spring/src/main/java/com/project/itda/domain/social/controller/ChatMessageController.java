@@ -1,6 +1,7 @@
 package com.project.itda.domain.social.controller;
 
 import com.project.itda.domain.auth.dto.SessionUser;
+import com.project.itda.domain.social.dto.response.ChatMessageResponse;
 import com.project.itda.domain.social.entity.ChatMessage;
 import com.project.itda.domain.social.service.ChatMessageService;
 import jakarta.servlet.http.HttpSession;
@@ -21,9 +22,9 @@ public class ChatMessageController {
 
     // 특정 채팅방의 이전 메시지 내역 가져오기
     @GetMapping("/{chatRoomId}")
-    public ResponseEntity<List<ChatMessage>> getChatMessages(@PathVariable Long chatRoomId) {
-        // ChatMessageService의 메서드명이 Repository와 일치하는지 확인 (createdAtAsc 등)
-        return ResponseEntity.ok(chatMessageService.getMessagesByRoom(chatRoomId));
+    public ResponseEntity<List<ChatMessageResponse>> getChatMessages(@PathVariable Long chatRoomId) {
+        // chatMessageService에서 DTO 변환 로직이 있는 getChatMessages를 호출합니다.
+        return ResponseEntity.ok(chatMessageService.getChatMessages(chatRoomId));
     }
     @PostMapping
     public ResponseEntity<?> sendMessage(@RequestBody Map<String, Object> payload) {

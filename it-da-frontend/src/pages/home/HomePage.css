@@ -1,74 +1,172 @@
 /* HomePage.css */
 
 .home-page {
-  min-height: 100vh;
-  background: #f8f9fa;
+    min-height: 100vh;
+    background: #f8f9fa;
 }
 
 .main-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
 }
 
 /* 섹션 공통 스타일 */
 .meeting-section,
 .category-section {
-  margin-bottom: 3rem;
+    margin-bottom: 3rem;
 }
 
 .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
 }
 
 .section-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #212529;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
 }
 
 .view-all {
-  background: none;
-  border: none;
-  color: #667eea;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.3s;
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.3s;
 }
 
 .view-all:hover {
-  opacity: 0.8;
+    opacity: 0.8;
 }
+
+/* ========================================
+   ✅ 추가된 채팅방 카드 그리드 스타일
+   ======================================== */
+
+.chatroom-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3열 배치 */
+    gap: 1.5rem;
+}
+
+.chatroom-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* 부드러운 그림자 */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.chatroom-card:hover {
+    transform: translateY(-8px); /* 호버 시 떠오르는 효과 */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.chatroom-image-container {
+    width: 100%;
+    height: 200px;
+    position: relative;
+    background: #e9ecef;
+}
+
+.chatroom-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.live-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #ff4757;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    animation: pulse 2s infinite; /* 반짝이는 효과 */
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.chatroom-info {
+    padding: 1.5rem;
+}
+
+.chatroom-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #212529;
+}
+
+.chatroom-meta {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.chatroom-tags {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tag-badge {
+    background: #f1f3f5;
+    color: #667eea;
+    padding: 0.3rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* ======================================== */
 
 /* 반응형 */
 @media (max-width: 1200px) {
-  .main-container {
-    padding: 1.5rem;
-  }
+    .main-container {
+        padding: 1.5rem;
+    }
+    .chatroom-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2열로 축소 */
+    }
 }
 
 @media (max-width: 768px) {
-  .main-container {
-    padding: 1rem;
-  }
+    .main-container {
+        padding: 1rem;
+    }
 
-  .section-title {
-    font-size: 1.25rem;
-  }
+    .section-title {
+        font-size: 1.25rem;
+    }
 
-  .view-all {
-    font-size: 0.9rem;
-  }
+    .view-all {
+        font-size: 0.9rem;
+    }
+
+    .chatroom-grid {
+        grid-template-columns: 1fr; /* 1열로 축소 */
+    }
 }
 
 @media (max-width: 480px) {
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
 }

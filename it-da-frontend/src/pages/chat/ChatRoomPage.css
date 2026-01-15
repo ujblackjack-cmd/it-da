@@ -50,7 +50,7 @@
 .message-row {
     display: flex;
     width: 100%; /* 한 줄 전체 차지 */
-    margin-bottom: 4px;
+    margin-bottom: 10px;
 }
 
 .message-row.mine {

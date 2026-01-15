@@ -9,6 +9,7 @@ import com.project.itda.domain.user.enums.*;
 import com.project.itda.domain.user.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -23,6 +24,7 @@ import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final UserRepository userRepository;
@@ -59,45 +61,20 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
     private User saveOrUpdate(OAuthAttributes attributes) {
         User user = userRepository.findByEmail(attributes.getEmail())
-                // 이미 가입된 유저라면 정보 업데이트 (이름, 프로필 사진 변경 대응)
                 .map(entity -> entity.updateSocialInfo(attributes.getName(), attributes.getPicture()))
-                // 신규 가입 유저라면 엔티티 생성
-                .orElseGet(() -> {
-                    User newUser = attributes.toEntity();
+                .orElseGet(() -> attributes.toEntity());
 
-                    // [중요] 초기 성향(Preference) 및 설정(Setting) 자동 생성
-                    // 나중에 '메인에서 성향 추가' 기능을 쓰기 위해 빈 레코드를 미리 만들어둡니다.
-                    initUserRelatedEntities(newUser);
+        User savedUser = userRepository.save(user);
 
-                    return newUser;
-                });
+        // ✅ 세션에 명시적으로 저장
+        httpSession.setAttribute("userId", savedUser.getUserId());
+        httpSession.setAttribute("email", savedUser.getEmail());
+        httpSession.setAttribute("username", savedUser.getUsername());
+        httpSession.setAttribute("nickname", savedUser.getNickname());
 
-        return userRepository.save(user);
-    }
+        log.info("✅ 소셜 로그인 세션 저장 완료 - userId: {}, email: {}",
+                savedUser.getUserId(), savedUser.getEmail());
 
-    private void initUserRelatedEntities(User user) {
-    // 1. UserPreference 초기값 설정 [cite: 43, 44]
-        UserPreference preference = UserPreference.builder()
-                .user(user)
-                .energyType(EnergyType.valueOf("NONE"))
-                .purposeType(PurposeType.valueOf("NONE"))
-                .frequencyType(FrequencyType.valueOf("NONE"))
-                .locationType(LocationType.valueOf("NONE"))
-                .budgetType(BudgetType.valueOf("NONE"))
-                .leadershipType(LeadershipType.valueOf("NONE"))
-                .timePreference("NONE")
-                .interests("[]")
-                .build();
-
-    // 2. UserSetting 초기값 설정 [cite: 75, 76]
-        UserSetting setting = UserSetting.builder()
-                .user(user)
-                .notificationEnabled(true)
-                .pushNotification(true)
-                .build();
-
-        // User 엔티티에 할당 (CascadeType.ALL에 의해 함께 저장됨)
-        // User.java에 해당 필드와 @OneToOne 관계가 설정되어 있어야 합니다.
-        // user.setPreference(preference); // User 엔티티에 Setter가 없다면 직접 할당 로직 추가 필요
+        return savedUser;
     }
 }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { authAPI } from "@/api/auth.api";
 import type { SignupRequest } from "@/types/auth.types";
+import {userPreferenceAPI} from "@/api/userPreference.api.ts";
 
 interface User {
   userId: number;
@@ -108,18 +109,17 @@ export const useAuthStore = create<AuthStore>()((set) => ({
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
-  setSocialUser: (userData: User) => {
-    console.log("💾 setSocialUser 호출됨:", userData);
+  setSocialUser: async (userData: User) => {
+      console.log("💾 setSocialUser 호출됨:", userData);
 
-    localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData));
 
-    set({
-      user: userData,
-      isAuthenticated: true,
-      isLoading: false,
-      error: null,
-    });
-    console.log("✅ 스토어 업데이트 완료:", useAuthStore.getState());
+      set({
+          user: userData,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+      });
   },
   clearError: () => set({ error: null }),
 }));

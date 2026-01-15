@@ -89,3 +89,14 @@
     border-radius: 5px;
     margin-top: 10px;
 }
+.message-bubble.mine {
+    background-color: #7c4dff; /* 보라색 */
+    color: white;
+    border-radius: 15px 15px 0 15px; /* 오른쪽 하단 모서리만 뾰족하게 */
+}
+
+.message-bubble.others {
+    background-color: #f0f0f0; /* 연회색 */
+    color: black;
+    border-radius: 15px 15px 15px 0; /* 왼쪽 하단 모서리만 뾰족하게 */
+}
