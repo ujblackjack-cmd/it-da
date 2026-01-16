@@ -1,51 +1,268 @@
-.notification-overlay {
+.notification-dropdown-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 999;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 60px;
 }
 
 .notification-dropdown {
     position: absolute;
     top: 60px;
-    right: 24px;
+    right: 20px;
     width: 360px;
-    max-height: 500px;
+    max-height: 480px;
     background: white;
     border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    z-index: 1000;
 }
 
 .notification-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
 .notification-header h3 {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
+    color: #1a1a1a;
     margin: 0;
 }
 
 .mark-all-read {
     background: none;
     border: none;
-    color: #667eea;
+    color: #6366f1;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.mark-all-read:hover {
+    background: #f0f0ff;
 }
 
 .notification-list {
     flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.notification-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.notification-empty .empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.notification-empty p {
+    font-size: 14px;
+    margin: 0;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+}
+
+.notification-item:hover {
+    background: #f8f9fa;
+}
+
+.notification-item.unread {
+    background: #f0f7ff;
+}
+
+.notification-item.unread:hover {
+    background: #e6f0ff;
+}
+
+/* 프로필 아바타 */
+.notif-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    overflow: hidden;
+}
+
+.notif-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.notif-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.notif-icon {
+    font-size: 24px;
+}
+
+/* 알림 내용 */
+.notif-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+}
+
+.notif-text {
+    font-size: 13px;
+    color: #666;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+}
+
+.notif-time {
+    font-size: 12px;
+    color: #999;
+}
+
+/* 읽지 않음 표시 */
+.unread-dot {
+    width: 8px;
+    height: 8px;
+    background: #6366f1;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+}
+
+/* 팔로우 알림 특별 스타일 */
+.notification-item.follow .notif-avatar {
+    border: 2px solid #6366f1;
+}
+
+/* 모바일 대응 */
+@media (max-width: 480px) {
+    .notification-dropdown {
+        right: 10px;
+        left: 10px;
+        width: auto;
+    }
+}
+.notification-wrapper {
+    position: relative;
+}
+
+.notification-bell {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    position: relative;
+    padding: 8px;
+}
+
+.notification-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-dropdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    width: 360px;
+    max-height: 480px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    z-index: 1001;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.notification-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.mark-all-read {
+    background: none;
+    border: none;
+    color: #6366f1;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.notification-list {
+    max-height: 400px;
     overflow-y: auto;
 }
 
@@ -55,59 +272,162 @@
     color: #999;
 }
 
+.empty-icon {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 8px;
+}
+
 .notification-item {
-    padding: 16px 20px;
-    border-bottom: 1px solid #f8f9fa;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.2s;
     position: relative;
 }
 
 .notification-item:hover {
-    background: #f8f9fa;
+    background: #f9f9f9;
 }
 
 .notification-item.unread {
-    background: #f0f4ff;
+    background: #f0f7ff;
 }
 
-.notification-item.unread::before {
-    content: '';
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 8px;
-    height: 8px;
-    background: #667eea;
+.notif-avatar {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
 }
 
-.notification-content {
-    margin-left: 16px;
+.notif-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-.notification-title {
+.notif-avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
     font-weight: 600;
-    margin-bottom: 4px;
     font-size: 14px;
 }
 
-.notification-text {
+.notif-icon {
+    font-size: 20px;
+}
+
+.notif-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.notif-text {
+    margin: 0 0 4px;
     font-size: 13px;
-    color: #6c757d;
-    margin-bottom: 4px;
+    color: #666;
 }
 
-.notification-time {
+.notif-time {
+    font-size: 11px;
+    color: #999;
+}
+
+.unread-dot {
+    width: 8px;
+    height: 8px;
+    background: #6366f1;
+    border-radius: 50%;
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+/* ✅ 팔로우 요청 수락/거절 버튼 */
+.notif-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.notif-accept-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 6px;
     font-size: 12px;
-    color: #adb5bd;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
-@media (max-width: 768px) {
-    .notification-dropdown {
-        right: 16px;
-        left: 16px;
-        width: auto;
-    }
+.notif-accept-btn:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.notif-accept-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.notif-reject-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.notif-reject-btn:hover:not(:disabled) {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.notif-reject-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ✅ 팔로우 요청 알림 특별 스타일 */
+.notification-item.follow_request {
+    background: #fef3c7;
+}
+
+.notification-item.follow_request:hover {
+    background: #fde68a;
+}
+
+.notification-item.follow_request.unread {
+    background: #fef3c7;
+}
+
+.notification-item.follow_request .notif-avatar {
+    border: 2px solid #f59e0b;
 }

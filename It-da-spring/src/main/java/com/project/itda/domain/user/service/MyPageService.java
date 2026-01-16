@@ -20,7 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -37,16 +36,14 @@ public class MyPageService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
-    private void validateUserAccess(Long userId, Long currentUserId) {
-        if (!Objects.equals(userId, currentUserId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 마이페이지만 조회할 수 있습니다.");
-        }
+    // ✅ 수정: 유저 존재 여부만 체크 (권한 체크는 Controller에서 처리)
+    private void validateUserExists(Long userId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
 
     public List<PendingReviewResponse> getPendingReviews(Long userId, Long currentUserId) {
-        validateUserAccess(userId, currentUserId);
+        validateUserExists(userId);  // ✅ 수정
 
         List<MeetingParticipation> completedParticipations =
                 participationRepository.findByUserUserIdAndStatusOrderByIdDesc(userId, ParticipationStatus.COMPLETED);
@@ -78,7 +75,7 @@ public class MyPageService {
     }
 
     public List<MyReviewResponse> getMyReviews(Long userId, Long currentUserId) {
-        validateUserAccess(userId, currentUserId);
+        validateUserExists(userId);  // ✅ 수정
 
         List<UserReview> reviews = userReviewRepository.findByUserUserIdOrderByCreatedAtDesc(userId);
 
@@ -95,7 +92,7 @@ public class MyPageService {
     }
 
     public List<MyMeetingResponse> getUpcomingMeetings(Long userId, Long currentUserId) {
-        validateUserAccess(userId, currentUserId);
+        validateUserExists(userId);  // ✅ 수정
 
         List<MeetingParticipation> upcomingParticipations =
                 participationRepository.findByUserUserIdAndStatusOrderByIdDesc(userId, ParticipationStatus.UPCOMING);
@@ -117,7 +114,7 @@ public class MyPageService {
     }
 
     public List<MyMeetingResponse> getCompletedMeetings(Long userId, Long currentUserId) {
-        validateUserAccess(userId, currentUserId);
+        validateUserExists(userId);  // ✅ 수정
 
         List<MeetingParticipation> completedParticipations =
                 participationRepository.findByUserUserIdAndStatusOrderByIdDesc(userId, ParticipationStatus.COMPLETED);

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
-import NotificationDropdown from '../notification/NotificationDropdown';
+
+import NotificationDropdown from '../../pages/mypage/components/NotificationDropdown';
 import './Header.css';
 
 const Header = () => {

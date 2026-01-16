@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './MyPage.css';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
 import { useNavigate } from 'react-router-dom';
 import mypageApi, { MyMeeting, MyReview, PendingReview } from '../../api/mypage.api';
 import followApi from '../../api/follow.api';
@@ -17,19 +18,20 @@ import ArchiveTab from './components/ArchiveTab';
 import StatsTab from './components/StatsTab';
 import SettingsTab from './components/SettingsTab';
 import ProfileEditModal from './components/ProfileEditModal';
+import { useProfileWebSocket, ProfileUpdate } from '../../hooks/auth/useProfileWebSocket';
 import apiClient from '../../api/client';
 
 type TabKey = 'meetings' | 'archive' | 'stats' | 'settings';
 
 const MyPage: React.FC = () => {
     const { user } = useAuthStore();
-    const currentUserId = user?.userId || 44;
-    const viewingUserId = currentUserId;
-    const isMyPage = currentUserId === viewingUserId;
+    const currentUserId = user?.userId;
+    const isMyPage = true;
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabKey>('meetings');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [followLoading, setFollowLoading] = useState(false);
 
     const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
     const [myReviews, setMyReviews] = useState<MyReview[]>([]);
@@ -42,11 +44,7 @@ const MyPage: React.FC = () => {
     const [modalMeetingDateText, setModalMeetingDateText] = useState('');
 
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: '민지님이 새로운 모임에 참가했어요!', text: '💡 한강 야간 러닝 모임에 참가했습니다.', time: '2분 전', isUnread: true },
-        { id: 2, title: '수현님이 후기를 작성했어요!', text: '⭐ ★★★★★ - 정말 좋았어요!', time: '1시간 전', isUnread: true },
-        { id: 3, title: '태영님이 회원님을 팔로우했어요!', text: '👤 새로운 팔로워가 생겼습니다.', time: '3시간 전', isUnread: false },
-    ]);
+    const { unreadCount } = useNotificationStore();
 
     const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
     const [followModalTitle, setFollowModalTitle] = useState('');
@@ -81,15 +79,38 @@ const MyPage: React.FC = () => {
         ];
     }, [completedMeetings.length, upcomingMeetings.length, myReviews]);
 
+    // ✅ 프로필 실시간 업데이트 핸들러 (다른 사람이 나를 팔로우/언팔로우 할 때)
+    const handleProfileUpdate = useCallback((update: ProfileUpdate) => {
+        console.log('📊 마이페이지 프로필 업데이트 수신:', update);
+
+        if (update.type === 'PROFILE_UPDATE') {
+            console.log(`🔄 팔로워 수 실시간 업데이트: ${followerCount} -> ${update.newFollowerCount}`);
+            setFollowerCount(update.newFollowerCount);
+        }
+
+        if (update.type === 'PROFILE_FOLLOWING_UPDATE') {
+            console.log(`🔄 팔로잉 수 실시간 업데이트: ${followingCount} -> ${update.newFollowerCount}`);
+            setFollowingCount(update.newFollowerCount);
+        }
+    }, [followerCount, followingCount]);
+
+    // ✅ 프로필 웹소켓 연결 (내 프로필 구독)
+    useProfileWebSocket({
+        profileUserId: currentUserId,
+        onProfileUpdate: handleProfileUpdate,
+    });
+
     const fetchAll = useCallback(async () => {
+        if (!currentUserId) return;
+
         setLoading(true);
         setError(null);
         try {
             const [pending, reviews, upcoming, completed] = await Promise.all([
-                mypageApi.getPendingReviews(viewingUserId, currentUserId),
-                mypageApi.getMyReviews(viewingUserId, currentUserId),
-                mypageApi.getUpcomingMeetings(viewingUserId, currentUserId),
-                mypageApi.getCompletedMeetings(viewingUserId, currentUserId),
+                mypageApi.getPendingReviews(currentUserId, currentUserId),
+                mypageApi.getMyReviews(currentUserId, currentUserId),
+                mypageApi.getUpcomingMeetings(currentUserId, currentUserId),
+                mypageApi.getCompletedMeetings(currentUserId, currentUserId),
             ]);
             setPendingReviews(pending);
             setMyReviews(reviews);
@@ -101,33 +122,26 @@ const MyPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [viewingUserId, currentUserId]);
-
-    const fetchFollowStatus = useCallback(async () => {
-        if (!isMyPage) {
-            try {
-                const status = await followApi.checkFollowStatus(currentUserId, viewingUserId);
-                setIsFollowing(status);
-            } catch (e) {
-                console.error('팔로우 상태 조회 실패:', e);
-            }
-        }
-    }, [currentUserId, viewingUserId, isMyPage]);
+    }, [currentUserId]);
 
     const fetchFollowCounts = useCallback(async () => {
+        if (!currentUserId) return;
+
         try {
             const [following, followers] = await Promise.all([
-                followApi.getFollowing(viewingUserId).then(list => list.length),
-                followApi.getFollowers(viewingUserId).then(list => list.length),
+                followApi.getFollowing(currentUserId, currentUserId).then(list => list.length),
+                followApi.getFollowers(currentUserId, currentUserId).then(list => list.length),
             ]);
             setFollowingCount(following);
             setFollowerCount(followers);
         } catch (e) {
             console.error('팔로우 수 조회 실패:', e);
         }
-    }, [viewingUserId]);
+    }, [currentUserId]);
 
     const fetchSettings = useCallback(async () => {
+        if (!currentUserId) return;
+
         try {
             const settings = await userSettingApi.getSetting(currentUserId);
             setNotifyFollowMeeting(settings.followMeetingNotification);
@@ -138,6 +152,8 @@ const MyPage: React.FC = () => {
     }, [currentUserId]);
 
     const fetchUserProfile = useCallback(async () => {
+        if (!currentUserId) return;
+
         try {
             const response = await apiClient.get(`/api/users/${currentUserId}`);
             setIsPublic(response.data.isPublic ?? true);
@@ -147,58 +163,94 @@ const MyPage: React.FC = () => {
     }, [currentUserId]);
 
     useEffect(() => {
-        fetchAll();
-        fetchFollowStatus();
-        fetchFollowCounts();
-        fetchSettings();
-        fetchUserProfile();
-    }, [fetchAll, fetchFollowStatus, fetchFollowCounts, fetchSettings, fetchUserProfile]);
+        if (currentUserId) {
+            fetchAll();
+            fetchFollowCounts();
+            fetchSettings();
+            fetchUserProfile();
+        }
+    }, [currentUserId, fetchAll, fetchFollowCounts, fetchSettings, fetchUserProfile]);
 
     const handleToggleFollow = async () => {
-        try {
-            if (isFollowing) {
-                await followApi.unfollow(currentUserId, viewingUserId);
-                setFollowerCount(prev => Math.max(0, prev - 1));
-            } else {
-                await followApi.follow(currentUserId, viewingUserId);
-                setFollowerCount(prev => prev + 1);
-            }
-            setIsFollowing(!isFollowing);
-        } catch (e) {
-            alert('팔로우 처리에 실패했습니다.');
-        }
+        // 마이페이지에서는 사용 안 함
     };
 
     const handleShowFollowList = async (type: 'following' | 'follower') => {
+        if (!currentUserId) {
+            alert('로그인이 필요합니다.');
+            return;
+        }
+
+        setFollowLoading(true);
+        setFollowModalTitle(type === 'following' ? '팔로잉' : '팔로워');
+        setIsFollowModalOpen(true);
+
         try {
             const users = type === 'following'
-                ? await followApi.getFollowing(viewingUserId)
-                : await followApi.getFollowers(viewingUserId);
+                ? await followApi.getFollowing(currentUserId, currentUserId)
+                : await followApi.getFollowers(currentUserId, currentUserId);
             setFollowUsers(users);
-            setFollowModalTitle(type === 'following' ? '팔로잉' : '팔로워');
-            setIsFollowModalOpen(true);
         } catch (e) {
-            alert('목록을 불러오는데 실패했습니다.');
+            console.error('목록 조회 에러:', e);
+            setFollowUsers([]);
+        } finally {
+            setFollowLoading(false);
         }
     };
 
     const handleToggleFollowUser = async (targetUserId: number) => {
+        if (!currentUserId) {
+            alert('로그인이 필요합니다.');
+            return;
+        }
+
+        const targetUser = followUsers.find(u => u.userId === targetUserId);
+        if (!targetUser) return;
+
         try {
-            const targetUser = followUsers.find(u => u.userId === targetUserId);
-            if (!targetUser) return;
             if (targetUser.isFollowing) {
                 await followApi.unfollow(currentUserId, targetUserId);
             } else {
                 await followApi.follow(currentUserId, targetUserId);
             }
-            setFollowUsers(prev => prev.map(u => u.userId === targetUserId ? { ...u, isFollowing: !u.isFollowing } : u));
-            await fetchFollowCounts();
-        } catch (e) {
-            alert('팔로우 처리에 실패했습니다.');
+
+            setFollowUsers(prev =>
+                prev.map(u => u.userId === targetUserId
+                    ? { ...u, isFollowing: !u.isFollowing }
+                    : u
+                )
+            );
+
+            // 내 팔로잉 수 다시 가져오기 (직접 업데이트 하는게 더 빠름)
+            // await fetchFollowCounts();
+        } catch (e: any) {
+            console.error('팔로우 처리 에러:', e);
+            if (e.message?.includes('이미 팔로우')) {
+                setFollowUsers(prev =>
+                    prev.map(u => u.userId === targetUserId
+                        ? { ...u, isFollowing: true }
+                        : u
+                    )
+                );
+            } else {
+                alert(e.message || '팔로우 처리에 실패했습니다.');
+            }
         }
     };
 
+    const handleUserClick = async (userId: number) => {
+        setIsFollowModalOpen(false);
+
+        if (userId === currentUserId) {
+            return;
+        }
+
+        navigate(`/profile/id/${userId}`);
+    };
+
     const handleToggleFollowMeeting = async () => {
+        if (!currentUserId) return;
+
         try {
             await userSettingApi.updateSetting(currentUserId, { followMeetingNotification: !notifyFollowMeeting });
             setNotifyFollowMeeting(!notifyFollowMeeting);
@@ -208,6 +260,8 @@ const MyPage: React.FC = () => {
     };
 
     const handleToggleFollowReview = async () => {
+        if (!currentUserId) return;
+
         try {
             await userSettingApi.updateSetting(currentUserId, { followReviewNotification: !notifyFollowReview });
             setNotifyFollowReview(!notifyFollowReview);
@@ -217,6 +271,8 @@ const MyPage: React.FC = () => {
     };
 
     const handleTogglePublic = async () => {
+        if (!currentUserId) return;
+
         try {
             await apiClient.put(`/api/users/${currentUserId}`, { isPublic: !isPublic });
             setIsPublic(!isPublic);
@@ -226,6 +282,8 @@ const MyPage: React.FC = () => {
     };
 
     const handleDeleteAccount = async () => {
+        if (!currentUserId) return;
+
         if (confirm('정말 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
             if (confirm('삭제된 데이터는 복구할 수 없습니다. 정말 삭제하시겠습니까?')) {
                 try {
@@ -248,6 +306,8 @@ const MyPage: React.FC = () => {
     };
 
     const handleProfileSave = async (newUsername: string) => {
+        if (!currentUserId) return;
+
         await apiClient.put(`/api/users/${currentUserId}`, { username: newUsername });
         window.location.reload();
     };
@@ -275,6 +335,17 @@ const MyPage: React.FC = () => {
         };
     }, [user, myReviews, upcomingMeetings.length, completedMeetings.length, followingCount, followerCount]);
 
+    if (!currentUserId) {
+        return (
+            <div className="mypage-root">
+                <div className="mypage-state">
+                    <p>로그인이 필요합니다.</p>
+                    <button onClick={() => navigate('/login')}>로그인하기</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="mypage-root">
             <header className="mypage-header">
@@ -284,8 +355,8 @@ const MyPage: React.FC = () => {
                     <div className="mypage-header-actions">
                         <button className="mypage-icon-btn" type="button" onClick={() => setIsNotificationOpen(!isNotificationOpen)}>
                             🔔
-                            {notifications.filter(n => n.isUnread).length > 0 && (
-                                <span className="mypage-badge">{notifications.filter(n => n.isUnread).length}</span>
+                            {unreadCount > 0 && (
+                                <span className="mypage-badge">{unreadCount}</span>
                             )}
                         </button>
                         <button className="mypage-icon-btn" type="button" onClick={() => setActiveTab('settings')}>⚙️</button>
@@ -362,7 +433,7 @@ const MyPage: React.FC = () => {
             <ReviewModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                userId={viewingUserId}
+                userId={currentUserId}
                 currentUserId={currentUserId}
                 meetingId={modalMeetingId}
                 meetingTitle={modalMeetingTitle}
@@ -372,10 +443,7 @@ const MyPage: React.FC = () => {
 
             <NotificationDropdown
                 isOpen={isNotificationOpen}
-                notifications={notifications}
                 onClose={() => setIsNotificationOpen(false)}
-                onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, isUnread: false })))}
-                onNotificationClick={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, isUnread: false } : n))}
             />
 
             <ProfileEditModal
@@ -389,9 +457,11 @@ const MyPage: React.FC = () => {
                 isOpen={isFollowModalOpen}
                 title={followModalTitle}
                 users={followUsers}
+                loading={followLoading}
+                currentUserId={currentUserId}
                 onClose={() => setIsFollowModalOpen(false)}
                 onToggleFollow={handleToggleFollowUser}
-                onUserClick={(id) => navigate(`/profile/${id}`)}
+                onUserClick={handleUserClick}
             />
         </div>
     );

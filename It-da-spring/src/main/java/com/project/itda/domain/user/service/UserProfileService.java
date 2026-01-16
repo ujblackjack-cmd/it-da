@@ -36,8 +36,20 @@ public class UserProfileService {
 
         log.info("사용자 프로필 조회: userId={}", userId);
 
-        return UserProfileResponse.from(user, followingCount, followerCount,
-                participatedMeetingsCount, badgesCount, averageRating);
+        // ✅ builder 패턴으로 변경
+        return UserProfileResponse.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .profileImageUrl(user.getProfileImageUrl())
+                .bio(user.getBio())
+                .mbti(user.getMbti())
+                .address(user.getAddress())
+                .interests(user.getInterests())
+                .isPublic(user.getIsPublic())
+                .followerCount(followerCount.intValue())
+                .followingCount(followingCount.intValue())
+                .build();
     }
 
     @Transactional

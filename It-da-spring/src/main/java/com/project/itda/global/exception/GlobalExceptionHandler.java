@@ -5,6 +5,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
@@ -38,6 +42,18 @@ public class GlobalExceptionHandler {
                 .timestamp(java.time.LocalDateTime.now())
                 .build();
         return ResponseEntity.badRequest().body(response);
+    }
+
+    // ✅ ResponseStatusException 처리 추가 (403, 404 등)
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException e) {
+        log.warn("ResponseStatusException: {} - {}", e.getStatusCode(), e.getReason());
+
+        Map<String, String> error = new HashMap<>();
+        error.put("message", e.getReason());
+        error.put("status", String.valueOf(e.getStatusCode().value()));
+
+        return ResponseEntity.status(e.getStatusCode()).body(error);
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,41 +1,29 @@
 package com.project.itda.domain.user.dto.response;
 
-import com.project.itda.domain.user.entity.User;
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserProfileResponse {
     private Long userId;
     private String username;
     private String email;
-    private String phone;
-    private String address;
+    private String emailPrefix;
     private String profileImageUrl;
+    private String bio;
+    private String mbti;
+    private String address;
+    private String interests;
 
-    // 통계 정보
-    private Long followingCount;
-    private Long followerCount;
-    private Long participatedMeetingsCount;
-    private Long badgesCount;
-    private Double averageRating;
+    private Boolean isPublic;  // ✅ 추가
+    private boolean isMyProfile;
+    private boolean isFollowing;
+    private String followRequestStatus;  // ✅ 추가: "none", "pending", "following"
+    private boolean canViewFullProfile;  // ✅ 추가
 
-    public static UserProfileResponse from(User user, Long followingCount, Long followerCount,
-                                           Long participatedMeetingsCount, Long badgesCount,
-                                           Double averageRating) {
-        return UserProfileResponse.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .address(user.getAddress())
-                .profileImageUrl(user.getProfileImageUrl())
-                .followingCount(followingCount)
-                .followerCount(followerCount)
-                .participatedMeetingsCount(participatedMeetingsCount)
-                .badgesCount(badgesCount)
-                .averageRating(averageRating)
-                .build();
-    }
+    private int followerCount;
+    private int followingCount;
 }

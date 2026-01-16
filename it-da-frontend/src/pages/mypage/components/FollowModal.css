@@ -1,137 +1,200 @@
-/* 팔로우 모달 */
+/* 오버레이 */
 .follow-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.65);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 10000;
+    padding: 20px;
+    animation: fadeIn 0.2s ease-out;
 }
 
-.follow-modal-content {
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* 모달 컨테이너 */
+.follow-modal-container {
     background: white;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 480px;
-    max-height: 80vh;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    max-height: 70vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: slideUp 0.3s ease-out;
 }
 
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 헤더 */
 .follow-modal-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
-    border-bottom: 1px solid #e9ecef;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #dbdbdb;
+}
+
+.follow-modal-header .header-spacer {
+    width: 30px;
 }
 
 .follow-modal-header h2 {
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
+    color: #262626;
     margin: 0;
 }
 
-.follow-btn-close {
+.close-btn {
     background: none;
     border: none;
-    font-size: 28px;
-    color: #868e96;
+    color: #262626;
     cursor: pointer;
-    padding: 0;
-    width: 32px;
-    height: 32px;
+    padding: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
 }
 
+/* 바디 */
 .follow-modal-body {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 24px;
+    padding: 8px 0;
 }
 
-.follow-empty {
-    text-align: center;
-    color: #868e96;
+/* 로딩 */
+.follow-modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     padding: 40px 20px;
-    font-size: 14px;
+    color: #8e8e8e;
 }
 
-.user-list-item {
+.loading-spinner-small {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #dbdbdb;
+    border-top-color: #262626;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 빈 상태 */
+.follow-modal-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #8e8e8e;
+}
+
+/* 유저 아이템 */
+.follow-user-item {
     display: flex;
     align-items: center;
+    padding: 8px 16px;
     gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid #f1f3f5;
 }
 
-.user-list-item:last-child {
-    border-bottom: none;
+.follow-user-item:hover {
+    background: #fafafa;
 }
 
-.user-list-avatar {
-    width: 48px;
-    height: 48px;
+/* 아바타 */
+.follow-user-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: white;
+    font-weight: 600;
     font-size: 18px;
-    font-weight: 700;
     cursor: pointer;
     flex-shrink: 0;
 }
 
-.user-list-info {
+/* 정보 */
+.follow-user-info {
     flex: 1;
+    min-width: 0;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
 }
 
-.user-list-name {
-    font-size: 15px;
+.follow-user-name {
+    font-size: 14px;
     font-weight: 600;
-    color: #212529;
-    margin-bottom: 4px;
+    color: #262626;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.user-list-email {
-    font-size: 13px;
-    color: #868e96;
+.follow-user-email {
+    font-size: 12px;
+    color: #8e8e8e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.btn-follow-small {
-    padding: 8px 16px;
-    border: 1px solid #667eea;
+/* 팔로우 토글 버튼 */
+.follow-toggle-btn {
+    padding: 7px 16px;
     border-radius: 8px;
-    background: white;
-    color: #667eea;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
+    border: none;
     cursor: pointer;
     transition: all 0.2s;
     flex-shrink: 0;
-}
-
-.btn-follow-small:hover {
-    background: #f8f9fa;
-}
-
-.btn-follow-small.following {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: #0095f6;
     color: white;
-    border-color: transparent;
 }
 
-.btn-follow-small.following:hover {
-    opacity: 0.9;
+.follow-toggle-btn:hover {
+    background: #1877f2;
+}
+
+.follow-toggle-btn.following {
+    background: #efefef;
+    color: #262626;
+}
+
+.follow-toggle-btn.following:hover {
+    background: #dbdbdb;
+}
+
+/* 스크롤바 */
+.follow-modal-body::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
 }

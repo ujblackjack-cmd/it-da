@@ -37,6 +37,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final GeocodingService geocodingService;
     private final ReviewRepository reviewRepository;
+    private final UserFollowService userFollowService;  // ✅ 추가!
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
@@ -129,6 +130,10 @@ public class UserService {
                 request.getIsPublic()
         );
 
+        // ✅ 프로필 변경 후 웹소켓 알림!
+        userFollowService.notifyProfileUpdate(userId);
+        log.info("✅ 프로필 업데이트 및 알림 전송: userId={}", userId);
+
         return UserResponse.from(user);
     }
 
@@ -137,21 +142,16 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다"));
 
-        // 소프트 삭제
         user.softDelete();
         userRepository.save(user);
         log.info("✅ 계정 삭제 완료: userId={}", userId);
     }
 
-    /**
-     * 사용자 컨텍스트 조회 (AI 추천용)
-     */
     @Transactional(readOnly = true)
     public UserContextResponse getUserContext(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다: " + userId));
 
-        // ✅ Null-safe preference 처리
         UserPreference preference = user.getPreference();
         String interests = (preference != null) ? preference.getInterests() : "";
         String timePreference = (preference != null) ? preference.getTimePreference() : "";
@@ -159,7 +159,6 @@ public class UserService {
                 ? preference.getBudgetType().name()
                 : "VALUE";
 
-        // ✅ 사용자 통계 조회 (null-safe)
         Double avgRating = reviewRepository.findAvgRatingByUserId(userId);
         Long ratingCount = reviewRepository.countByUserId(userId);
         Double ratingStd = reviewRepository.findRatingStdByUserId(userId);
@@ -176,27 +175,4 @@ public class UserService {
                 .userRatingStd(ratingStd != null ? ratingStd : 0.0)
                 .build();
     }
-
-//    public UserContextDTO getUserContext(Long userId) {
-//        User user = userRepository.findById(userId)
-//                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다: " + userId));
-//
-//        Double avgRating = reviewRepository.findAverageRatingByUserId(userId);
-//        Integer meetingCount = reviewRepository.countReviewsByUserId(userId);
-//        Double ratingStd = reviewRepository.findRatingStdByUserId(userId);
-//
-//        return UserContextDTO.builder()
-//                .userId(userId)
-//                .latitude(user.getLatitude())
-//                .longitude(user.getLongitude())
-//                .interests(user.getPreference() != null ? user.getPreference().getInterests() : null)
-//                .timePreference(user.getPreference() != null ? user.getPreference().getTimePreference() : null)
-//                .budgetType(user.getPreference() != null && user.getPreference().getBudgetType() != null
-//                        ? user.getPreference().getBudgetType().name() : "MODERATE")
-//                .userAvgRating(avgRating != null ? avgRating : 0.0)
-//                .userMeetingCount(user.getMeetingCount() != null ? user.getMeetingCount() : 0)
-//                .userRatingStd(ratingStd != null ? ratingStd : 0.0)
-//                .build();
-//
-//    }
 }

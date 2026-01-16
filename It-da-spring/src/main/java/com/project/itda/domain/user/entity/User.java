@@ -64,6 +64,10 @@ public class User {
     @Builder.Default
     private Boolean isPublic = true;
 
+    public Boolean getIsPublic() {
+        return isPublic != null ? isPublic : true;
+    }
+
     @Column(name = "email_verified")
     @Builder.Default
     private Boolean emailVerified = false;
