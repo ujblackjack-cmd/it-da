@@ -1,0 +1,312 @@
+.user-chat-room {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #b2c7d9;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    flex-shrink: 0;
+}
+
+/* ✅ 뒤로가기 버튼 - 작게 수정 */
+.back-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.header-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.header-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.header-avatar .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.header-name {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.header-icon-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px;
+    opacity: 0.9;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.header-icon-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.chat-loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 16px;
+}
+
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.empty-messages {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+}
+
+.message-wrapper {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.message-wrapper.mine {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+}
+
+.message-wrapper.other {
+    align-self: flex-start;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 16px;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.message-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.message-avatar .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: #667eea;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* 메시지 콘텐츠 래퍼 - max-width 늘림 */
+.message-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;  /* ✅ 70% → 85%로 변경 */
+}
+
+.sender-name {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 4px;
+    margin-left: 4px;
+    font-weight: 500;
+}
+
+.message-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.message-row.mine {
+    flex-direction: row-reverse;
+}
+
+/* ✅ 메시지 버블 - 한 줄로 표시되게 수정 */
+.message-bubble {
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.45;
+    max-width: 100%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    /* ✅ 핵심: 공백에서 줄바꿈 안되게 */
+    word-break: normal;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+.message-bubble.mine {
+    background: #fef01b;
+    color: #1a1a1a;
+    border-bottom-right-radius: 4px;
+}
+
+.message-bubble.other {
+    background: white;
+    color: #333;
+    border-bottom-left-radius: 4px;
+}
+
+.message-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.message-info.mine {
+    align-items: flex-end;
+}
+
+.message-time {
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+}
+
+.unread-indicator {
+    font-size: 11px;
+    color: #ffcc00;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.chat-input-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    flex-shrink: 0;
+}
+
+.input-wrapper {
+    flex: 1;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 24px;
+    font-size: 15px;
+    outline: none;
+    background: #f5f5f7;
+    transition: all 0.2s;
+}
+
+.input-wrapper input:focus {
+    background: #eef0f5;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+}
+
+.input-wrapper input::placeholder {
+    color: #999;
+}
+
+.input-wrapper input:disabled {
+    background: #f0f0f0;
+    color: #999;
+}
+
+.send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #e0e0e0;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-size: 18px;
+}
+
+.send-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.send-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+}

@@ -2,186 +2,196 @@ import { create } from 'zustand';
 
 export interface Notification {
     id: string;
-    type: 'follow' | 'follow_request' | 'meeting' | 'review' | 'general';
+    type: 'follow' | 'follow_request' | 'follow_accept' | 'message';
     title: string;
     text: string;
     time: string;
     isUnread: boolean;
+    message: string;
+    isRead: boolean;
+    createdAt: string;
     fromUserId?: number;
     fromUsername?: string;
     fromProfileImage?: string;
-    toUserId?: number;
-    link?: string;
+    roomId?: number;
+    senderId?: number;
+    senderName?: string;
+    senderProfileImage?: string;
     content?: string;
 }
 
-export interface FollowerCountUpdate {
-    userId: number;
-    newCount: number;
-    timestamp: number;
-}
+export type NotificationItem = Notification;
+export type FollowNotificationItem = Notification;
+export type MessageNotificationItem = Notification;
 
-interface NotificationStore {
+interface NotificationState {
     notifications: Notification[];
     unreadCount: number;
     isOpen: boolean;
-    lastFollowerUpdate: FollowerCountUpdate | null;
-
-    addNotification: (notification: Omit<Notification, 'id' | 'time' | 'isUnread'>) => void;
+    fetchNotifications: () => Promise<void>;
     addFollowNotification: (data: {
         fromUserId: number;
         fromUsername: string;
         fromProfileImage?: string;
-        toUserId: number;
+        toUserId?: number;
+        type?: 'follow' | 'follow_request' | 'follow_accept';
+        message?: string;
         newFollowerCount?: number;
     }) => void;
     addFollowRequestNotification: (data: {
         fromUserId: number;
         fromUsername: string;
         fromProfileImage?: string;
-        toUserId: number;
+        toUserId?: number;
     }) => void;
-
-    // ✅ 특정 유저의 프로필 정보 업데이트
     updateUserProfile: (userId: number, data: {
         username?: string;
         profileImage?: string;
     }) => void;
-
+    addMessageNotification: (data: {
+        roomId: number;
+        senderId: number;
+        senderName: string;
+        senderProfileImage?: string;
+        content: string;
+    }) => void;
     markAsRead: (id: string) => void;
     markAllAsRead: () => void;
     removeNotification: (id: string) => void;
     clearAll: () => void;
     toggleDropdown: () => void;
     closeDropdown: () => void;
-    fetchNotifications: () => Promise<void>;
 }
 
-const generateId = () => `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const formatTimeAgo = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-export const useNotificationStore = create<NotificationStore>((set, get) => ({
+    if (diffMins < 1) return '방금 전';
+    if (diffMins < 60) return `${diffMins}분 전`;
+    if (diffHours < 24) return `${diffHours}시간 전`;
+    if (diffDays < 7) return `${diffDays}일 전`;
+    return date.toLocaleDateString();
+};
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
     unreadCount: 0,
     isOpen: false,
-    lastFollowerUpdate: null,
 
-    addNotification: (notification) => {
-        const newNotif: Notification = {
-            ...notification,
-            id: generateId(),
-            time: '방금 전',
-            isUnread: true,
-        };
-
-        set((state) => ({
-            notifications: [newNotif, ...state.notifications].slice(0, 50),
-            unreadCount: state.unreadCount + 1,
-        }));
+    fetchNotifications: async () => {
+        console.log('fetchNotifications called');
     },
 
     addFollowNotification: (data) => {
-        const newNotif: Notification = {
-            id: generateId(),
-            type: 'follow',
-            title: `${data.fromUsername}님이 회원님을 팔로우했어요!`,
-            text: '👤 새로운 팔로워가 생겼습니다.',
-            time: '방금 전',
+        const typeMap: { [key: string]: string } = {
+            'follow': '님이 회원님을 팔로우했습니다.',
+            'follow_request': '님이 팔로우를 요청했습니다.',
+            'follow_accept': '님이 팔로우 요청을 수락했습니다.',
+        };
+
+        const notificationType = data.type || 'follow';
+        const messageText = data.message || `${data.fromUsername}${typeMap[notificationType] || '님이 회원님을 팔로우했습니다.'}`;
+        const now = new Date();
+
+        const newNotification: Notification = {
+            id: `follow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: notificationType,
+            title: `${data.fromUsername}님`,
+            text: messageText,
+            message: messageText,
+            time: formatTimeAgo(now),
             isUnread: true,
+            isRead: false,
+            createdAt: now.toISOString(),
             fromUserId: data.fromUserId,
             fromUsername: data.fromUsername,
             fromProfileImage: data.fromProfileImage,
-            toUserId: data.toUserId,
-            content: `${data.fromUsername}님이 회원님을 팔로우했어요!`,
-            link: `/profile/id/${data.fromUserId}`,
         };
 
         set((state) => ({
-            notifications: [newNotif, ...state.notifications].slice(0, 50),
+            notifications: [newNotification, ...state.notifications],
             unreadCount: state.unreadCount + 1,
-            lastFollowerUpdate: data.newFollowerCount !== undefined ? {
-                userId: data.toUserId,
-                newCount: data.newFollowerCount,
-                timestamp: Date.now(),
-            } : state.lastFollowerUpdate,
         }));
     },
 
     addFollowRequestNotification: (data) => {
-        const existing = get().notifications.find(
-            n => n.type === 'follow_request' && n.fromUserId === data.fromUserId
-        );
-        if (existing) return;
-
-        const newNotif: Notification = {
-            id: generateId(),
+        get().addFollowNotification({
+            ...data,
             type: 'follow_request',
-            title: `${data.fromUsername}님이 팔로우를 요청했어요!`,
-            text: '📩 수락하면 팔로워가 됩니다.',
-            time: '방금 전',
+        });
+    },
+
+    updateUserProfile: (userId, data) => {
+        console.log('updateUserProfile called:', userId, data);
+    },
+
+    addMessageNotification: (data) => {
+        const now = new Date();
+        const truncatedContent = data.content.length > 30
+            ? data.content.substring(0, 30) + '...'
+            : data.content;
+
+        const messageText = `💬 ${truncatedContent}`;
+
+        const newNotification: Notification = {
+            id: `message-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'message',
+            title: `${data.senderName}님의 새 메시지`,
+            text: messageText,
+            message: messageText,
+            time: formatTimeAgo(now),
             isUnread: true,
-            fromUserId: data.fromUserId,
-            fromUsername: data.fromUsername,
-            fromProfileImage: data.fromProfileImage,
-            toUserId: data.toUserId,
-            content: `${data.fromUsername}님이 팔로우를 요청했어요!`,
+            isRead: false,
+            createdAt: now.toISOString(),
+            roomId: data.roomId,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            senderProfileImage: data.senderProfileImage,
+            content: data.content,
         };
 
+        console.log('📬 메시지 알림 추가:', newNotification);
+
         set((state) => ({
-            notifications: [newNotif, ...state.notifications].slice(0, 50),
+            notifications: [newNotification, ...state.notifications],
             unreadCount: state.unreadCount + 1,
         }));
     },
 
-    // ✅ 특정 유저의 프로필 정보 업데이트
-    updateUserProfile: (userId, data) => {
-        console.log(`🔄 알림 프로필 업데이트: userId=${userId}`, data);
-
-        set((state) => ({
-            notifications: state.notifications.map(notif => {
-                if (notif.fromUserId === userId) {
-                    const newUsername = data.username || notif.fromUsername;
-                    return {
-                        ...notif,
-                        fromUsername: newUsername,
-                        fromProfileImage: data.profileImage || notif.fromProfileImage,
-                        // 제목도 업데이트 (닉네임이 바뀌면)
-                        title: data.username && notif.fromUsername
-                            ? notif.title.replace(notif.fromUsername, data.username)
-                            : notif.title,
-                    };
-                }
-                return notif;
-            }),
-        }));
-    },
-
     markAsRead: (id) => {
-        set((state) => {
-            const notif = state.notifications.find(n => n.id === id);
-            if (!notif || !notif.isUnread) return state;
-
-            return {
-                notifications: state.notifications.map(n =>
-                    n.id === id ? { ...n, isUnread: false } : n
-                ),
-                unreadCount: Math.max(0, state.unreadCount - 1),
-            };
-        });
+        set((state) => ({
+            notifications: state.notifications.map((n) =>
+                n.id === id ? { ...n, isRead: true, isUnread: false } : n
+            ),
+            unreadCount: state.notifications.find(n => n.id === id && !n.isRead)
+                ? Math.max(0, state.unreadCount - 1)
+                : state.unreadCount,
+        }));
     },
 
     markAllAsRead: () => {
         set((state) => ({
-            notifications: state.notifications.map(n => ({ ...n, isUnread: false })),
+            notifications: state.notifications.map((n) => ({
+                ...n,
+                isRead: true,
+                isUnread: false
+            })),
             unreadCount: 0,
         }));
     },
 
     removeNotification: (id) => {
         set((state) => {
-            const notif = state.notifications.find(n => n.id === id);
+            const notification = state.notifications.find(n => n.id === id);
             return {
-                notifications: state.notifications.filter(n => n.id !== id),
-                unreadCount: notif?.isUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+                notifications: state.notifications.filter((n) => n.id !== id),
+                unreadCount: notification && !notification.isRead
+                    ? Math.max(0, state.unreadCount - 1)
+                    : state.unreadCount,
             };
         });
     },
@@ -196,9 +206,5 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
     closeDropdown: () => {
         set({ isOpen: false });
-    },
-
-    fetchNotifications: async () => {
-        console.log('fetchNotifications called');
     },
 }));

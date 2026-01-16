@@ -1,17 +1,45 @@
-.notification-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 999;
-    background: transparent;
+/* NotificationBell.css */
+.notification-bell-container {
+    position: relative;
+}
+
+.notification-bell-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    position: relative;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.notification-bell-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.notification-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #ff4757;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 600;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
 }
 
 .notification-dropdown {
     position: absolute;
-    top: 50px;
-    right: 10px;
+    top: calc(100% + 8px);
+    right: 0;
     width: 340px;
     max-height: 450px;
     background: white;
@@ -23,8 +51,14 @@
 }
 
 @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .notification-header {
@@ -51,6 +85,7 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
+    transition: background-color 0.2s;
 }
 
 .mark-all-read-btn:hover {
@@ -68,11 +103,16 @@
     color: #999;
 }
 
-.notification-empty .empty-icon {
+.notification-empty span {
     font-size: 2.5rem;
     display: block;
     margin-bottom: 12px;
     opacity: 0.5;
+}
+
+.notification-empty p {
+    margin: 0;
+    font-size: 0.9rem;
 }
 
 .notification-item {
@@ -94,8 +134,17 @@
     background-color: #f0f7ff;
 }
 
+.notification-item.unread:hover {
+    background-color: #e5f0fc;
+}
+
+/* ✅ 메시지 알림 특별 스타일 */
 .notification-item.message {
     border-left: 3px solid #4a90d9;
+}
+
+.notification-item.message.unread {
+    background-color: #eef6ff;
 }
 
 .notification-avatar {
@@ -123,7 +172,7 @@
     font-weight: 600;
 }
 
-.notification-type-icon {
+.notification-icon {
     position: absolute;
     bottom: -2px;
     right: -2px;
@@ -138,28 +187,42 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+.notification-icon.follow-icon {
+    background: #10b981;
+}
+
+.notification-icon.message-icon {
+    background: #4a90d9;
+}
+
 .notification-content {
     flex: 1;
     min-width: 0;
 }
 
-.notification-title {
+.notification-sender {
     font-weight: 600;
-    font-size: 0.9rem;
     color: #1a1a1a;
-    margin-bottom: 2px;
 }
 
 .notification-text {
-    color: #666;
-    font-size: 0.85rem;
+    color: #555;
+    font-size: 0.9rem;
     line-height: 1.4;
+}
+
+.notification-preview {
+    margin: 4px 0 0 0;
+    color: #888;
+    font-size: 0.85rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 220px;
 }
 
 .notification-time {
+    display: block;
     margin-top: 4px;
     font-size: 0.75rem;
     color: #999;
@@ -168,15 +231,12 @@
 .notification-delete-btn {
     background: none;
     border: none;
-    color: #ccc;
-    font-size: 0.85rem;
+    color: #bbb;
+    font-size: 0.9rem;
     cursor: pointer;
     padding: 4px;
     opacity: 0;
     transition: opacity 0.2s, color 0.2s;
-    position: absolute;
-    top: 8px;
-    right: 8px;
 }
 
 .notification-item:hover .notification-delete-btn {
@@ -187,8 +247,13 @@
     color: #ff4757;
 }
 
+/* 스크롤바 스타일 */
 .notification-list::-webkit-scrollbar {
     width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .notification-list::-webkit-scrollbar-thumb {
@@ -196,63 +261,6 @@
     border-radius: 3px;
 }
 
-/* ✅ 팔로우 요청 수락/거절 버튼 */
-.notif-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.notif-accept-btn {
-    flex: 1;
-    padding: 8px 16px;
-    background: #6366f1;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.notif-accept-btn:hover:not(:disabled) {
-    background: #4f46e5;
-}
-
-.notif-accept-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.notif-reject-btn {
-    flex: 1;
-    padding: 8px 16px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.notif-reject-btn:hover:not(:disabled) {
-    background: #e5e7eb;
-    border-color: #9ca3af;
-}
-
-.notif-reject-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* ✅ 팔로우 요청 알림 특별 스타일 - 노란색 배경 */
-.notification-item.follow_request {
-    background: #fef3c7 !important;
-}
-
-.notification-item.follow_request:hover {
-    background: #fde68a !important;
+.notification-list::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
 }

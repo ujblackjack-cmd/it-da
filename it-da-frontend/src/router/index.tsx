@@ -12,6 +12,9 @@ import PublicRoute from "./PublicRoute";
 import OAuth2CallbackPage from "@/pages/auth/OAuth2CallbackPage";
 import ChatRoomPage from "@/pages/chat/ChatRoomPage";
 import TestChatPage from "@/pages/chat/TestChatPage.tsx";
+// ✅ 1:1 DM 채팅 추가
+import UserChatListPage from "@/pages/mypage/components/UserChatListPage";
+import UserChatRoomPage from "@/pages/mypage/components/UserChatRoomPage";
 
 export const router = createBrowserRouter(
     [
@@ -105,16 +108,15 @@ export const router = createBrowserRouter(
             path: "/profile/edit",
             element: <ProfileEditPage />,
         },
-        // 🆕 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
         {
             path: "/profile/:emailPrefix",
             element: <UserProfile />,
         },
-        // 🆕 userId로 프로필 조회 후 emailPrefix URL로 리다이렉트
         {
             path: "/profile/id/:userId",
             element: <UserProfileById />,
         },
+        // 모임 채팅 (기존)
         {
             path: "/chat/:roomId",
             element: (
@@ -128,6 +130,23 @@ export const router = createBrowserRouter(
             element: (
                 <ProtectedRoute>
                     <TestChatPage />
+                </ProtectedRoute>
+            ),
+        },
+        // ✅ 1:1 DM 채팅 (새로 추가)
+        {
+            path: "/user-chat",
+            element: (
+                <ProtectedRoute>
+                    <UserChatListPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/user-chat/:roomId",
+            element: (
+                <ProtectedRoute>
+                    <UserChatRoomPage />
                 </ProtectedRoute>
             ),
         },

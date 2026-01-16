@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import apiClient from '../../api/client';
+import userChatApi from '../../api/userChat.api';
 import mypageApi, { MyMeeting, MyReview } from '../../api/mypage.api';
 import FollowModal from './components/FollowModal';
 import MyMeetingsPage from './components/MyMeetingsPage';
@@ -72,7 +73,6 @@ const UserProfileById: React.FC = () => {
     const [followUsers, setFollowUsers] = useState<FollowUser[]>([]);
     const [followLoading, setFollowLoading] = useState(false);
 
-    // ✅ 탭 관련 상태
     const [activeTab, setActiveTab] = useState<TabKey>('meetings');
     const [upcomingMeetings, setUpcomingMeetings] = useState<MyMeeting[]>([]);
     const [completedMeetings, setCompletedMeetings] = useState<MyMeeting[]>([]);
@@ -80,6 +80,8 @@ const UserProfileById: React.FC = () => {
     const [tabLoading, setTabLoading] = useState(false);
 
     const clientRef = useRef<Client | null>(null);
+    // ✅ 클로저 문제 해결을 위한 ref
+    const canViewProfileRef = useRef(false);
 
     useEffect(() => {
         setImageError(false);
@@ -100,7 +102,18 @@ const UserProfileById: React.FC = () => {
         return profile.canViewFullProfile === true;
     }, [profile]);
 
-    // ✅ Auth 초기화
+    // ✅ ref 동기화 - 최신 canViewFullProfile 값 유지
+    useEffect(() => {
+        canViewProfileRef.current = profile?.canViewFullProfile || false;
+    }, [profile?.canViewFullProfile]);
+
+    // ✅ 탭 데이터 초기화 함수
+    const clearTabData = useCallback(() => {
+        setUpcomingMeetings([]);
+        setCompletedMeetings([]);
+        setMyReviews([]);
+    }, []);
+
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -118,7 +131,7 @@ const UserProfileById: React.FC = () => {
         }
     }, [user]);
 
-    // ✅ 웹소켓 연결
+    // ✅ 웹소켓 연결 - 비공개 전환 시 탭 데이터 초기화 추가
     useEffect(() => {
         if (!profileUserId || !currentUserId) {
             return;
@@ -146,11 +159,28 @@ const UserProfileById: React.FC = () => {
                         const data = JSON.parse(message.body);
                         console.log(`📊 [프로필 ${profileUserId}] 업데이트 수신:`, data);
 
+                        // ✅ 프로필 정보 업데이트 (공개/비공개 전환 포함)
                         if (data.type === 'PROFILE_INFO_UPDATE') {
+                            const newIsPublic = data.isPublic;
+
                             setProfile(prev => {
                                 if (!prev) return prev;
-                                const newIsPublic = data.isPublic ?? prev.isPublic;
+
+                                const finalIsPublic = newIsPublic ?? prev.isPublic;
                                 const isCurrentlyFollowing = prev.isFollowing || prev.following || false;
+                                const newCanView = finalIsPublic || isCurrentlyFollowing;
+
+                                // ✅ 비공개로 전환 + 팔로우 안하고 있으면 탭 데이터 초기화
+                                if (!newCanView) {
+                                    console.log('🔒 비공개 전환 감지 - 탭 데이터 초기화');
+                                    setUpcomingMeetings([]);
+                                    setCompletedMeetings([]);
+                                    setMyReviews([]);
+                                }
+
+                                // ✅ ref도 함께 업데이트
+                                canViewProfileRef.current = newCanView;
+
                                 return {
                                     ...prev,
                                     username: data.username || prev.username,
@@ -158,11 +188,12 @@ const UserProfileById: React.FC = () => {
                                     bio: data.bio ?? prev.bio,
                                     mbti: data.mbti ?? prev.mbti,
                                     address: data.address ?? prev.address,
-                                    isPublic: newIsPublic,
-                                    public: newIsPublic,
-                                    canViewFullProfile: newIsPublic || isCurrentlyFollowing,
+                                    isPublic: finalIsPublic,
+                                    public: finalIsPublic,
+                                    canViewFullProfile: newCanView,
                                 };
                             });
+
                             setImageError(false);
                         }
 
@@ -195,6 +226,8 @@ const UserProfileById: React.FC = () => {
                         if (data.type === 'FOLLOW_ACCEPTED') {
                             setProfile(prev => {
                                 if (prev && data.fromUserId === prev.userId) {
+                                    // ✅ ref도 함께 업데이트
+                                    canViewProfileRef.current = true;
                                     return {
                                         ...prev,
                                         isFollowing: true,
@@ -227,7 +260,6 @@ const UserProfileById: React.FC = () => {
         };
     }, [profileUserId, currentUserId]);
 
-    // ✅ 프로필 데이터 로드
     const fetchProfile = useCallback(async () => {
         if (!profileUserId) return;
 
@@ -247,6 +279,14 @@ const UserProfileById: React.FC = () => {
 
             setProfile(response.data);
 
+            // ✅ ref도 함께 업데이트
+            canViewProfileRef.current = response.data.canViewFullProfile || false;
+
+            // ✅ 볼 수 없는 프로필이면 탭 데이터 초기화
+            if (!response.data.canViewFullProfile) {
+                clearTabData();
+            }
+
             if (response.data.isMyProfile || response.data.myProfile) {
                 navigate('/mypage', { replace: true });
                 return;
@@ -261,28 +301,45 @@ const UserProfileById: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [profileUserId, currentUserId, navigate]);
+    }, [profileUserId, currentUserId, navigate, clearTabData]);
 
-    // ✅ 탭 데이터 로드 (공개일 때만)
+    // ✅ 탭 데이터 로드 - ref를 통해 최신 값 확인 (클로저 문제 해결)
     const fetchTabData = useCallback(async () => {
-        if (!profileUserId || !canViewProfile()) return;
+        // ✅ ref를 통해 최신 값 확인
+        if (!profileUserId || !canViewProfileRef.current) {
+            console.log('🚫 탭 데이터 로드 스킵 (권한 없음)');
+            return;
+        }
 
+        console.log('📂 탭 데이터 로드 시작');
         setTabLoading(true);
+
         try {
             const [upcoming, completed, reviews] = await Promise.all([
-                mypageApi.getUpcomingMeetings(profileUserId, currentUserId || profileUserId),
-                mypageApi.getCompletedMeetings(profileUserId, currentUserId || profileUserId),
-                mypageApi.getMyReviews(profileUserId, currentUserId || profileUserId),
+                mypageApi.getUpcomingMeetings(profileUserId, currentUserId || profileUserId).catch((e) => {
+                    console.log('upcoming 에러:', e);
+                    return [];
+                }),
+                mypageApi.getCompletedMeetings(profileUserId, currentUserId || profileUserId).catch((e) => {
+                    console.log('completed 에러:', e);
+                    return [];
+                }),
+                mypageApi.getMyReviews(profileUserId, currentUserId || profileUserId).catch((e) => {
+                    console.log('reviews 에러:', e);
+                    return [];
+                }),
             ]);
+
             setUpcomingMeetings(upcoming);
             setCompletedMeetings(completed);
             setMyReviews(reviews);
         } catch (e) {
             console.error('탭 데이터 로드 실패:', e);
+            clearTabData();
         } finally {
             setTabLoading(false);
         }
-    }, [profileUserId, currentUserId, canViewProfile]);
+    }, [profileUserId, currentUserId, clearTabData]);  // ✅ profile 제거!
 
     useEffect(() => {
         if (profileUserId) {
@@ -290,14 +347,13 @@ const UserProfileById: React.FC = () => {
         }
     }, [profileUserId, currentUserId, fetchProfile]);
 
-    // ✅ 프로필 로드 후 탭 데이터 로드
+    // ✅ 프로필 로드 후 탭 데이터 로드 - canViewFullProfile 직접 확인
     useEffect(() => {
-        if (profile && canViewProfile()) {
+        if (profile && profile.canViewFullProfile) {
             fetchTabData();
         }
-    }, [profile, fetchTabData, canViewProfile]);
+    }, [profile?.canViewFullProfile, fetchTabData]);
 
-    // ✅ 통계 데이터 계산
     const stats = useMemo(() => {
         const totalMeetings = completedMeetings.length + upcomingMeetings.length;
         const avgRating = myReviews.length > 0
@@ -310,7 +366,6 @@ const UserProfileById: React.FC = () => {
         ];
     }, [completedMeetings.length, upcomingMeetings.length, myReviews]);
 
-    // ✅ 배지/활동 데이터 (임시)
     const badges = [
         { id: 1, icon: '🌟', name: '첫 모임', description: '첫 모임 참여 완료', isUnlocked: completedMeetings.length > 0 },
         { id: 2, icon: '🔥', name: '열정러', description: '10회 모임 참여', isUnlocked: completedMeetings.length >= 10 },
@@ -325,6 +380,7 @@ const UserProfileById: React.FC = () => {
         icon: '📅',
     }));
 
+    // ✅ 팔로우/언팔로우 - 언팔로우 시 탭 데이터 초기화 추가
     const handleToggleFollow = async () => {
         if (!profile) return;
 
@@ -336,18 +392,33 @@ const UserProfileById: React.FC = () => {
         }
 
         try {
+            // ✅ 언팔로우
             if (isFollowingUser()) {
                 await apiClient.delete(`/api/users/${userId}/follow/${profile.userId}`);
+
+                const isPublic = profile.isPublic || profile.public || false;
+
+                // ✅ ref 먼저 업데이트 (403 방지)
+                canViewProfileRef.current = isPublic;
+
                 setProfile(prev => prev ? {
                     ...prev,
                     isFollowing: false,
                     following: false,
                     followRequestStatus: 'none',
-                    canViewFullProfile: prev.isPublic || prev.public || false
+                    canViewFullProfile: isPublic
                 } : prev);
+
+                // ✅ 비공개 계정이면 탭 데이터 초기화 (403 방지)
+                if (!isPublic) {
+                    console.log('🔒 비공개 계정 언팔로우 - 탭 데이터 초기화');
+                    clearTabData();
+                }
+
                 return;
             }
 
+            // ✅ 팔로우 요청 취소
             if (profile.followRequestStatus === 'pending') {
                 await apiClient.delete(`/api/users/${userId}/follow-request/${profile.userId}/cancel`);
                 setProfile(prev => prev ? {
@@ -357,8 +428,13 @@ const UserProfileById: React.FC = () => {
                 return;
             }
 
+            // ✅ 공개 계정 팔로우
             if (isPublicAccount()) {
                 await apiClient.post(`/api/users/${userId}/follow/${profile.userId}`);
+
+                // ✅ ref 먼저 업데이트
+                canViewProfileRef.current = true;
+
                 setProfile(prev => prev ? {
                     ...prev,
                     isFollowing: true,
@@ -367,6 +443,7 @@ const UserProfileById: React.FC = () => {
                     canViewFullProfile: true
                 } : prev);
             } else {
+                // ✅ 비공개 계정 팔로우 요청
                 await apiClient.post(`/api/users/${userId}/follow-request/${profile.userId}`);
                 setProfile(prev => prev ? {
                     ...prev,
@@ -377,6 +454,39 @@ const UserProfileById: React.FC = () => {
         } catch (e: unknown) {
             const err = e as ApiError;
             alert(err.response?.data?.message || '팔로우 처리에 실패했습니다.');
+        }
+    };
+
+    const handleOpenChat = async () => {
+        if (!profile || !currentUserId) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+
+        if (profile.userId === currentUserId) {
+            alert('자신에게는 메시지를 보낼 수 없습니다.');
+            return;
+        }
+
+        try {
+            console.log('💬 채팅방 열기 시도:', { currentUserId, targetUserId: profile.userId });
+
+            const { canSend, message } = await userChatApi.canSendMessage(currentUserId, profile.userId);
+
+            if (!canSend) {
+                alert(message || '메시지를 보낼 수 없습니다.');
+                return;
+            }
+
+            const room = await userChatApi.getOrCreateRoom(currentUserId, profile.userId);
+            console.log('✅ 채팅방 생성/조회 성공:', room);
+
+            navigate(`/user-chat/${room.roomId}`);
+        } catch (e: unknown) {
+            const err = e as ApiError;
+            console.error('❌ 채팅방 생성 실패:', e);
+            alert(err.response?.data?.message || '채팅방을 열 수 없습니다.');
         }
     };
 
@@ -549,7 +659,9 @@ const UserProfileById: React.FC = () => {
                     <button className={getFollowButtonClass()} onClick={handleToggleFollow}>
                         {getFollowButtonText()}
                     </button>
-                    <button className="profile-message-btn">💬 메시지</button>
+                    <button className="profile-message-btn" onClick={handleOpenChat}>
+                        💬 메시지
+                    </button>
                 </div>
 
                 {canViewProfile() && (

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore';
 import apiClient from '../../api/client';
+import userChatApi from '../../api/userChat.api';  // ✅ 추가
 import mypageApi, { MyMeeting, MyReview } from '../../api/mypage.api';
 import FollowModal from './components/FollowModal';
 import MyMeetingsPage from './components/MyMeetingsPage';
@@ -71,12 +72,12 @@ const UserProfile: React.FC = () => {
     const [followUsers, setFollowUsers] = useState<FollowUser[]>([]);
     const [followLoading, setFollowLoading] = useState(false);
 
-    // ✅ 탭 관련 상태
     const [activeTab, setActiveTab] = useState<TabKey>('meetings');
     const [upcomingMeetings, setUpcomingMeetings] = useState<MyMeeting[]>([]);
     const [completedMeetings, setCompletedMeetings] = useState<MyMeeting[]>([]);
     const [myReviews, setMyReviews] = useState<MyReview[]>([]);
     const [tabLoading, setTabLoading] = useState(false);
+    const [tabDataLoaded, setTabDataLoaded] = useState(false);
 
     const clientRef = useRef<Client | null>(null);
 
@@ -95,7 +96,6 @@ const UserProfile: React.FC = () => {
         return profile.canViewFullProfile === true;
     }, [profile]);
 
-    // ✅ Auth 초기화
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -113,9 +113,25 @@ const UserProfile: React.FC = () => {
         }
     }, [user]);
 
-    // ✅ 탭 데이터 로드 함수 (useCallback으로 정의)
-    const loadTabData = useCallback(async (targetUserId: number) => {
-        if (!currentUserId) return;
+    const clearTabData = useCallback(() => {
+        console.log('🔒 탭 데이터 초기화');
+        setUpcomingMeetings([]);
+        setCompletedMeetings([]);
+        setMyReviews([]);
+        setTabDataLoaded(false);
+    }, []);
+
+    const loadTabData = useCallback(async (targetUserId: number, canView: boolean) => {
+        if (!canView) {
+            console.log('🔒 비공개 계정 - 탭 데이터 로드 스킵');
+            clearTabData();
+            return;
+        }
+
+        if (!currentUserId) {
+            console.log('❌ currentUserId 없음 - 탭 데이터 로드 스킵');
+            return;
+        }
 
         setTabLoading(true);
         try {
@@ -129,31 +145,19 @@ const UserProfile: React.FC = () => {
             setUpcomingMeetings(upcoming);
             setCompletedMeetings(completed);
             setMyReviews(reviews);
+            setTabDataLoaded(true);
         } catch (e) {
             console.error('탭 데이터 로드 실패:', e);
-            // 에러 시 빈 배열 유지
+            clearTabData();
         } finally {
             setTabLoading(false);
         }
-    }, [currentUserId]);
+    }, [currentUserId, clearTabData]);
 
-    // ✅ 탭 데이터 초기화 함수
-    const clearTabData = useCallback(() => {
-        console.log('🔒 탭 데이터 초기화');
-        setUpcomingMeetings([]);
-        setCompletedMeetings([]);
-        setMyReviews([]);
-    }, []);
-
-    // ✅ 웹소켓 연결
+    // 웹소켓 연결 (기존과 동일 - 생략)
     useEffect(() => {
-        if (!profile?.userId || !currentUserId) {
-            return;
-        }
-
-        if (clientRef.current?.connected) {
-            return;
-        }
+        if (!profile?.userId || !currentUserId) return;
+        if (clientRef.current?.connected) return;
 
         const client = new Client({
             webSocketFactory: () => new SockJS(WS_URL),
@@ -174,8 +178,6 @@ const UserProfile: React.FC = () => {
                         console.log(`📊 [프로필 ${profile.userId}] 업데이트 수신:`, data);
 
                         if (data.type === 'PROFILE_INFO_UPDATE') {
-                            console.log('🔄 프로필 정보 업데이트 - isPublic:', data.isPublic);
-
                             setProfile(prev => {
                                 if (!prev) return prev;
                                 const newIsPublic = data.isPublic ?? prev.isPublic;
@@ -183,14 +185,9 @@ const UserProfile: React.FC = () => {
                                 const newCanView = newIsPublic || isCurrentlyFollowing;
                                 const prevCanView = prev.canViewFullProfile;
 
-                                // ✅ 공개/비공개 전환 감지
                                 if (newCanView && !prevCanView) {
-                                    // 비공개 → 공개 전환: 탭 데이터 로드
-                                    console.log('🔓 공개로 전환됨 - 탭 데이터 로드');
-                                    setTimeout(() => loadTabData(prev.userId), 100);
+                                    setTimeout(() => loadTabData(prev.userId, true), 100);
                                 } else if (!newCanView && prevCanView) {
-                                    // 공개 → 비공개 전환: 탭 데이터 초기화
-                                    console.log('🔒 비공개로 전환됨 - 탭 데이터 초기화');
                                     clearTabData();
                                 }
 
@@ -220,12 +217,10 @@ const UserProfile: React.FC = () => {
                         console.error('[ProfileWS] 파싱 에러:', e);
                     }
                 });
-                console.log(`📡 /topic/profile/${profile.userId} 구독 (상대 프로필)`);
 
                 client.subscribe(`/topic/follow/${currentUserId}`, (message: IMessage) => {
                     try {
                         const data = JSON.parse(message.body);
-                        console.log(`🔔 [팔로우 알림 ${currentUserId}] 수신:`, data);
 
                         if (data.type === 'FOLLOW_REJECTED') {
                             setProfile(prev => {
@@ -238,11 +233,9 @@ const UserProfile: React.FC = () => {
                         }
 
                         if (data.type === 'FOLLOW_ACCEPTED') {
-                            console.log('✅ 팔로우 수락됨 - 탭 데이터 로드');
                             setProfile(prev => {
                                 if (prev && data.fromUserId === prev.userId) {
-                                    // ✅ 팔로우 수락 시 탭 데이터 로드
-                                    setTimeout(() => loadTabData(prev.userId), 100);
+                                    setTimeout(() => loadTabData(prev.userId, true), 100);
                                     return {
                                         ...prev,
                                         isFollowing: true,
@@ -258,7 +251,6 @@ const UserProfile: React.FC = () => {
                         console.error('[ProfileWS] 파싱 에러:', e);
                     }
                 });
-                console.log(`📡 /topic/follow/${currentUserId} 구독 (내 알림)`);
             },
             onDisconnect: () => {
                 console.log('🔌 [ProfileWS] 웹소켓 연결 해제');
@@ -270,27 +262,25 @@ const UserProfile: React.FC = () => {
 
         return () => {
             if (clientRef.current) {
-                console.log('[ProfileWS] 웹소켓 정리');
                 clientRef.current.deactivate();
                 clientRef.current = null;
             }
         };
     }, [profile?.userId, currentUserId, loadTabData, clearTabData]);
 
-    // ✅ 프로필 데이터 로드
     const fetchProfile = useCallback(async () => {
         if (!emailPrefix) return;
 
         setLoading(true);
         setError(null);
         setImageError(false);
+        setTabDataLoaded(false);
 
         try {
             const response = await apiClient.get(`/api/profile/${encodeURIComponent(emailPrefix)}`, {
                 params: { currentUserId },
             });
 
-            console.log('✅ 프로필 데이터:', response.data);
             setProfile(response.data);
 
             if (response.data.isMyProfile || response.data.myProfile) {
@@ -299,7 +289,6 @@ const UserProfile: React.FC = () => {
             }
         } catch (e: unknown) {
             const err = e as ApiError;
-            console.error('❌ 프로필 조회 실패:', e);
             if (err.response?.status === 404 || err.response?.status === 500) {
                 setError('존재하지 않는 사용자입니다.');
             } else {
@@ -316,17 +305,16 @@ const UserProfile: React.FC = () => {
         }
     }, [emailPrefix, currentUserId, fetchProfile]);
 
-    // ✅ 프로필 로드 후 또는 canViewFullProfile 변경 시 탭 데이터 로드
     useEffect(() => {
-        if (profile?.userId && profile.canViewFullProfile && currentUserId) {
-            console.log('📊 canViewFullProfile 변경됨 - 탭 데이터 로드');
-            loadTabData(profile.userId);
-        } else if (profile && !profile.canViewFullProfile) {
-            clearTabData();
+        if (profile?.userId && currentUserId && !tabDataLoaded) {
+            if (profile.canViewFullProfile) {
+                loadTabData(profile.userId, true);
+            } else {
+                clearTabData();
+            }
         }
-    }, [profile?.userId, profile?.canViewFullProfile, currentUserId, loadTabData, clearTabData]);
+    }, [profile?.userId, profile?.canViewFullProfile, currentUserId, tabDataLoaded, loadTabData, clearTabData]);
 
-    // ✅ 통계 데이터 계산
     const stats = useMemo(() => {
         const totalMeetings = completedMeetings.length + upcomingMeetings.length;
         const avgRating = myReviews.length > 0
@@ -339,7 +327,6 @@ const UserProfile: React.FC = () => {
         ];
     }, [completedMeetings.length, upcomingMeetings.length, myReviews]);
 
-    // ✅ 배지/활동 데이터
     const badges = [
         { id: 1, icon: '🌟', name: '첫 모임', description: '첫 모임 참여 완료', isUnlocked: completedMeetings.length > 0 },
         { id: 2, icon: '🔥', name: '열정러', description: '10회 모임 참여', isUnlocked: completedMeetings.length >= 10 },
@@ -354,6 +341,30 @@ const UserProfile: React.FC = () => {
         icon: '📅',
     }));
 
+    // ✅ 메시지 버튼 클릭 핸들러 추가
+    const handleOpenChat = async () => {
+        if (!profile || !currentUserId) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+
+        try {
+            const { canSend, message } = await userChatApi.canSendMessage(currentUserId, profile.userId);
+
+            if (!canSend) {
+                alert(message);
+                return;
+            }
+
+            const room = await userChatApi.getOrCreateRoom(currentUserId, profile.userId);
+            navigate(`/user-chat/${room.roomId}`);
+        } catch (e: any) {
+            console.error('채팅방 생성 실패:', e);
+            alert(e.response?.data?.message || '채팅방을 열 수 없습니다.');
+        }
+    };
+
     const handleToggleFollow = async () => {
         if (!profile) return;
 
@@ -367,36 +378,28 @@ const UserProfile: React.FC = () => {
         try {
             if (isFollowingUser()) {
                 await apiClient.delete(`/api/users/${userId}/follow/${profile.userId}`);
+                const newCanView = profile.isPublic || profile.public || false;
                 setProfile(prev => prev ? {
                     ...prev,
                     isFollowing: false,
                     following: false,
                     followRequestStatus: 'none',
-                    canViewFullProfile: prev.isPublic || prev.public || false
+                    canViewFullProfile: newCanView
                 } : prev);
-                // ✅ 언팔로우 시 비공개면 탭 데이터 초기화
                 if (!isPublicAccount()) {
                     clearTabData();
                 }
-                console.log('✅ 언팔로우 성공');
                 return;
             }
 
             if (profile.followRequestStatus === 'pending') {
                 try {
                     await apiClient.delete(`/api/users/${userId}/follow-request/${profile.userId}/cancel`);
-                    setProfile(prev => prev ? {
-                        ...prev,
-                        followRequestStatus: 'none'
-                    } : prev);
-                    console.log('✅ 팔로우 요청 취소 성공');
+                    setProfile(prev => prev ? { ...prev, followRequestStatus: 'none' } : prev);
                 } catch (cancelErr: unknown) {
                     const err = cancelErr as ApiError;
                     if (err.response?.status === 404) {
-                        setProfile(prev => prev ? {
-                            ...prev,
-                            followRequestStatus: 'none'
-                        } : prev);
+                        setProfile(prev => prev ? { ...prev, followRequestStatus: 'none' } : prev);
                         alert('팔로우 요청이 없습니다.');
                     } else {
                         throw cancelErr;
@@ -406,7 +409,6 @@ const UserProfile: React.FC = () => {
             }
 
             if (isPublicAccount()) {
-                console.log('🔓 공개 계정 - 바로 팔로우');
                 await apiClient.post(`/api/users/${userId}/follow/${profile.userId}`);
                 setProfile(prev => prev ? {
                     ...prev,
@@ -415,22 +417,14 @@ const UserProfile: React.FC = () => {
                     followRequestStatus: 'following',
                     canViewFullProfile: true
                 } : prev);
-                // ✅ 팔로우 성공 시 탭 데이터 로드
-                loadTabData(profile.userId);
-                console.log('✅ 팔로우 성공');
+                loadTabData(profile.userId, true);
             } else {
-                console.log('🔒 비공개 계정 - 팔로우 요청');
                 await apiClient.post(`/api/users/${userId}/follow-request/${profile.userId}`);
-                setProfile(prev => prev ? {
-                    ...prev,
-                    followRequestStatus: 'pending'
-                } : prev);
+                setProfile(prev => prev ? { ...prev, followRequestStatus: 'pending' } : prev);
                 alert('팔로우 요청을 보냈습니다! 상대방이 승인하면 팔로우됩니다.');
-                console.log('✅ 팔로우 요청 성공');
             }
         } catch (e: unknown) {
             const err = e as ApiError;
-            console.error('팔로우 에러:', e);
             alert(err.response?.data?.message || '팔로우 처리에 실패했습니다.');
         }
     };
@@ -455,7 +449,6 @@ const UserProfile: React.FC = () => {
             const response = await apiClient.get(endpoint, { params: { currentUserId } });
             setFollowUsers(response.data || []);
         } catch (e) {
-            console.error('목록 조회 에러:', e);
             setFollowUsers([]);
         } finally {
             setFollowLoading(false);
@@ -521,9 +514,7 @@ const UserProfile: React.FC = () => {
 
     const getProfileImageUrl = () => {
         if (!profile?.profileImageUrl) return null;
-        if (profile.profileImageUrl.startsWith('http')) {
-            return profile.profileImageUrl;
-        }
+        if (profile.profileImageUrl.startsWith('http')) return profile.profileImageUrl;
         return `http://localhost:8080${profile.profileImageUrl}`;
     };
 
@@ -605,7 +596,10 @@ const UserProfile: React.FC = () => {
                     <button className={getFollowButtonClass()} onClick={handleToggleFollow}>
                         {getFollowButtonText()}
                     </button>
-                    <button className="profile-message-btn">💬 메시지</button>
+                    {/* ✅ 메시지 버튼에 onClick 연결 */}
+                    <button className="profile-message-btn" onClick={handleOpenChat}>
+                        💬 메시지
+                    </button>
                 </div>
 
                 {canViewProfile() && (
@@ -616,7 +610,6 @@ const UserProfile: React.FC = () => {
                 )}
             </div>
 
-            {/* ✅ 공개일 때만 탭 표시 */}
             {canViewProfile() && (
                 <div className="profile-tabs-section">
                     <div className="profile-tabs">
@@ -665,7 +658,6 @@ const UserProfile: React.FC = () => {
                 </div>
             )}
 
-            {/* ✅ 비공개일 때 안내 */}
             {!canViewProfile() && (
                 <div className="private-notice">
                     <div className="lock-icon">🔒</div>

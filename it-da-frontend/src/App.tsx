@@ -7,7 +7,10 @@ import { useCallback, useState } from "react";
 import { useAuthStore } from "./stores/useAuthStore";
 import { useFollowWebSocket, FollowNotification } from "./hooks/auth/useFollowWebSocket";
 import { useNotificationStore } from "./stores/useNotificationStore";
+import { useUserChatStore } from "./stores/useUserChatStore";
 import FollowToast from "./pages/mypage/components/FollowToast";
+import MessageToast from "./components/chat/MessageToast";
+import useUserChatWebSocket from "./hooks/chat/useUserChatWebSocket";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -19,19 +22,15 @@ const queryClient = new QueryClient({
     },
 });
 
-// 웹소켓 연결을 위한 내부 컴포넌트
 function WebSocketProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuthStore();
     const [toastNotification, setToastNotification] = useState<FollowNotification | null>(null);
     const { addFollowNotification } = useNotificationStore();
+    const { newMessageNotification, clearNewMessageNotification } = useUserChatStore();
 
-    const handleNotification = useCallback((notification: FollowNotification) => {
+    const handleFollowNotification = useCallback((notification: FollowNotification) => {
         console.log('🔔 실시간 팔로우 알림 수신:', notification);
-
-        // 1. 토스트 표시
         setToastNotification(notification);
-
-        // 2. 알림 벨에 추가 (전역 store)
         addFollowNotification({
             fromUserId: notification.fromUserId,
             fromUsername: notification.fromUsername,
@@ -43,7 +42,11 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
     useFollowWebSocket({
         userId: user?.userId,
-        onNotification: handleNotification,
+        onNotification: handleFollowNotification,
+    });
+
+    useUserChatWebSocket({
+        userId: user?.userId,
     });
 
     return (
@@ -52,7 +55,11 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
             <FollowToast
                 notification={toastNotification}
                 onClose={() => setToastNotification(null)}
-                currentUserId={user?.userId}  // ✅ 추가!
+                currentUserId={user?.userId}
+            />
+            <MessageToast
+                notification={newMessageNotification}
+                onClose={clearNewMessageNotification}
             />
         </>
     );
@@ -64,29 +71,13 @@ function App() {
             <WebSocketProvider>
                 <RouterProvider router={router} />
             </WebSocketProvider>
-
             <Toaster
                 position="top-center"
                 toastOptions={{
                     duration: 3000,
-                    style: {
-                        background: "#363636",
-                        color: "#fff",
-                    },
-                    success: {
-                        duration: 3000,
-                        iconTheme: {
-                            primary: "#4ade80",
-                            secondary: "#fff",
-                        },
-                    },
-                    error: {
-                        duration: 4000,
-                        iconTheme: {
-                            primary: "#ef4444",
-                            secondary: "#fff",
-                        },
-                    },
+                    style: { background: "#363636", color: "#fff" },
+                    success: { duration: 3000, iconTheme: { primary: "#4ade80", secondary: "#fff" } },
+                    error: { duration: 4000, iconTheme: { primary: "#ef4444", secondary: "#fff" } },
                 }}
             />
         </QueryClientProvider>
