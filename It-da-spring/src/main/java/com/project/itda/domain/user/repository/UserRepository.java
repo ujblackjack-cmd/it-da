@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -20,7 +21,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 🆕 이메일 prefix로 사용자 찾기 (@ 앞부분)
     // 예: "utmmppol" 입력하면 "utmmppol@naver.com" 유저 찾음
     @Query("SELECT u FROM User u WHERE u.email LIKE CONCAT(:emailPrefix, '@%')")
-    Optional<User> findByEmailPrefix(@Param("emailPrefix") String emailPrefix);
+    List<User> findAllByEmailPrefix(@Param("emailPrefix") String emailPrefix);
 
     // 닉네임 존재 여부 확인
     boolean existsByUsername(String username);

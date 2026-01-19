@@ -485,7 +485,7 @@ const CategoryDetailPage = () => {
           <div className="section-header">
             <h2 className="section-title">세부 카테고리</h2>
             <button className="view-all-btn" onClick={handleViewAllMeetings}>
-              전체 모임 보기
+              {categoryName} 카테고리의 전체 모임 보기
             </button>
           </div>
 

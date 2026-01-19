@@ -9,6 +9,7 @@ interface MeetingDetail {
   organizerId: number;
   organizerUsername: string;
   organizerProfileImage: string;
+  organizerEmail: string;
   title: string;
   description: string;
   category: string;
@@ -483,7 +484,13 @@ const MeetingDetailPage = () => {
             </div>
             <div className="organizer-info">
               <div className="organizer-name">
-                {meeting.organizerUsername}
+                <button
+                  onClick={() =>
+                    navigate(`/${meeting.organizerEmail.split("@")[0]}`)
+                  }
+                >
+                  {meeting.organizerUsername}
+                </button>
                 <span className="organizer-badge">모임장</span>
               </div>
               {meeting.avgRating > 0 && (

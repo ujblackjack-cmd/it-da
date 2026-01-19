@@ -38,6 +38,11 @@ public class MeetingDetailResponse {
     private String organizerUsername;
 
     /**
+     * 주최자 이메일
+     */
+    private String organizerEmail;
+
+    /**
      * 주최자 프로필 이미지
      */
     private String organizerProfileImage;

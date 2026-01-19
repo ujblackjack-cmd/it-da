@@ -33,7 +33,7 @@ const SearchSection = ({ onSearch }: SearchSectionProps) => {
           <input
             type="text"
             className="search-input"
-            placeholder="지금 하고 싶은 취미 활동을 입력하세요"
+            placeholder="지금 당신의 상태는 어떤가요?"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />

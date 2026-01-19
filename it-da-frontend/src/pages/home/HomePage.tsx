@@ -122,7 +122,7 @@ const HomePage = () => {
 
         <section className="meeting-section">
           <div className="section-header">
-            <h2 className="section-title">채팅방</h2>
+            <h2 className="section-title">모임방</h2>
             <button className="view-all" onClick={() => navigate("/meetings")}>
               전체보기 →
             </button>
@@ -133,14 +133,11 @@ const HomePage = () => {
         <section className="category-section">
           <div className="section-header">
             <h2 className="section-title">카테고리</h2>
-            <button
-              className="view-all"
-              onClick={() => navigate("/category")}
-            >
+            <button className="view-all" onClick={() => navigate("/category")}>
               전체보기 →
             </button>
           </div>
-            <CategoryGrid limit={3} showAllCard={true} />
+          <CategoryGrid limit={3} showAllCard={true} />
         </section>
       </div>
     </div>

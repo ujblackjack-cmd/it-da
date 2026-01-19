@@ -21,7 +21,7 @@ import UserProfile from "@/pages/mypage/UserProfile";
 import UserProfileById from "@/pages/mypage/UserProfileById";
 
 console.log("ROUTER LOADED ✅");
-console.log("ROUTER VERSION ✅", "2026-01-16 14:49 callBack route added");
+console.log("ROUTER VERSION ✅", "2026-01-16 15:30 profile routes fixed");
 
 export const router = createBrowserRouter(
   [
@@ -77,8 +77,6 @@ export const router = createBrowserRouter(
       path: "/ai-matching",
       element: (
         <PreferenceGuard>
-          {" "}
-          {/* ✅ 매칭 서비스 이용 전 성향표 체크 */}
           <ProtectedRoute>
             <AIMatchingPage />
           </ProtectedRoute>
@@ -101,19 +99,15 @@ export const router = createBrowserRouter(
       path: "/profile/edit",
       element: <ProfileEditPage />,
     },
-    // 🆕 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
+    // ✅ userId로 프로필 조회 - /profile/id/123
+    {
+      path: "/profile/id/:userId",
+      element: <UserProfileById />,
+    },
+    // ✅ 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
     {
       path: "/:emailPrefix",
       element: <UserProfile />,
-    },
-    // 🆕 userId로 프로필 조회 후 emailPrefix URL로 리다이렉트
-    {
-      path: "/:userId",
-      element: <UserProfileById />,
-    },
-    {
-      path: "/profile/edit",
-      element: <ProfileEditPage />,
     },
     {
       path: "/auth/callback",
@@ -123,7 +117,6 @@ export const router = createBrowserRouter(
       path: "/auth/callBack",
       element: <OAuth2CallbackPage />,
     },
-
     {
       path: "/chat/:roomId",
       element: (
@@ -133,14 +126,13 @@ export const router = createBrowserRouter(
       ),
     },
     {
-      path: "/test-chat", // ✅ 추가
+      path: "/test-chat",
       element: (
         <ProtectedRoute>
           <TestChatPage />
         </ProtectedRoute>
       ),
     },
-    // ✅ 모임 생성 페이지
     {
       path: "/meetings/create",
       element: (

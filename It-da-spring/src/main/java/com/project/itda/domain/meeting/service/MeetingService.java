@@ -88,6 +88,7 @@ public class MeetingService {
                 .meetingId(meeting.getMeetingId())
                 .organizerId(meeting.getOrganizer().getUserId())
                 .organizerUsername(meeting.getOrganizer().getUsername())
+                .organizerEmail(meeting.getOrganizer().getEmail())
                 .organizerProfileImage(meeting.getOrganizer().getProfileImageUrl())
                 .title(meeting.getTitle())
                 .description(meeting.getDescription())
