@@ -22,7 +22,7 @@ const SearchSection = ({ onSearch }: SearchSectionProps) => {
   return (
     <div className="search-section">
       <div className="search-content">
-        <h1 className="search-title">메인 페이지</h1>
+        <h1 className="search-title"> IT - DA </h1>
         <p className="search-subtitle">
           당신의 취미를 찾아 드립니다
           <br />

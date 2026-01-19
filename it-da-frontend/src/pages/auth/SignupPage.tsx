@@ -348,7 +348,6 @@ const SignupPage = () => {
       <div className="signup-modal">
         <div className="modal-header">
           <div className="logo">
-            <span className="logo-icon">🍇</span>
             <h1 className="logo-text">IT-DA</h1>
           </div>
           <p className="header-subtitle">AI가 추천하는 완벽한 취미 매칭</p>

@@ -25,6 +25,7 @@
     align-items: center;
     justify-content: flex-start;
     gap: 1.5rem;
+    position: relative;
 }
 
 .backBtn {
@@ -40,12 +41,28 @@
 }
 
 .logo {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 800;
-    color: #667eea;
     margin: 0;
     cursor: pointer;
-    flex-grow: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 1px;
+    font-family: 'Arial Black', sans-serif;
+    transition: all 0.2s;
+}
+
+.logo:hover {
+    transform: scale(1.05);
+}
+
+
+.logoContainer {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 /* 카테고리 헤더 */

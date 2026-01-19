@@ -33,42 +33,63 @@ body {
    헤더
    =========================== */
 .header {
-  background: white !important;
-  border-bottom: 1px solid #e8eaed !important;
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 100 !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
-  width: 100% !important;
+    background: white !important;
+    border-bottom: 1px solid #e8eaed !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+
+/* ✅ 새로 추가 - wrapper로 컨텐츠 너비 제한 */
+.header-wrapper {
+    width: 100% !important;
+    max-width: 1400px !important;
+    padding: 0 3rem !important;
+}
+
+@media (max-width: 1440px) {
+    .header-wrapper {
+        max-width: 95% !important;
+        padding: 0 2rem !important;
+    }
 }
 
 .header-content {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 1rem 2rem !important;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  text-align: left !important;
+    width: 100% !important;
+    padding: 1rem 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    position: relative !important;
 }
 
 .header-left {
   display: flex !important;
   align-items: center !important;
-  gap: 0.8rem !important;
+  gap: 2rem !important;
   justify-content: flex-start !important;
 }
 
 .back-btn {
-  background: none !important;
-  border: none !important;
-  font-size: 1.4rem !important;
-  cursor: pointer !important;
-  color: #5f6368 !important;
-  padding: 0.4rem !important;
-  border-radius: 8px !important;
-  transition: all 0.2s !important;
+    background: none !important;
+    border: none !important;
+    font-size: 1.4rem !important;
+    cursor: pointer !important;
+    color: #5f6368 !important;
+    padding: 0.5rem !important;
+    border-radius: 8px !important;
+    transition: all 0.2s !important;
+    flex-shrink: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-right: 0 !important;
 }
 
 .back-btn:hover {
@@ -83,12 +104,43 @@ body {
   white-space: nowrap !important;
   text-align: left !important;
   margin: 0 !important;
+  margin-left: 1.5rem !important;
+  padding-left: 0 !important;
 }
 
 .header-right {
   display: flex !important;
   gap: 0.7rem !important;
   justify-content: flex-end !important;
+}
+
+/* ===========================
+   중앙 로고 (IT-DA)
+   =========================== */
+.logo-container {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    pointer-events: auto !important;
+}
+
+.logo {
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    letter-spacing: 1px !important;
+    font-family: 'Arial Black', sans-serif !important;
+    transition: all 0.2s !important;
+    white-space: nowrap !important;
+}
+
+.logo:hover {
+    transform: scale(1.05) !important;
 }
 
 .draft-btn {
@@ -674,6 +726,10 @@ body {
   .save-btn {
     padding: 0.5rem 0.9rem;
     font-size: 0.85rem;
+  }
+
+  .logo-container {
+      display: none !important;
   }
 
   .form-section {

@@ -370,6 +370,7 @@ const MeetingCreatePage = () => {
         locationType: "OUTDOOR",
         vibe: selectedVibe,
         timeSlot: timeSlot,
+        tags: JSON.stringify(tags),
       };
 
       const response = await axios.post(
@@ -394,21 +395,72 @@ const MeetingCreatePage = () => {
   return (
     <div className="meeting-create-page">
       {/* 헤더 */}
-      <header className="header">
-        <div className="header-content">
-          <div className="header-left">
-            <button className="back-btn" onClick={() => navigate(-1)}>
-              ←
-            </button>
-            <h1 className="header-title">모임 만들기</h1>
-          </div>
-          <div className="header-right">
-            <button className="draft-btn" onClick={handleSaveDraft}>
-              💾 임시저장
-            </button>
-          </div>
-        </div>
-      </header>
+        <header className="header">
+            <div className="header-wrapper">
+                <div className="header-content">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button
+                            onClick={() => navigate(-1)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                fontSize: '1.4rem',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                minWidth: '40px'
+                            }}
+                        >
+                            ←
+                        </button>
+                        <h1 style={{
+                            fontSize: '1.15rem',
+                            fontWeight: '700',
+                            margin: 0,
+                            whiteSpace: 'nowrap'
+                        }}>
+                            모임 만들기
+                        </h1>
+                    </div>
+
+                    <div style={{
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)'
+                    }}>
+                        <h1
+                            onClick={() => navigate("/meetings")}
+                            style={{
+                                fontSize: '1.3rem',
+                                fontWeight: '800',
+                                margin: 0,
+                                cursor: 'pointer',
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text'
+                            }}
+                        >
+                            IT-DA
+                        </h1>
+                    </div>
+
+                    <button
+                        onClick={handleSaveDraft}
+                        style={{
+                            padding: '0.55rem 1.1rem',
+                            background: 'white',
+                            border: '1.5px solid #dadce0',
+                            borderRadius: '8px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        💾 임시저장
+                    </button>
+                </div>
+            </div>
+        </header>
 
       {/* 메인 컨테이너 */}
       <div className="container" style={{ maxWidth: "1400px", width: "50%" }}>
@@ -530,14 +582,83 @@ const MeetingCreatePage = () => {
                 min={minDate}
                 onChange={handleChange}
               />
-              <input
-                type="time"
-                name="meetingTime"
-                className="form-input"
-                value={formData.meetingTime}
-                onChange={handleChange}
-                min={isToday ? minTime : undefined}
-              />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                    {/* 오전/오후 */}
+                    <select
+                        className="form-select"
+                        value={formData.meetingTime ? (parseInt(formData.meetingTime.split(':')[0]) < 12 ? 'AM' : 'PM') : ''}
+                        onChange={(e) => {
+                            const currentTime = formData.meetingTime || '00:00';
+                            const [oldHour, minute] = currentTime.split(':');
+                            let hour = parseInt(oldHour);
+
+                            if (e.target.value === 'PM' && hour < 12) {
+                                hour += 12;
+                            } else if (e.target.value === 'AM' && hour >= 12) {
+                                hour -= 12;
+                            }
+
+                            setFormData(prev => ({
+                                ...prev,
+                                meetingTime: `${String(hour).padStart(2, '0')}:${minute}`
+                            }));
+                        }}
+                    >
+                        <option value="" disabled hidden>오전 오후</option>
+                        <option value="AM">오전</option>
+                        <option value="PM">오후</option>
+                    </select>
+
+                    {/* 시 */}
+                    <select
+                        className="form-select"
+                        value={formData.meetingTime ? String(parseInt(formData.meetingTime.split(':')[0]) % 12 || 12) : ''}
+                        onChange={(e) => {
+                            const currentTime = formData.meetingTime || '00:00';
+                            const [oldHour, minute] = currentTime.split(':');
+                            const isPM = parseInt(oldHour) >= 12;
+                            let hour = parseInt(e.target.value);
+
+                            if (isPM && hour !== 12) hour += 12;
+                            if (!isPM && hour === 12) hour = 0;
+
+                            setFormData(prev => ({
+                                ...prev,
+                                meetingTime: `${String(hour).padStart(2, '0')}:${minute}`
+                            }));
+                        }}
+                    >
+                        <option value="" disabled hidden>시</option>
+                        {[...Array(12)].map((_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {i + 1}시
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* 분 (10분 단위) */}
+                    <select
+                        className="form-select"
+                        value={formData.meetingTime ? formData.meetingTime.split(':')[1] : ''}
+                        onChange={(e) => {
+                            const currentTime = formData.meetingTime || '00:00';
+                            const hour = currentTime.split(':')[0];
+
+                            setFormData(prev => ({
+                                ...prev,
+                                meetingTime: `${hour}:${e.target.value}`
+                            }));
+                        }}
+                    >
+                        <option value="" disabled hidden>분</option>
+                        <option value="00">00분</option>
+                        <option value="10">10분</option>
+                        <option value="20">20분</option>
+                        <option value="30">30분</option>
+                        <option value="40">40분</option>
+                        <option value="50">50분</option>
+                    </select>
+                </div>
             </div>
             <p className="helper-text">
               모임을 진행할 날짜와 시작 시간을 선택해주세요

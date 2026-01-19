@@ -426,39 +426,69 @@ const MyPage: React.FC = () => {
   }
 
   return (
-    <div className="mypage-root">
-      <header className="mypage-header">
-        <div className="mypage-header-content">
-          <button
-            className="mypage-back-btn"
-            type="button"
-            onClick={() => window.history.back()}
-          >
-            ←
-          </button>
-          <h1 className="mypage-header-title">마이페이지</h1>
-          <div className="mypage-header-actions">
-            <button
-              className="mypage-icon-btn"
-              type="button"
-              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-            >
-              🔔
-              {unreadCount > 0 && (
-                <span className="mypage-badge">{unreadCount}</span>
-              )}
-            </button>
-            <button
-              className="mypage-icon-btn"
-              type="button"
-              onClick={() => setActiveTab("settings")}
-            >
-              ⚙️
-            </button>
-          </div>
-        </div>
-      </header>
+      <div className="mypage-root">
+          <header className="mypage-header">
+              <div className="mypage-header-wrapper">
+                  <div className="mypage-header-content">
+                      {/* ✅ 왼쪽: 뒤로가기 + 마이페이지 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <button
+                              className="mypage-back-btn"
+                              type="button"
+                              onClick={() => window.history.back()}
+                          >
+                              ←
+                          </button>
+                          <h1 className="mypage-header-title">마이페이지</h1>
+                      </div>
 
+                      {/* ✅ 중앙: IT-DA 로고 */}
+                      <div style={{
+                          position: 'absolute',
+                          left: '50%',
+                          transform: 'translateX(-50%)'
+                      }}>
+                          <h1
+                              onClick={() => navigate("/meetings")}
+                              style={{
+                                  fontSize: '1.3rem',
+                                  fontWeight: '800',
+                                  margin: 0,
+                                  cursor: 'pointer',
+                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  WebkitBackgroundClip: 'text',
+                                  WebkitTextFillColor: 'transparent',
+                                  backgroundClip: 'text',
+                                  letterSpacing: '1px'
+                              }}
+                          >
+                              IT-DA
+                          </h1>
+                      </div>
+
+                      {/* ✅ 오른쪽: 알림 + 설정 */}
+                      <div className="mypage-header-actions">
+                          <button
+                              className="mypage-icon-btn"
+                              type="button"
+                              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                          >
+                              🔔
+                              {unreadCount > 0 && (
+                                  <span className="mypage-badge">{unreadCount}</span>
+                              )}
+                          </button>
+                          <button
+                              className="mypage-icon-btn"
+                              type="button"
+                              onClick={() => setActiveTab("settings")}
+                          >
+                              ⚙️
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </header>
       <ProfileSection
         username={profile.username}
         email={profile.email}

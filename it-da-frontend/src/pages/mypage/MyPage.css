@@ -8,63 +8,82 @@
 /* 헤더 */
 .mypage-header {
     background: white;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-bottom: 1px solid #e5e7eb;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1000;
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
-.mypage-header-content {
+.mypage-header-wrapper {
+    width: 100%;
     max-width: 1200px;
-    margin: 0 auto;
-    padding: 16px 24px;
+    padding: 0 2rem;
+}
+.mypage-header-content {
+    width: 100%;
+    padding: 1rem 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    position: relative;
 }
 
 .mypage-back-btn {
     background: none;
     border: none;
-    font-size: 22px;
+    font-size: 1.4rem;
     cursor: pointer;
-    color: #495057;
+    padding: 0.5rem;
+    color: #4b5563;
+    transition: all 0.2s;
+}
+
+.mypage-back-btn:hover {
+    color: #667eea;
 }
 
 .mypage-header-title {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: 1.15rem;
+    font-weight: 700;
     margin: 0;
+    color: #1a1a1a;
+    white-space: nowrap;
 }
 
 .mypage-header-actions {
     display: flex;
-    gap: 10px;
+    gap: 0.5rem;
     align-items: center;
 }
 
 .mypage-icon-btn {
-    position: relative;
     background: none;
     border: none;
-    font-size: 20px;
+    font-size: 1.3rem;
     cursor: pointer;
-    color: #495057;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.mypage-icon-btn:hover {
+    background: #f3f4f6;
 }
 
 .mypage-badge {
     position: absolute;
-    top: -6px;
-    right: -8px;
-    background: #ff4757;
+    top: 0.3rem;
+    right: 0.3rem;
+    background: #ef4444;
     color: white;
-    font-size: 11px;
-    font-weight: 900;
-    padding: 2px 6px;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
     border-radius: 10px;
-    min-width: 18px;
-    text-align: center;
+    font-weight: 600;
 }
 
 /* 컨테이너 */

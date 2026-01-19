@@ -110,6 +110,7 @@ public class MeetingService {
                 .createdAt(meeting.getCreatedAt())
                 .isFull(meeting.isFull())
                 .dDay(dDay)
+                .tags(meeting.getTags())
                 .build();
     }
 
@@ -228,6 +229,7 @@ public class MeetingService {
                 .updatedAt(meeting.getUpdatedAt())
                 .isFull(meeting.isFull())
                 .dDay(dDay)
+                .tags(meeting.getTags())
                 .build();
     }
 }

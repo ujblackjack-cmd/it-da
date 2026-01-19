@@ -428,19 +428,18 @@ const MeetingListPage = () => {
   if (isLoading) {
     return (
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <button className={styles.backBtn} onClick={() => navigate(-1)}>
-              ← 뒤로가기
-            </button>
-            <h1 className={styles.logo} onClick={() => navigate("/")}>
-              IT-DA
-            </h1>
-            <div style={{ marginLeft: "auto", fontWeight: "bold" }}>
-              모임 목록
-            </div>
-          </div>
-        </header>
+          <header className={styles.header}>
+              <div className={styles.headerContent}>
+                  <button className={styles.backBtn} onClick={() => navigate(-1)}>
+                      ← 뒤로가기
+                  </button>
+                  <div className={styles.logoContainer}>
+                      <h1 className={styles.logo} onClick={() => navigate("/")}>
+                          IT-DA
+                      </h1>
+                  </div>
+              </div>
+          </header>
         <div className={styles.container}>
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>⏳</div>
@@ -460,9 +459,11 @@ const MeetingListPage = () => {
             <button className={styles.backBtn} onClick={() => navigate(-1)}>
               ← 모임 둘러보기
             </button>
-            <h1 className={styles.logo} onClick={() => navigate("/")}>
-              IT-DA
-            </h1>
+              <div className={styles.logoContainer}>
+                  <h1 className={styles.logo} onClick={() => navigate("/")}>
+                      IT-DA
+                  </h1>
+              </div>
           </div>
         </header>
         <div className={styles.container}>
@@ -479,12 +480,32 @@ const MeetingListPage = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerContent}>
-          <button className={styles.backBtn} onClick={() => navigate(-1)}>
-            ← 모임 둘러보기
-          </button>
-          <h1 className={styles.logo} onClick={() => navigate("/")}>
-            IT-DA
-          </h1>
+            <button
+                onClick={() => navigate(-1)}
+                style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '1.4rem',
+                    cursor: 'pointer',
+                    padding: '0.5rem',
+                    minWidth: '40px'
+                }}
+            >
+                ←
+            </button>
+            <h1 style={{
+                fontSize: '1.15rem',
+                fontWeight: '700',
+                margin: 0,
+                whiteSpace: 'nowrap'
+            }}>
+                모임 찾기
+            </h1>
+           <div className={styles.logoContainer}>
+                <h1 className={styles.logo} onClick={() => navigate("/")}>
+                    IT-DA
+                </h1>
+           </div>
         </div>
       </header>
 

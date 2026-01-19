@@ -154,4 +154,10 @@ public class MeetingResponse {
      * D-Day (남은 일수)
      */
     private Long dDay;
+
+    /**
+     * 태그 (JSON 배열)
+     */
+    private String tags;
+
 }
