@@ -49,7 +49,7 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
     // ========================================
 
     /**
-     * 모임 ID + 상태로 참여자 목록 조회
+     * ✅ 모임 ID + 상태로 참여자 목록 조회 (리마인더용)
      */
     @Query("SELECT p FROM Participation p " +
             "WHERE p.meeting.meetingId = :meetingId " +
@@ -115,12 +115,11 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
     );
 
     // ========================================
-    // AI 추천용 메서드 추가
+    // AI 추천용 메서드
     // ========================================
 
     /**
      * 사용자가 승인된 모든 참여 목록 조회 (AI 추천용)
-     * APPROVED 상태만 조회
      */
     @Query("SELECT p FROM Participation p " +
             "WHERE p.user.userId = :userId " +
@@ -130,7 +129,6 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 
     /**
      * 사용자가 참여 완료한 모임 목록 (리뷰 작성 가능한 모임)
-     * COMPLETED 상태
      */
     @Query("SELECT p FROM Participation p " +
             "WHERE p.user.userId = :userId " +

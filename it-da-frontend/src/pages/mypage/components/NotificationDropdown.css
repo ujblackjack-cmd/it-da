@@ -256,3 +256,83 @@
 .notification-item.follow_request:hover {
     background: #fde68a !important;
 }
+
+/* ============================================
+   ✅ 기존 NotificationDropdown.css 끝에 추가할 스타일
+   ============================================ */
+
+/* 모임 관련 알림 스타일 */
+.notification-item.meeting,
+.notification-item.meeting_join,
+.notification-item.meeting_follow {
+    border-left: 3px solid #10b981;
+}
+
+/* 모임 리마인더 알림 스타일 */
+.notification-item.meeting_reminder {
+    background: #fef3c7 !important;
+    border-left: 3px solid #f59e0b;
+}
+
+.notification-item.meeting_reminder:hover {
+    background: #fde68a !important;
+}
+
+/* 후기 관련 알림 스타일 */
+.notification-item.review,
+.notification-item.review_request {
+    border-left: 3px solid #f59e0b;
+}
+
+/* 배지 획득 알림 스타일 */
+.notification-item.badge {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+    border-left: 3px solid #f59e0b;
+}
+
+.notification-item.badge:hover {
+    background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
+}
+
+/* 시스템 알림 스타일 */
+.notification-item.system {
+    background: #f0f9ff !important;
+    border-left: 3px solid #0ea5e9;
+}
+
+.notification-item.system:hover {
+    background: #e0f2fe !important;
+}
+
+/* 팔로우 수락 알림 스타일 */
+.notification-item.follow_accept {
+    border-left: 3px solid #10b981;
+}
+
+/* 로딩 상태 스타일 */
+.notification-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+}
+
+.notification-empty .empty-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* 스크롤바 스타일 */
+.notification-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+}

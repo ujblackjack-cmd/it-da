@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import notificationApi from '@/api/notification.api';
+import { NotificationResponseDTO, convertNotificationType } from '@/types/notification.types';
 
 export interface Notification {
     id: string;
-    type: 'follow' | 'follow_request' | 'follow_accept' | 'message';
+    type: 'follow' | 'follow_request' | 'follow_accept' | 'message' | 'meeting' | 'meeting_join' | 'meeting_follow' | 'meeting_reminder' | 'review' | 'review_request' | 'badge' | 'system';  // ✅ 새 타입 추가
     title: string;
     text: string;
     time: string;
@@ -18,6 +20,10 @@ export interface Notification {
     senderName?: string;
     senderProfileImage?: string;
     content?: string;
+    // ✅ 백엔드 알림용 추가 필드 (optional)
+    notificationId?: number;
+    linkUrl?: string;
+    relatedId?: number;
 }
 
 export type NotificationItem = Notification;
@@ -28,7 +34,8 @@ interface NotificationState {
     notifications: Notification[];
     unreadCount: number;
     isOpen: boolean;
-    fetchNotifications: () => Promise<void>;
+    loading: boolean;  // ✅ 추가
+    fetchNotifications: (userId?: number) => Promise<void>;  // ✅ userId 파라미터 추가 (optional)
     addFollowNotification: (data: {
         fromUserId: number;
         fromUsername: string;
@@ -55,6 +62,7 @@ interface NotificationState {
         senderProfileImage?: string;
         content: string;
     }) => void;
+    addNotificationFromBackend: (notification: NotificationResponseDTO) => void;  // ✅ 추가
     markAsRead: (id: string) => void;
     markAllAsRead: () => void;
     removeNotification: (id: string) => void;
@@ -77,15 +85,74 @@ const formatTimeAgo = (date: Date): string => {
     return date.toLocaleDateString();
 };
 
+// ✅ 추가: 백엔드 알림 → 프론트엔드 Notification 변환
+const convertBackendNotification = (dto: NotificationResponseDTO): Notification => {
+    const frontendType = convertNotificationType(dto.notificationType) as Notification['type'];
+
+    return {
+        id: `backend-${dto.notificationId}`,
+        notificationId: dto.notificationId,
+        type: frontendType,
+        title: dto.title,
+        text: dto.content,
+        message: dto.content,
+        time: dto.timeAgo || formatTimeAgo(new Date(dto.sentAt)),
+        isUnread: !dto.isRead,
+        isRead: dto.isRead,
+        createdAt: dto.sentAt,
+        fromUserId: dto.senderId,
+        fromUsername: dto.senderName,
+        fromProfileImage: dto.senderProfileImage,
+        senderId: dto.senderId,
+        senderName: dto.senderName,
+        senderProfileImage: dto.senderProfileImage,
+        linkUrl: dto.linkUrl,
+        relatedId: dto.relatedId,
+        roomId: dto.notificationType === 'MESSAGE' ? dto.relatedId : undefined,
+    };
+};
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
     unreadCount: 0,
     isOpen: false,
+    loading: false,  // ✅ 추가
 
-    fetchNotifications: async () => {
-        console.log('fetchNotifications called');
+    // ✅ 수정: 백엔드에서 알림 조회 (기존 빈 함수 → 실제 구현)
+    fetchNotifications: async (userId?: number) => {
+        // userId가 없으면 localStorage에서 가져오기
+        if (!userId) {
+            const userStr = localStorage.getItem('user');
+            userId = userStr ? JSON.parse(userStr)?.userId : null;
+        }
+
+        if (!userId) {
+            console.log('fetchNotifications: userId 없음');
+            return;
+        }
+
+        set({ loading: true });
+        try {
+            const response = await notificationApi.getAllNotifications(userId);
+            const backendNotifications = response.notifications.map(convertBackendNotification);
+
+            // 기존 실시간 알림(웹소켓)은 유지하고 백엔드 알림만 교체
+            const realtimeNotifications = get().notifications.filter(n => !n.id.startsWith('backend-'));
+
+            set({
+                notifications: [...backendNotifications, ...realtimeNotifications],
+                unreadCount: response.unreadCount + realtimeNotifications.filter(n => n.isUnread).length,
+                loading: false,
+            });
+
+            console.log('📋 알림 목록 조회 완료:', response.notifications.length, '개');
+        } catch (error) {
+            console.error('❌ 알림 목록 조회 실패:', error);
+            set({ loading: false });
+        }
     },
 
+    // ✅ 기존 코드 100% 유지
     addFollowNotification: (data) => {
         const typeMap: { [key: string]: string } = {
             'follow': '님이 회원님을 팔로우했습니다.',
@@ -118,6 +185,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }));
     },
 
+    // ✅ 기존 코드 100% 유지
     addFollowRequestNotification: (data) => {
         get().addFollowNotification({
             ...data,
@@ -125,10 +193,54 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
     },
 
+    // ✅ 기존 코드 100% 유지
     updateUserProfile: (userId, data) => {
         console.log('updateUserProfile called:', userId, data);
+        set((state) => ({
+            notifications: state.notifications.map((n) => {
+                // 팔로우 알림에서 해당 유저 정보 업데이트
+                if (n.fromUserId === userId) {
+                    return {
+                        ...n,
+                        fromUsername: data.username || n.fromUsername,
+                        fromProfileImage: data.profileImage || n.fromProfileImage,
+                        title: data.username ? `${data.username}님` : n.title,
+                    };
+                }
+                // 메시지 알림에서 해당 유저 정보 업데이트
+                if (n.senderId === userId) {
+                    return {
+                        ...n,
+                        senderName: data.username || n.senderName,
+                        senderProfileImage: data.profileImage || n.senderProfileImage,
+                        title: data.username ? `${data.username}님의 새 메시지` : n.title,
+                    };
+                }
+                return n;
+            }),
+        }));
     },
 
+    // ✅ 추가: 백엔드 알림 추가 (웹소켓 푸시용)
+    addNotificationFromBackend: (notification: NotificationResponseDTO) => {
+        const converted = convertBackendNotification(notification);
+
+        // 중복 체크
+        const exists = get().notifications.some(n => n.id === converted.id);
+        if (exists) {
+            console.log('⚠️ 중복 알림 스킵:', converted.id);
+            return;
+        }
+
+        set((state) => ({
+            notifications: [converted, ...state.notifications],
+            unreadCount: state.unreadCount + 1,
+        }));
+
+        console.log('🔔 백엔드 알림 추가:', converted.type, converted.title);
+    },
+
+    // ✅ 기존 코드 100% 유지
     addMessageNotification: (data) => {
         const now = new Date();
         const truncatedContent = data.content.length > 30
@@ -162,7 +274,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }));
     },
 
+    // ✅ 기존 코드 유지 + 백엔드 API 호출 추가
     markAsRead: (id) => {
+        const notification = get().notifications.find(n => n.id === id);
+
+        // 백엔드 알림이면 API 호출
+        if (notification?.notificationId) {
+            notificationApi.markAsRead(notification.notificationId).catch(err => {
+                console.error('❌ 알림 읽음 처리 API 실패:', err);
+            });
+        }
+
+        // 기존 로직 그대로
         set((state) => ({
             notifications: state.notifications.map((n) =>
                 n.id === id ? { ...n, isRead: true, isUnread: false } : n
@@ -173,7 +296,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }));
     },
 
+    // ✅ 기존 코드 유지 + 백엔드 API 호출 추가
     markAllAsRead: () => {
+        const userStr = localStorage.getItem('user');
+        const userId = userStr ? JSON.parse(userStr)?.userId : null;
+
+        if (userId) {
+            notificationApi.markAllAsRead(userId).catch(err => {
+                console.error('❌ 모든 알림 읽음 처리 API 실패:', err);
+            });
+        }
+
+        // 기존 로직 그대로
         set((state) => ({
             notifications: state.notifications.map((n) => ({
                 ...n,
@@ -184,7 +318,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }));
     },
 
+    // ✅ 기존 코드 유지 + 백엔드 API 호출 추가
     removeNotification: (id) => {
+        const notification = get().notifications.find(n => n.id === id);
+
+        // 백엔드 알림이면 API 호출
+        if (notification?.notificationId) {
+            notificationApi.deleteNotification(notification.notificationId).catch(err => {
+                console.error('❌ 알림 삭제 API 실패:', err);
+            });
+        }
+
+        // 기존 로직 그대로
         set((state) => {
             const notification = state.notifications.find(n => n.id === id);
             return {
@@ -196,14 +341,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
     },
 
+    // ✅ 기존 코드 100% 유지
     clearAll: () => {
         set({ notifications: [], unreadCount: 0 });
     },
 
+    // ✅ 기존 코드 100% 유지
     toggleDropdown: () => {
         set((state) => ({ isOpen: !state.isOpen }));
     },
 
+    // ✅ 기존 코드 100% 유지
     closeDropdown: () => {
         set({ isOpen: false });
     },

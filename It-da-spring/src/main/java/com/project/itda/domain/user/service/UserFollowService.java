@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.service;
 
+import com.project.itda.domain.notification.service.NotificationService;
 import com.project.itda.domain.user.dto.FollowNotificationDto;
 import com.project.itda.domain.user.entity.FollowRequest;
 import com.project.itda.domain.user.dto.response.FollowUserResponse;
@@ -31,6 +32,7 @@ public class UserFollowService {
     private final FollowRequestRepository followRequestRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;  // ✅ 추가
 
     /**
      * ✅ 팔로우하기 (공개 계정만)
@@ -64,9 +66,13 @@ public class UserFollowService {
         userFollowRepository.save(userFollow);
         log.info("✅ 팔로우 성공: {} -> {}", follower.getUserId(), following.getUserId());
 
-        // ✅ 팔로우 알림 전송
+        // ✅ 팔로우 알림 전송 (웹소켓)
         sendFollowNotification(follower, following, true);
+
+        // ✅ 알림 DB 저장 + 웹소켓 푸시
+        notificationService.notifyNewFollower(following, follower);
     }
+
     /**
      * ✅ 프로필 공개 설정 변경 시 웹소켓 알림
      */
@@ -83,6 +89,7 @@ public class UserFollowService {
             log.error("❌ 프로필 공개 설정 변경 알림 실패: {}", e.getMessage(), e);
         }
     }
+
     /**
      * ✅ 언팔로우하기
      */
@@ -156,8 +163,11 @@ public class UserFollowService {
         followRequestRepository.save(request);
         log.info("✅ 팔로우 요청 전송: {} -> {}", requester.getUserId(), target.getUserId());
 
-        // ✅ 팔로우 요청 알림 보내기
+        // ✅ 팔로우 요청 알림 보내기 (웹소켓)
         sendFollowRequestNotification(requester, target);
+
+        // ✅ 알림 DB 저장 + 웹소켓 푸시
+        notificationService.notifyFollowRequest(target, requester);
     }
 
     /**
@@ -173,12 +183,10 @@ public class UserFollowService {
                     .toUserId(target.getUserId())
                     .build();
 
-            // ✅ 두 토픽 모두에 전송 (프론트엔드 호환성)
             messagingTemplate.convertAndSend("/topic/follow/" + target.getUserId(), notification);
             messagingTemplate.convertAndSend("/topic/profile/" + target.getUserId(), notification);
 
-            log.info("🔔 팔로우 요청 알림 전송 완료: {} -> {} (to /topic/follow/{} & /topic/profile/{})",
-                    requester.getUsername(), target.getUsername(), target.getUserId(), target.getUserId());
+            log.info("🔔 팔로우 요청 알림 전송 완료: {} -> {}", requester.getUsername(), target.getUsername());
         } catch (Exception e) {
             log.error("❌ 팔로우 요청 알림 전송 실패: {}", e.getMessage(), e);
         }
@@ -213,6 +221,9 @@ public class UserFollowService {
 
         // ✅ 요청자에게도 수락 알림 전송
         sendFollowAcceptedNotification(requester, target);
+
+        // ✅ 알림 DB 저장 + 웹소켓 푸시
+        notificationService.notifyFollowAccepted(requester, target);
     }
 
     /**
@@ -238,7 +249,7 @@ public class UserFollowService {
     }
 
     /**
-     * ✅ 팔로우 요청 거절 + 거절당한 사람에게 알림!
+     * ✅ 팔로우 요청 거절
      */
     @Transactional
     public void rejectFollowRequest(Long userId, Long requesterId) {
@@ -254,7 +265,6 @@ public class UserFollowService {
         followRequestRepository.delete(request);
         log.info("✅ 팔로우 요청 거절: {} -> {}", requester.getUserId(), target.getUserId());
 
-        // ✅ 거절당한 사람에게 알림 전송!
         sendFollowRejectedNotification(requester, target);
     }
 
@@ -275,6 +285,7 @@ public class UserFollowService {
             log.error("❌ 팔로우 거절 알림 전송 실패: {}", e.getMessage(), e);
         }
     }
+
     /**
      * ✅ 팔로우 요청 상태 확인
      */
@@ -316,7 +327,6 @@ public class UserFollowService {
             int followingFollowerCount = (int) userFollowRepository.countByFollowing(following);
             int followerFollowingCount = (int) userFollowRepository.countByFollower(follower);
 
-            // 1. 팔로우 당한 사람에게 알림 (팔로우만)
             if (isFollow) {
                 FollowNotificationDto notification = FollowNotificationDto.follow(
                         follower.getUserId(),
@@ -329,7 +339,6 @@ public class UserFollowService {
                 log.info("🔔 팔로우 알림: {} -> {}", follower.getUsername(), following.getUserId());
             }
 
-            // 2. 팔로우 당한 사람의 프로필 업데이트 (팔로워 수)
             FollowNotificationDto followingProfileUpdate = FollowNotificationDto.builder()
                     .type("PROFILE_UPDATE")
                     .fromUserId(follower.getUserId())
@@ -338,9 +347,7 @@ public class UserFollowService {
                     .newFollowerCount(followingFollowerCount)
                     .build();
             messagingTemplate.convertAndSend("/topic/profile/" + following.getUserId(), followingProfileUpdate);
-            log.info("📊 프로필 업데이트 (팔로워): userId={}, 팔로워 수={}", following.getUserId(), followingFollowerCount);
 
-            // 3. 팔로우 한 사람의 프로필 업데이트 (팔로잉 수)
             FollowNotificationDto followerProfileUpdate = FollowNotificationDto.builder()
                     .type("PROFILE_FOLLOWING_UPDATE")
                     .fromUserId(following.getUserId())
@@ -348,7 +355,6 @@ public class UserFollowService {
                     .newFollowerCount(followerFollowingCount)
                     .build();
             messagingTemplate.convertAndSend("/topic/profile/" + follower.getUserId(), followerProfileUpdate);
-            log.info("📊 프로필 업데이트 (팔로잉): userId={}, 팔로잉 수={}", follower.getUserId(), followerFollowingCount);
 
         } catch (Exception e) {
             log.error("❌ 웹소켓 알림 전송 실패: {}", e.getMessage(), e);
@@ -405,9 +411,6 @@ public class UserFollowService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * ✅ 팔로우 상태 확인
-     */
     public boolean isFollowing(Long userId, Long targetUserId) {
         User follower = userRepository.findById(userId).orElse(null);
         User following = userRepository.findById(targetUserId).orElse(null);
@@ -415,27 +418,18 @@ public class UserFollowService {
         return userFollowRepository.existsByFollowerAndFollowing(follower, following);
     }
 
-    /**
-     * ✅ 팔로잉 수 조회
-     */
     public int getFollowingCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         return (int) userFollowRepository.countByFollower(user);
     }
 
-    /**
-     * ✅ 팔로워 수 조회
-     */
     public int getFollowerCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
         return (int) userFollowRepository.countByFollowing(user);
     }
 
-    /**
-     * ✅ 프로필 업데이트 후 웹소켓 알림 보내기 (isPublic 포함!)
-     */
     public void notifyProfileUpdate(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) return;
@@ -450,11 +444,8 @@ public class UserFollowService {
         update.put("address", user.getAddress());
         update.put("isPublic", user.getIsPublic());
 
-        // ✅ 1. 해당 유저 프로필 페이지 구독자에게 전송
         messagingTemplate.convertAndSend("/topic/profile/" + userId, update);
-        log.info("📊 프로필 정보 업데이트 알림: userId={}, isPublic={}", userId, user.getIsPublic());
-
-        // ✅ 2. 전체 브로드캐스트 (알림창 등에서 프로필 변경 감지용)
         messagingTemplate.convertAndSend("/topic/profile/updates", update);
-        log.info("📡 전체 프로필 업데이트 브로드캐스트: userId={}", userId);
-    }}
+        log.info("📊 프로필 정보 업데이트 알림: userId={}", userId);
+    }
+}

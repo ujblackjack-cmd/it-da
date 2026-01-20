@@ -1,5 +1,6 @@
 package com.project.itda.domain.user.service;
 
+import com.project.itda.domain.notification.service.NotificationService;
 import com.project.itda.domain.user.dto.response.UserChatMessageResponse;
 import com.project.itda.domain.user.dto.response.UserChatRoomResponse;
 import com.project.itda.domain.user.entity.User;
@@ -33,11 +34,10 @@ public class UserChatService {
     private final UserRepository userRepository;
     private final UserFollowRepository userFollowRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;  // ✅ 추가
 
     /**
      * ✅ 메시지 전송 가능 여부 체크
-     * - 공개 계정: 누구나 메시지 가능
-     * - 비공개 계정: 서로 팔로우 상태여야 함
      */
     public boolean canSendMessage(Long senderId, Long receiverId) {
         User sender = userRepository.findById(senderId).orElse(null);
@@ -46,12 +46,10 @@ public class UserChatService {
         if (sender == null || receiver == null) return false;
         if (senderId.equals(receiverId)) return false;
 
-        // 공개 계정이면 누구나 메시지 가능
         if (receiver.getIsPublic() != null && receiver.getIsPublic()) {
             return true;
         }
 
-        // 비공개 계정이면 서로 팔로우 상태여야 함
         boolean iFollow = userFollowRepository.existsByFollowerIdAndFollowingId(senderId, receiverId);
         boolean theyFollow = userFollowRepository.existsByFollowerIdAndFollowingId(receiverId, senderId);
 
@@ -68,7 +66,6 @@ public class UserChatService {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "대상 사용자를 찾을 수 없습니다."));
 
-        // 메시지 전송 가능 여부 체크
         if (!canSendMessage(userId, targetUserId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "메시지를 보낼 수 없습니다. 비공개 계정은 서로 팔로우 상태여야 합니다.");
@@ -89,7 +86,7 @@ public class UserChatService {
     }
 
     /**
-     * ✅ 메시지 전송 + 실시간 알림
+     * ✅ 메시지 전송 + 실시간 알림 + DB 알림 저장
      */
     @Transactional
     public UserChatMessageResponse sendMessage(Long roomId, Long senderId, String content) {
@@ -99,12 +96,10 @@ public class UserChatService {
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 채팅방 참여자인지 확인
         if (!chatRoom.isParticipant(senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다.");
         }
 
-        // 메시지 저장
         UserChatMessage message = UserChatMessage.builder()
                 .chatRoom(chatRoom)
                 .sender(sender)
@@ -113,16 +108,18 @@ public class UserChatService {
                 .build();
 
         messageRepository.save(message);
-
-        // 채팅방 마지막 메시지 업데이트
         chatRoom.updateLastMessage(content, senderId);
 
         log.info("✅ 메시지 전송: roomId={}, sender={}, content={}", roomId, sender.getUsername(), content);
 
         UserChatMessageResponse response = UserChatMessageResponse.from(message, senderId);
 
-        // ✅ 실시간 메시지 전송
+        // ✅ 실시간 메시지 전송 (웹소켓)
         sendRealTimeMessage(chatRoom, response, sender);
+
+        // ✅ 알림 DB 저장 + 웹소켓 푸시 (상대방에게)
+        User receiver = chatRoom.getOtherUser(senderId);
+        notificationService.notifyNewMessage(receiver, sender, roomId, content);
 
         return response;
     }
@@ -133,11 +130,11 @@ public class UserChatService {
     private void sendRealTimeMessage(UserChatRoom chatRoom, UserChatMessageResponse message, User sender) {
         User receiver = chatRoom.getOtherUser(sender.getUserId());
 
-        // 1. 채팅방 구독자에게 메시지 전송 (양쪽 모두)
+        // 1. 채팅방 구독자에게 메시지 전송
         messagingTemplate.convertAndSend("/topic/chat/" + chatRoom.getRoomId(), message);
         log.info("📨 채팅방 메시지 전송: /topic/chat/{}", chatRoom.getRoomId());
 
-        // 2. 상대방에게 새 메시지 알림 (알림창용)
+        // 2. 상대방에게 새 메시지 알림
         Map<String, Object> notification = new HashMap<>();
         notification.put("type", "NEW_MESSAGE");
         notification.put("roomId", chatRoom.getRoomId());
@@ -151,7 +148,7 @@ public class UserChatService {
         messagingTemplate.convertAndSend("/topic/message/" + receiver.getUserId(), notification);
         log.info("🔔 메시지 알림 전송: /topic/message/{}", receiver.getUserId());
 
-        // 3. 채팅 목록 업데이트 알림 (채팅 목록 새로고침용)
+        // 3. 채팅 목록 업데이트 알림
         Map<String, Object> listUpdate = new HashMap<>();
         listUpdate.put("type", "CHAT_LIST_UPDATE");
         listUpdate.put("roomId", chatRoom.getRoomId());
@@ -192,15 +189,11 @@ public class UserChatService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다.");
         }
 
-        // 메시지 읽음 처리
         int updatedCount = messageRepository.markMessagesAsRead(chatRoom, userId);
-
-        // 채팅방 안읽음 카운트 초기화
         chatRoom.markAsRead(userId);
 
         log.info("✅ 메시지 읽음 처리: roomId={}, userId={}, count={}", roomId, userId, updatedCount);
 
-        // ✅ 상대방에게 읽음 알림 전송 (1 사라지게!)
         User otherUser = chatRoom.getOtherUser(userId);
         Map<String, Object> readNotification = new HashMap<>();
         readNotification.put("type", "MESSAGES_READ");

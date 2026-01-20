@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;  // ✅ 추가
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -18,20 +18,20 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
-@Slf4j  // ✅ 추가
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final CustomOAuth2UserService customOAuth2UserService;  // ✅ 추가
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;  // ✅ 추가
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final SessionAuthenticationFilter sessionAuthenticationFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    private final SessionAuthenticationFilter sessionAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -40,8 +40,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ 웹소켓 엔드포인트 추가!
+                        .requestMatchers("/ws/**", "/ws-stomp/**").permitAll()
                         .requestMatchers("/", "/api/**", "/login/**", "/oauth2/**", "/error").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // ✅ 추가
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/files/**").permitAll()
                         .anyRequest().authenticated()
@@ -50,7 +52,6 @@ public class SecurityConfig {
                 .addFilterBefore(sessionAuthenticationFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
 
-                // ✅ Redis 세션 관리 설정 추가
                 .sessionManagement(session -> session
                         .maximumSessions(1)
                         .maxSessionsPreventsLogin(false)
@@ -64,11 +65,10 @@ public class SecurityConfig {
                         })
                 )
                 .oauth2Login(oauth2 -> oauth2
-
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)  // ✅ 추가
+                                .userService(customOAuth2UserService)
                         )
-                        .successHandler(oAuth2SuccessHandler)  // ✅ 추가
+                        .successHandler(oAuth2SuccessHandler)
                         .failureHandler((request, response, exception) -> {
                             log.error("❌ OAuth2 로그인 실패: ", exception);
                             response.sendRedirect("http://localhost:3000/login?error=oauth_failed");

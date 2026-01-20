@@ -2,6 +2,7 @@ package com.project.itda.domain.participation.service;
 
 import com.project.itda.domain.meeting.entity.Meeting;
 import com.project.itda.domain.meeting.repository.MeetingRepository;
+import com.project.itda.domain.notification.service.NotificationService;
 import com.project.itda.domain.participation.dto.request.ParticipationRequest;
 import com.project.itda.domain.participation.dto.request.ParticipationStatusRequest;
 import com.project.itda.domain.participation.dto.response.ParticipantListResponse;
@@ -10,17 +11,18 @@ import com.project.itda.domain.participation.entity.Participation;
 import com.project.itda.domain.participation.enums.ParticipationStatus;
 import com.project.itda.domain.participation.repository.ParticipationRepository;
 import com.project.itda.domain.user.entity.User;
+import com.project.itda.domain.user.entity.UserFollow;
+import com.project.itda.domain.user.repository.UserFollowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 참여 서비스
+ * 참여 서비스 (알림 연동)
  */
 @Service
 @Slf4j
@@ -29,6 +31,8 @@ public class ParticipationService {
 
     private final ParticipationRepository participationRepository;
     private final MeetingRepository meetingRepository;
+    private final NotificationService notificationService;  // ✅ 추가
+    private final UserFollowRepository userFollowRepository;  // ✅ 추가
 
     /**
      * 모임 참여 신청
@@ -77,7 +81,48 @@ public class ParticipationService {
 
         log.info("✅ 참여 신청 완료 - participationId: {}", saved.getParticipationId());
 
+        // ✅ 모임장에게 알림 (누군가 참가 신청함)
+        try {
+            User organizer = meeting.getOrganizer();
+            if (organizer != null && !organizer.getUserId().equals(user.getUserId())) {
+                notificationService.notifyMeetingJoin(organizer, user, meeting.getMeetingId(), meeting.getTitle());
+                log.info("🔔 모임장에게 참가 신청 알림 전송: {} -> {}", user.getUsername(), organizer.getUsername());
+            }
+        } catch (Exception e) {
+            log.error("❌ 모임장 알림 전송 실패: {}", e.getMessage());
+        }
+
+        // ✅ 참가자를 팔로우하는 사람들에게 알림
+        try {
+            notifyFollowersAboutMeetingJoin(user, meeting);
+        } catch (Exception e) {
+            log.error("❌ 팔로워 알림 전송 실패: {}", e.getMessage());
+        }
+
         return toParticipationResponse(saved);
+    }
+
+    /**
+     * ✅ 팔로워들에게 모임 참가 알림
+     */
+    private void notifyFollowersAboutMeetingJoin(User participant, Meeting meeting) {
+        List<UserFollow> followers = userFollowRepository.findByFollowing(participant);
+
+        int count = 0;
+        for (UserFollow follow : followers) {
+            User follower = follow.getFollower();
+            if (!follower.getUserId().equals(participant.getUserId())
+                    && !follower.getUserId().equals(meeting.getOrganizer().getUserId())) {
+                notificationService.notifyFollowerMeetingJoin(
+                        follower,
+                        participant,
+                        meeting.getMeetingId(),
+                        meeting.getTitle()
+                );
+                count++;
+            }
+        }
+        log.info("🔔 팔로워 {}명에게 모임 참가 알림 전송", count);
     }
 
     /**
@@ -91,15 +136,11 @@ public class ParticipationService {
         Participation participation = findById(participationId);
         Meeting meeting = participation.getMeeting();
 
-        // 주최자 확인
         if (!meeting.isOrganizer(organizer.getUserId())) {
             throw new IllegalStateException("주최자만 승인할 수 있습니다");
         }
 
-        // 승인
         participation.approve();
-
-        // 모임 참가자 수 증가
         meeting.addParticipant();
 
         log.info("✅ 참여 승인 완료 - participationId: {}", participationId);
@@ -122,12 +163,10 @@ public class ParticipationService {
         Participation participation = findById(participationId);
         Meeting meeting = participation.getMeeting();
 
-        // 주최자 확인
         if (!meeting.isOrganizer(organizer.getUserId())) {
             throw new IllegalStateException("주최자만 거절할 수 있습니다");
         }
 
-        // 거절
         participation.reject(request.getRejectionReason());
 
         log.info("✅ 참여 거절 완료 - participationId: {}", participationId);
@@ -145,18 +184,15 @@ public class ParticipationService {
 
         Participation participation = findById(participationId);
 
-        // 본인 확인
         if (!participation.getUser().getUserId().equals(user.getUserId())) {
             throw new IllegalStateException("본인만 취소할 수 있습니다");
         }
 
-        // 승인된 상태였다면 모임 참가자 수 감소
         if (participation.getStatus() == ParticipationStatus.APPROVED) {
             Meeting meeting = participation.getMeeting();
             meeting.removeParticipant();
         }
 
-        // 취소
         participation.cancel();
 
         log.info("✅ 참여 취소 완료 - participationId: {}", participationId);
@@ -175,22 +211,16 @@ public class ParticipationService {
                 .map(this::toParticipationResponse)
                 .collect(Collectors.toList());
 
-        // 상태별 통계
         long pendingCount = participations.stream()
-                .filter(p -> p.getStatus() == ParticipationStatus.PENDING)
-                .count();
+                .filter(p -> p.getStatus() == ParticipationStatus.PENDING).count();
         long approvedCount = participations.stream()
-                .filter(p -> p.getStatus() == ParticipationStatus.APPROVED)
-                .count();
+                .filter(p -> p.getStatus() == ParticipationStatus.APPROVED).count();
         long rejectedCount = participations.stream()
-                .filter(p -> p.getStatus() == ParticipationStatus.REJECTED)
-                .count();
+                .filter(p -> p.getStatus() == ParticipationStatus.REJECTED).count();
         long cancelledCount = participations.stream()
-                .filter(p -> p.getStatus() == ParticipationStatus.CANCELLED)
-                .count();
+                .filter(p -> p.getStatus() == ParticipationStatus.CANCELLED).count();
         long completedCount = participations.stream()
-                .filter(p -> p.getStatus() == ParticipationStatus.COMPLETED)
-                .count();
+                .filter(p -> p.getStatus() == ParticipationStatus.COMPLETED).count();
 
         return ParticipantListResponse.builder()
                 .success(true)
@@ -233,16 +263,12 @@ public class ParticipationService {
     /**
      * Haversine 공식으로 거리 계산 (km)
      */
-    private Double calculateDistance(
-            Double lat1, Double lon1,
-            Double lat2, Double lon2
-    ) {
+    private Double calculateDistance(Double lat1, Double lon1, Double lat2, Double lon2) {
         if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
             return null;
         }
 
-        double R = 6371.0; // 지구 반지름 (km)
-
+        double R = 6371.0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
 
@@ -254,7 +280,6 @@ public class ParticipationService {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         double distance = R * c;
 
-        // 소수점 둘째 자리까지 반올림
         return Math.round(distance * 100.0) / 100.0;
     }
 

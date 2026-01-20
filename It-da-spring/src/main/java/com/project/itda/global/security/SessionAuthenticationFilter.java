@@ -52,7 +52,8 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/uploads/");
-    }
-
-}
+        // ✅ 웹소켓 경로 추가!
+        return path.startsWith("/uploads/")
+                || path.startsWith("/ws/")
+                || path.startsWith("/ws-stomp/");
+    }}

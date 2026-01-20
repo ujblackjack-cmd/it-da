@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotificationStore, Notification } from '@/stores/useNotificationStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { getNotificationIcon } from '@/types/notification.types';
 import apiClient from '@/api/client';
 import './NotificationDropdown.css';
 
@@ -17,7 +20,9 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
     const {
         notifications,
         isOpen: storeIsOpen,
+        loading,
         closeDropdown: storeCloseDropdown,
+        fetchNotifications,
         markAsRead,
         markAllAsRead,
         removeNotification
@@ -28,6 +33,13 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
     const isOpen = propIsOpen !== undefined ? propIsOpen : storeIsOpen;
     const onClose = propOnClose || storeCloseDropdown;
 
+    // ✅ 드롭다운 열릴 때 백엔드에서 알림 목록 조회
+    useEffect(() => {
+        if (isOpen && user?.userId) {
+            fetchNotifications(user.userId);
+        }
+    }, [isOpen, user?.userId, fetchNotifications]);
+
     if (!isOpen) return null;
 
     const getProfileImageUrl = (url?: string) => {
@@ -36,7 +48,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
         return `http://localhost:8080${url}`;
     };
 
-    // ✅ 팔로우 요청 수락
+    // ✅ 팔로우 요청 수락 (기존 코드 유지)
     const handleAcceptFollow = async (e: React.MouseEvent, notification: Notification) => {
         e.stopPropagation();
         if (!user?.userId || !notification.fromUserId) return;
@@ -54,7 +66,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
         }
     };
 
-    // ✅ 팔로우 요청 거절
+    // ✅ 팔로우 요청 거절 (기존 코드 유지)
     const handleRejectFollow = async (e: React.MouseEvent, notification: Notification) => {
         e.stopPropagation();
         if (!user?.userId || !notification.fromUserId) return;
@@ -72,12 +84,24 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
         }
     };
 
+    // ✅ 알림 클릭 처리 (linkUrl 지원 추가)
     const handleNotificationClick = (notification: Notification) => {
         // 팔로우 요청은 클릭해도 이동 안 함 (버튼으로 처리)
         if (notification.type === 'follow_request') return;
 
         markAsRead(notification.id);
         onClose();
+
+        // ✅ linkUrl이 있으면 해당 경로로 이동
+        if (notification.linkUrl) {
+            const targetPath = notification.linkUrl;
+            if (location.pathname === targetPath) {
+                window.location.reload();
+            } else {
+                navigate(targetPath);
+            }
+            return;
+        }
 
         // ✅ 메시지 알림 클릭 시 채팅방으로 이동
         if (notification.type === 'message' && notification.roomId) {
@@ -87,7 +111,17 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
             } else {
                 navigate(targetPath);
             }
-        } else if (notification.fromUserId) {
+        }
+        // ✅ 모임 관련 알림
+        else if (['meeting', 'meeting_join', 'meeting_follow', 'meeting_reminder'].includes(notification.type) && notification.relatedId) {
+            navigate(`/meeting/${notification.relatedId}`);
+        }
+        // ✅ 후기 관련 알림
+        else if (['review', 'review_request'].includes(notification.type) && notification.relatedId) {
+            navigate(`/meeting/${notification.relatedId}/review`);
+        }
+        // ✅ 팔로우 관련 알림 - 프로필로 이동
+        else if (notification.fromUserId) {
             const targetPath = `/profile/id/${notification.fromUserId}`;
             if (location.pathname === targetPath) {
                 window.location.reload();
@@ -105,19 +139,14 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
             };
         }
         return {
-            image: notification.fromProfileImage,
-            name: notification.fromUsername || '알 수 없음'
+            image: notification.fromProfileImage || notification.senderProfileImage,
+            name: notification.fromUsername || notification.senderName || '알 수 없음'
         };
     };
 
-    const getNotificationIcon = (notification: Notification) => {
-        switch (notification.type) {
-            case 'message': return '💬';
-            case 'follow': return '👤';
-            case 'follow_request': return '🔔';
-            case 'follow_accept': return '✅';
-            default: return '🔔';
-        }
+    // ✅ 알림 타입별 아이콘 (확장됨)
+    const getIcon = (notification: Notification) => {
+        return getNotificationIcon(notification.type);
     };
 
     return (
@@ -132,7 +161,12 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
                 </div>
 
                 <div className="notification-list">
-                    {notifications.length === 0 ? (
+                    {loading ? (
+                        <div className="notification-empty">
+                            <span className="empty-icon">⏳</span>
+                            <p>로딩 중...</p>
+                        </div>
+                    ) : notifications.length === 0 ? (
                         <div className="notification-empty">
                             <span className="empty-icon">🔔</span>
                             <p>알림이 없습니다</p>
@@ -152,14 +186,14 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen: pro
                                         ) : (
                                             <div className="avatar-placeholder">{profile.name.charAt(0).toUpperCase()}</div>
                                         )}
-                                        <span className="notification-type-icon">{getNotificationIcon(notification)}</span>
+                                        <span className="notification-type-icon">{getIcon(notification)}</span>
                                     </div>
 
                                     <div className="notification-content">
                                         <div className="notification-title">{notification.title}</div>
                                         <div className="notification-text">{notification.text}</div>
 
-                                        {/* ✅ 팔로우 요청일 때만 수락/거절 버튼 표시 */}
+                                        {/* ✅ 팔로우 요청일 때만 수락/거절 버튼 표시 (기존 코드 유지) */}
                                         {notification.type === 'follow_request' && (
                                             <div className="notif-actions">
                                                 <button

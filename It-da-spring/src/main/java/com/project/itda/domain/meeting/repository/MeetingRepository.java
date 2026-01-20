@@ -22,7 +22,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
     /**
      * ID로 모임 조회 (삭제되지 않은 것만)
-     * - 기본 JpaRepository의 findById와 이름이 같으면 혼동이 생길 수 있어 method명을 명확히 분리
      */
     @Query("""
             SELECT m
@@ -34,7 +33,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
     /**
      * ID 리스트로 모임 조회 (삭제되지 않은 것만)
-     * - 추천 로직에서 organizer 정보도 바로 쓰면 N+1 / Lazy 이슈가 날 수 있어서 fetch join 포함
      */
     @Query("""
             SELECT DISTINCT m
@@ -127,7 +125,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     );
 
     /**
-     * 날짜 범위로 모임 조회
+     * ✅ 날짜 범위로 모임 조회 (리마인더용)
      */
     @Query("""
             SELECT m
@@ -144,11 +142,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
     /**
      * 위치 기반 모임 조회 (Haversine 공식)
-     * Native Query 사용
-     *
-     * 주의:
-     * - SELECT * 과 distance alias 컬럼을 같이 가져오면 JPA가 엔티티 매핑할 때 컬럼 충돌/매핑 이슈가 날 수 있음
-     * - 실무에선 projection(DTO) 또는 (id만 조회 후 다시 fetch) 패턴을 추천
      */
     @Query(value =
             "SELECT m.*, " +

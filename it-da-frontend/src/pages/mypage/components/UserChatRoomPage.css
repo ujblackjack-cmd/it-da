@@ -14,7 +14,6 @@
     flex-shrink: 0;
 }
 
-/* ✅ 뒤로가기 버튼 - 작게 수정 */
 .back-btn {
     background: none;
     border: none;
@@ -114,19 +113,26 @@
     color: #666;
 }
 
+/* ============================================
+   ✅ 메시지 래퍼 - 핵심!
+   ============================================ */
 .message-wrapper {
     display: flex;
     gap: 8px;
     margin-bottom: 2px;
+    width: 100%;
 }
 
+/* ✅ 내 메시지: 오른쪽 정렬 */
 .message-wrapper.mine {
-    flex-direction: row-reverse;
-    align-self: flex-end;
+    flex-direction: row-reverse;  /* 역방향으로 배치 */
+    justify-content: flex-start;  /* 오른쪽부터 시작 */
 }
 
+/* ✅ 상대 메시지: 왼쪽 정렬 */
 .message-wrapper.other {
-    align-self: flex-start;
+    flex-direction: row;          /* 정방향 배치 */
+    justify-content: flex-start;  /* 왼쪽부터 시작 */
 }
 
 .message-avatar {
@@ -157,11 +163,23 @@
     font-weight: 600;
 }
 
-/* 메시지 콘텐츠 래퍼 - max-width 늘림 */
+/* ============================================
+   ✅ 메시지 콘텐츠 래퍼
+   ============================================ */
 .message-content-wrapper {
     display: flex;
     flex-direction: column;
-    max-width: 100%;  /* ✅ 70% → 85%로 변경 */
+    max-width: 70%;
+}
+
+/* ✅ 내 메시지 콘텐츠: 오른쪽 정렬 */
+.message-wrapper.mine .message-content-wrapper {
+    align-items: flex-end;
+}
+
+/* ✅ 상대 메시지 콘텐츠: 왼쪽 정렬 */
+.message-wrapper.other .message-content-wrapper {
+    align-items: flex-start;
 }
 
 .sender-name {
@@ -172,17 +190,28 @@
     font-weight: 500;
 }
 
+/* ============================================
+   ✅ 메시지 행 (버블 + 시간/읽음)
+   ============================================ */
 .message-row {
     display: flex;
     align-items: flex-end;
     gap: 6px;
 }
 
+/* ✅ 내 메시지: [시간/읽음] [버블] 순서 (row-reverse라서 실제로는 [버블] [시간/읽음]) */
 .message-row.mine {
     flex-direction: row-reverse;
 }
 
-/* ✅ 메시지 버블 - 한 줄로 표시되게 수정 */
+/* ✅ 상대 메시지: [버블] [시간] 순서 */
+.message-row.other {
+    flex-direction: row;
+}
+
+/* ============================================
+   ✅ 메시지 버블
+   ============================================ */
 .message-bubble {
     padding: 10px 14px;
     border-radius: 18px;
@@ -190,32 +219,41 @@
     line-height: 1.45;
     max-width: 100%;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-    /* ✅ 핵심: 공백에서 줄바꿈 안되게 */
-    word-break: normal;
-    word-wrap: break-word;
-    white-space: normal;
+    word-break: break-word;
+    white-space: pre-wrap;
 }
 
+/* ✅ 내 메시지 버블: 노란색, 오른쪽 꼬리 */
 .message-bubble.mine {
     background: #fef01b;
     color: #1a1a1a;
     border-bottom-right-radius: 4px;
 }
 
+/* ✅ 상대 메시지 버블: 흰색, 왼쪽 꼬리 */
 .message-bubble.other {
     background: white;
     color: #333;
     border-bottom-left-radius: 4px;
 }
 
+/* ============================================
+   ✅ 메시지 정보 (시간, 읽음 표시)
+   ============================================ */
 .message-info {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
     gap: 2px;
     flex-shrink: 0;
+    min-width: 45px;
 }
 
+/* ✅ 상대 메시지 정보: 왼쪽 정렬 */
+.message-info {
+    align-items: flex-start;
+}
+
+/* ✅ 내 메시지 정보: 오른쪽 정렬 */
 .message-info.mine {
     align-items: flex-end;
 }
@@ -226,13 +264,17 @@
     white-space: nowrap;
 }
 
+/* ✅ 안읽음 표시 (1) - 눈에 띄게! */
 .unread-indicator {
-    font-size: 11px;
-    color: #ffcc00;
+    font-size: 12px;
+    color: #ffc107;
     font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* ============================================
+   ✅ 입력창
+   ============================================ */
 .chat-input-container {
     display: flex;
     align-items: center;
@@ -298,6 +340,9 @@
     opacity: 0.6;
 }
 
+/* ============================================
+   ✅ 스크롤바
+   ============================================ */
 .messages-container::-webkit-scrollbar {
     width: 6px;
 }

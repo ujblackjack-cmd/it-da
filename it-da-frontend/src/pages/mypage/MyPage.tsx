@@ -114,27 +114,42 @@ const MyPage: React.FC = () => {
     ];
   }, [completedMeetings.length, upcomingMeetings.length, myReviews]);
 
-  // ✅ 프로필 실시간 업데이트 핸들러 (다른 사람이 나를 팔로우/언팔로우 할 때)
-  const handleProfileUpdate = useCallback(
-    (update: ProfileUpdate) => {
-      console.log("📊 마이페이지 프로필 업데이트 수신:", update);
 
-      if (update.type === "PROFILE_UPDATE") {
-        console.log(
-          `🔄 팔로워 수 실시간 업데이트: ${followerCount} -> ${update.newFollowerCount}`
-        );
-        setFollowerCount(update.newFollowerCount);
-      }
 
-      if (update.type === "PROFILE_FOLLOWING_UPDATE") {
-        console.log(
-          `🔄 팔로잉 수 실시간 업데이트: ${followingCount} -> ${update.newFollowerCount}`
-        );
-        setFollowingCount(update.newFollowerCount);
-      }
-    },
-    [followerCount, followingCount]
-  );
+// ✅ 수정 (이 부분만 추가!)
+    const handleProfileUpdate = useCallback(
+        (update: ProfileUpdate) => {
+            console.log("📊 마이페이지 프로필 업데이트 수신:", update);
+
+            if (update.type === "PROFILE_UPDATE") {
+                setFollowerCount(update.newFollowerCount);
+            }
+
+            if (update.type === "PROFILE_FOLLOWING_UPDATE") {
+                setFollowingCount(update.newFollowerCount);
+            }
+
+            // ✅ 추가: 내 프로필 정보 업데이트
+            if (update.type === "PROFILE_INFO_UPDATE" && update.userId === currentUserId) {
+                const currentUser = useAuthStore.getState().user;
+                if (currentUser) {
+                    useAuthStore.getState().setUser({
+                        ...currentUser,
+                        username: update.username ?? currentUser.username,
+                        profileImageUrl: update.profileImageUrl ?? currentUser.profileImageUrl,
+                        bio: update.bio ?? currentUser.bio,
+                        mbti: update.mbti ?? currentUser.mbti,
+                        address: update.address ?? currentUser.address,
+                    });
+                }
+                // isPublic 업데이트
+                if (update.isPublic !== undefined) {
+                    setIsPublic(update.isPublic);
+                }
+            }
+        },
+        [followerCount, followingCount, currentUserId]
+    );
 
   // ✅ 프로필 웹소켓 연결 (내 프로필 구독)
   useProfileWebSocket({
@@ -435,7 +450,7 @@ const MyPage: React.FC = () => {
                           <button
                               className="mypage-back-btn"
                               type="button"
-                              onClick={() => window.history.back()}
+                              onClick={() => navigate('/')}  // ✅ 메인페이지로!
                           >
                               ←
                           </button>
