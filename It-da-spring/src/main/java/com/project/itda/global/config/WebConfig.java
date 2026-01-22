@@ -9,11 +9,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String projectRoot = System.getProperty("user.dir");
+        // ✅ 맥 절대 경로로 설정!
+        String uploadPath = "file:/Users/bominkim/it-da/It-da-spring/uploads/";
+
+        System.out.println("📁 이미지 서빙 경로: " + uploadPath);
 
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + projectRoot + "/uploads/");
+                .addResourceLocations(uploadPath)
+                .setCachePeriod(0);  // 캐시 비활성화 (테스트용)
     }
-
-
 }

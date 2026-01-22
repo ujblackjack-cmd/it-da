@@ -159,7 +159,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
             @Param("longitude") Double longitude,
             @Param("radius") Double radius
     );
-
+    // 주최자 ID로 모임 목록 조회
+    List<Meeting> findByOrganizerUserId(Long userId);
     /**
      * ⭐ 최근 생성된 모임 50개 조회 (AI 추천용)
      */

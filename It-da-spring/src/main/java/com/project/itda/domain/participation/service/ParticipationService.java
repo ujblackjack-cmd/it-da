@@ -277,31 +277,75 @@ public class ParticipationService {
     }
 
     /**
-     * ✅ 내가 참여 중인 모임 목록 (홈페이지 최근 접속용)
-     * APPROVED 또는 COMPLETED 상태의 모임만 최근 활동순으로 반환
+     * ✅ 내가 참여 중인 모임 + 내가 주최한 모임 목록 (홈페이지 최근 접속용)
+     * APPROVED 또는 COMPLETED 상태의 모임 + 내가 주최한 모임을 최근 활동순으로 반환
      */
     @Transactional(readOnly = true)
     public List<MyRecentMeetingResponse> getMyRecentMeetings(Long userId, int limit) {
-        log.info("📋 최근 참여 모임 조회 - userId: {}, limit: {}", userId, limit);
+        log.info("📋 최근 참여/주최 모임 조회 - userId: {}, limit: {}", userId, limit);
 
-        // APPROVED 상태 모임 조회
+        // 1. APPROVED 상태 모임 조회
         List<Participation> approvedList = participationRepository.findByUserIdAndStatus(
                 userId, ParticipationStatus.APPROVED);
 
-        // COMPLETED 상태 모임 조회
+        // 2. COMPLETED 상태 모임 조회
         List<Participation> completedList = participationRepository.findByUserIdAndStatus(
                 userId, ParticipationStatus.COMPLETED);
 
-        // 합치고 최근순 정렬
+        // 3. 참여 모임 합치기
         List<Participation> allParticipations = new java.util.ArrayList<>();
         allParticipations.addAll(approvedList);
         allParticipations.addAll(completedList);
 
-        return allParticipations.stream()
-                .sorted(Comparator.comparing(this::getLastActivityTime).reversed())
+        // 4. 참여 모임 → Response 변환
+        List<MyRecentMeetingResponse> responses = new java.util.ArrayList<>(
+                allParticipations.stream()
+                        .map(this::toMyRecentMeetingResponse)
+                        .collect(Collectors.toList())
+        );
+
+        // 5. ✅ 내가 주최한 모임 조회 (participation에 없는 기존 모임용)
+        List<Meeting> myMeetings = meetingRepository.findByOrganizerUserId(userId);
+
+        // 6. 이미 participation에 있는 모임 ID 수집
+        java.util.Set<Long> participationMeetingIds = allParticipations.stream()
+                .map(p -> p.getMeeting().getMeetingId())
+                .collect(Collectors.toSet());
+
+        // 7. participation에 없는 주최 모임만 추가
+        for (Meeting meeting : myMeetings) {
+            if (!participationMeetingIds.contains(meeting.getMeetingId())) {
+                responses.add(toMyRecentMeetingResponseFromMeeting(meeting));
+                log.info("✅ 주최 모임 추가: meetingId={}, title={}", meeting.getMeetingId(), meeting.getTitle());
+            }
+        }
+
+        // 8. 최근순 정렬 후 limit 적용
+        return responses.stream()
+                .sorted(Comparator.comparing(MyRecentMeetingResponse::getLastActivityAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(limit)
-                .map(this::toMyRecentMeetingResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * ✅ Meeting → MyRecentMeetingResponse 변환 (주최자용)
+     */
+    private MyRecentMeetingResponse toMyRecentMeetingResponseFromMeeting(Meeting meeting) {
+        LocalDateTime lastActivity = meeting.getUpdatedAt() != null ? meeting.getUpdatedAt() : meeting.getCreatedAt();
+
+        return MyRecentMeetingResponse.builder()
+                .meetingId(meeting.getMeetingId())
+                .title(meeting.getTitle())
+                .category(meeting.getCategory())
+                .subcategory(meeting.getSubcategory())
+                .icon(getCategoryIcon(meeting.getCategory()))
+                .timeAgo(getTimeAgo(lastActivity))
+                .type("chat")  // 채팅방으로 이동
+                .meetingTime(meeting.getMeetingTime())
+                .status("ORGANIZER")  // 주최자임을 표시
+                .lastActivityAt(lastActivity)
+                .build();
     }
 
     /**

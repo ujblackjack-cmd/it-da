@@ -86,7 +86,16 @@ public class MeetingService {
 
         Meeting savedMeeting = meetingRepository.save(meeting);
 
-        log.info("✅ 모임 생성 완료 - meetingId: {}", savedMeeting.getMeetingId());
+        // ✅ 주최자를 참여자로 자동 등록 (APPROVED 상태)
+        Participation organizerParticipation = Participation.builder()
+                .user(user)
+                .meeting(savedMeeting)
+                .status(ParticipationStatus.APPROVED)
+                .applicationMessage("모임 주최자")
+                .build();
+        participationRepository.save(organizerParticipation);
+
+        log.info("✅ 모임 생성 완료 - meetingId: {}, 주최자 참여 등록 완료", savedMeeting.getMeetingId());
 
         return toMeetingResponse(savedMeeting);
     }

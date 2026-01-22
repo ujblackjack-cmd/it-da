@@ -1,59 +1,54 @@
-package com.project.itda.domain.user.controller;
+package com.project.itda.global.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
+import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/files")
+@RequestMapping("/uploads")
 public class FileController {
 
-    @PostMapping("/upload")
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
+    // ✅ 너의 맥 경로로 설정!
+    private final Path uploadPath = Paths.get("/Users/bominkim/it-da/It-da-spring/uploads").toAbsolutePath().normalize();
+
+    @GetMapping("/meetings/{fileName}")
+    public ResponseEntity<Resource> serveMeetingImage(@PathVariable String fileName) {
         try {
-            // ✅ 프로젝트 루트의 절대 경로 사용
-            String projectRoot = System.getProperty("user.dir");
-            Path uploadPath = Paths.get(projectRoot, "src", "main", "resources", "static", "uploads");
+            Path filePath = uploadPath.resolve("meetings").resolve(fileName).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
 
-            // 디렉토리 생성
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-                log.info("✅ 업로드 디렉토리 생성: {}", uploadPath);
+            log.info("📁 이미지 요청: {}", filePath);
+
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = "image/png";
+                if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+                    contentType = "image/jpeg";
+                } else if (fileName.endsWith(".gif")) {
+                    contentType = "image/gif";
+                }
+
+                log.info("✅ 이미지 서빙 성공: {}", fileName);
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                        .body(resource);
+            } else {
+                log.error("❌ 파일 없음: {}", filePath);
+                return ResponseEntity.notFound().build();
             }
-
-            // 파일명 생성
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String savedFilename = UUID.randomUUID().toString() + extension;
-
-            // 파일 저장 (절대 경로)
-            Path filePath = uploadPath.resolve(savedFilename);
-            Files.copy(file.getInputStream(), filePath);
-
-            // URL 반환
-            String fileUrl = "/uploads/" + savedFilename;
-            log.info("✅ 파일 업로드 성공: {}", fileUrl);
-
-            Map<String, String> response = new HashMap<>();
-            response.put("url", fileUrl);
-            return ResponseEntity.ok(response);
-
-        } catch (IOException e) {
-            log.error("❌ 파일 업로드 실패:", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+        } catch (MalformedURLException e) {
+            log.error("❌ URL 오류: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 }

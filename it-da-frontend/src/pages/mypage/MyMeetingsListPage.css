@@ -370,3 +370,246 @@
         font-size: 1.2rem;
     }
 }
+.my-meetings {
+    margin-bottom: 24px;
+}
+
+.meetings-title {
+    margin: 0 0 18px;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.completed-title {
+    margin-top: 32px;
+}
+
+/* ✅ 주최 모임 타이틀 */
+.organized-title {
+    margin-bottom: 18px;
+}
+
+/* ✅ 진행 예정 모임 타이틀 */
+.upcoming-title {
+    margin-top: 32px;
+}
+
+.meeting-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.meeting-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: all 0.3s;
+}
+
+.meeting-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* ✅ 주최 모임 카드 특별 스타일 */
+.organized-card {
+    border: 2px solid transparent;
+    background: linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, #ffd700, #ffb347) border-box;
+}
+
+.organized-card:hover {
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+}
+
+.meeting-image {
+    width: 100%;
+    height: 150px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    position: relative;
+}
+
+/* ✅ 주최 모임 이미지 배경 */
+.organized-image {
+    background: linear-gradient(135deg, #ffd700 0%, #ff8c00 50%, #ff6347 100%);
+}
+
+/* ✅ 주최자 뱃지 */
+.organizer-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #ffd700;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+}
+
+.meeting-status {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(10px);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-completed {
+    color: #28a745;
+}
+
+.status-upcoming {
+    color: #667eea;
+}
+
+/* ✅ 주최 중 상태 */
+.status-organizing {
+    color: #ff8c00;
+    font-weight: 800;
+}
+
+.meeting-content {
+    padding: 18px;
+}
+
+.meeting-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0 0 8px 0;
+}
+
+.meeting-date {
+    margin: 0;
+    font-size: 13px;
+    color: #666;
+}
+
+/* ✅ 모임 메타 정보 (참여자 수, 카테고리) */
+.meeting-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.participant-count {
+    font-size: 13px;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.meeting-category {
+    font-size: 11px;
+    background: #f0f0f0;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.meeting-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 14px;
+    margin-top: 14px;
+    border-top: 1px solid #e9ecef;
+    gap: 10px;
+}
+
+.meeting-location {
+    font-size: 13px;
+    color: #333;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.meeting-rating {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ffc107;
+    font-weight: 700;
+}
+
+/* ✅ 버튼 액션 그룹 */
+.meeting-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.meeting-btn {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.meeting-btn:hover {
+    background: #e9ecef;
+}
+
+/* ✅ 관리 버튼 특별 스타일 */
+.manage-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.manage-btn:hover {
+    background: linear-gradient(135deg, #5a6fd6, #6a4190);
+    transform: scale(1.02);
+}
+
+.empty-block {
+    background: white;
+    border-radius: 16px;
+    padding: 22px;
+    color: #999;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .meeting-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .meeting-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .meeting-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+}
+
+/* ✅ 큰 화면에서도 그리드 최대 4개 */
+@media (min-width: 1200px) {
+    .meeting-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 1600px) {
+    .meeting-grid {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1400px;
+    }
+}

@@ -9,6 +9,20 @@ export interface MyMeeting {
     statusText: string;
     averageRating?: number;
     hasMyReview?: boolean;
+    imageUrl?: string;  // ✅ 이미지 URL 추가
+}
+
+// ✅ 내가 주최한 모임 타입
+export interface OrganizedMeeting {
+    meetingId: number;
+    meetingTitle: string;
+    dateTime: string;
+    location: string;
+    statusText: string;
+    currentParticipants: number;
+    maxParticipants: number;
+    category?: string;
+    imageUrl?: string;  // ✅ 이미지 URL 추가
 }
 
 export interface MyReview {
@@ -83,6 +97,17 @@ const mypageApi = {
             return response.data || [];
         } catch (error) {
             console.error('getCompletedMeetings error:', error);
+            return [];
+        }
+    },
+
+    // ✅ 내가 주최한 모임 목록
+    async getOrganizedMeetings(userId: number): Promise<OrganizedMeeting[]> {
+        try {
+            const response = await apiClient.get(`/api/users/${userId}/organized-meetings`);
+            return response.data || [];
+        } catch (error) {
+            console.error('getOrganizedMeetings error:', error);
             return [];
         }
     },

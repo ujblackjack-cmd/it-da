@@ -9,13 +9,13 @@ import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import OAuth2CallbackPage from "@/pages/auth/OAuth2CallbackPage";
 import ChatRoomPage from "@/pages/chat/ChatRoomPage";
-import TestChatPage from "@/pages/chat/TestChatPage.tsx";
+import TestChatPage from "@/pages/chat/TestChatPage";
 import UserChatListPage from "@/pages/mypage/components/UserChatListPage";
 import UserChatRoomPage from "@/pages/mypage/components/UserChatRoomPage";
 import MeetingCreatePage from "@/pages/meeting/MeetingCreatePage";
 import MeetingDetailPage from "@/pages/meeting/MeetingDetailPage";
-import { PreferenceGuard } from "@/components/auth/PreferenceGuard.tsx";
-import UserPreferenceSetupPage from "@/pages/auth/UserPreferenceSetupPage.tsx";
+import { PreferenceGuard } from "@/components/auth/PreferenceGuard";
+import UserPreferenceSetupPage from "@/pages/auth/UserPreferenceSetupPage";
 import CategoryListPage from "@/pages/category/CategoryListPage";
 import CategoryDetailPage from "@/pages/category/CategoryDetailPage";
 import MeetingListPage from "@/pages/meeting/MeetingListPage";
@@ -24,11 +24,10 @@ import UserProfileById from "@/pages/mypage/UserProfileById";
 import ChatPreviewPage from "@/pages/meeting/ChatPreviewPage";
 import MeetingManagePage from "@/pages/meeting/MeetingManagePage";
 import MeetingEditPage from "@/pages/meeting/MeetingEditPage";
-// ✅ 내 모임 페이지 import 추가
 import MyMeetingsListPage from "@/pages/mypage/MyMeetingsListPage";
 
 console.log("ROUTER LOADED ✅");
-console.log("ROUTER VERSION ✅", "2026-01-21 내 모임 페이지 분리");
+console.log("ROUTER VERSION ✅", "2026-01-22 주최 모임 기능 추가");
 
 export const router = createBrowserRouter(
     [
@@ -90,7 +89,6 @@ export const router = createBrowserRouter(
                 </PreferenceGuard>
             ),
         },
-        // ✅ 내 모임 → 별도 페이지로 분리!
         {
             path: "/my-meetings",
             element: (
@@ -111,12 +109,10 @@ export const router = createBrowserRouter(
             path: "/profile/edit",
             element: <ProfileEditPage />,
         },
-        // ✅ userId로 프로필 조회 - /profile/id/123
         {
             path: "/profile/id/:userId",
             element: <UserProfileById />,
         },
-        // ✅ 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
         {
             path: "/:emailPrefix",
             element: <UserProfile />,
@@ -169,7 +165,6 @@ export const router = createBrowserRouter(
             path: "/meetings/:meetingId/edit",
             element: <MeetingEditPage />,
         },
-        // ✅ 1:1 DM 채팅
         {
             path: "/user-chat",
             element: (
@@ -192,5 +187,5 @@ export const router = createBrowserRouter(
             v7_startTransition: true,
             v7_relativeSplatPath: true,
         },
-    } as any
+    } as Parameters<typeof createBrowserRouter>[1]
 );
