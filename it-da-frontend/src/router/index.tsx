@@ -24,166 +24,173 @@ import UserProfileById from "@/pages/mypage/UserProfileById";
 import ChatPreviewPage from "@/pages/meeting/ChatPreviewPage";
 import MeetingManagePage from "@/pages/meeting/MeetingManagePage";
 import MeetingEditPage from "@/pages/meeting/MeetingEditPage";
+// ✅ 내 모임 페이지 import 추가
+import MyMeetingsListPage from "@/pages/mypage/MyMeetingsListPage";
 
 console.log("ROUTER LOADED ✅");
-console.log("ROUTER VERSION ✅", "2026-01-16 15:30 profile routes fixed");
+console.log("ROUTER VERSION ✅", "2026-01-21 내 모임 페이지 분리");
 
 export const router = createBrowserRouter(
-  [
+    [
+        {
+            path: "/",
+            element: (
+                <PreferenceGuard>
+                    <HomePage />
+                </PreferenceGuard>
+            ),
+        },
+        {
+            path: "/user-preference/setup",
+            element: (
+                <ProtectedRoute>
+                    <UserPreferenceSetupPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/login",
+            element: (
+                <PublicRoute>
+                    <LoginPage />
+                </PublicRoute>
+            ),
+        },
+        {
+            path: "/category",
+            element: <CategoryListPage />,
+        },
+        {
+            path: "/category/:category",
+            element: <CategoryDetailPage />,
+        },
+        {
+            path: "/meetings",
+            element: <MeetingListPage />,
+        },
+        {
+            path: "/meeting/:id",
+            element: <MeetingDetailPage />,
+        },
+        {
+            path: "/signup",
+            element: (
+                <PublicRoute>
+                    <SignupPage />
+                </PublicRoute>
+            ),
+        },
+        {
+            path: "/ai-matching",
+            element: (
+                <PreferenceGuard>
+                    <ProtectedRoute>
+                        <AIMatchingPage />
+                    </ProtectedRoute>
+                </PreferenceGuard>
+            ),
+        },
+        // ✅ 내 모임 → 별도 페이지로 분리!
+        {
+            path: "/my-meetings",
+            element: (
+                <ProtectedRoute>
+                    <MyMeetingsListPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/mypage",
+            element: <MyPage />,
+        },
+        {
+            path: "/profile",
+            element: <MyPage />,
+        },
+        {
+            path: "/profile/edit",
+            element: <ProfileEditPage />,
+        },
+        // ✅ userId로 프로필 조회 - /profile/id/123
+        {
+            path: "/profile/id/:userId",
+            element: <UserProfileById />,
+        },
+        // ✅ 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
+        {
+            path: "/:emailPrefix",
+            element: <UserProfile />,
+        },
+        {
+            path: "/auth/callback",
+            element: <OAuth2CallbackPage />,
+        },
+        {
+            path: "/auth/callBack",
+            element: <OAuth2CallbackPage />,
+        },
+        {
+            path: "/chat/:roomId",
+            element: (
+                <ProtectedRoute>
+                    <ChatRoomPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/test-chat",
+            element: (
+                <ProtectedRoute>
+                    <TestChatPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/meetings/create",
+            element: (
+                <ProtectedRoute>
+                    <MeetingCreatePage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/meetings/:meetingId",
+            element: <MeetingDetailPage />,
+        },
+        {
+            path: "/meetings/:meetingId/chat-preview",
+            element: <ChatPreviewPage />,
+        },
+        {
+            path: "/meetings/:meetingId/manage",
+            element: <MeetingManagePage />,
+        },
+        {
+            path: "/meetings/:meetingId/edit",
+            element: <MeetingEditPage />,
+        },
+        // ✅ 1:1 DM 채팅
+        {
+            path: "/user-chat",
+            element: (
+                <ProtectedRoute>
+                    <UserChatListPage />
+                </ProtectedRoute>
+            ),
+        },
+        {
+            path: "/user-chat/:roomId",
+            element: (
+                <ProtectedRoute>
+                    <UserChatRoomPage />
+                </ProtectedRoute>
+            ),
+        },
+    ],
     {
-      path: "/",
-      element: (
-        <PreferenceGuard>
-          <HomePage />
-        </PreferenceGuard>
-      ),
-    },
-    {
-      path: "/user-preference/setup",
-      element: (
-        <ProtectedRoute>
-          <UserPreferenceSetupPage />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/login",
-      element: (
-        <PublicRoute>
-          <LoginPage />
-        </PublicRoute>
-      ),
-    },
-    {
-      path: "/category",
-      element: <CategoryListPage />,
-    },
-    {
-      path: "/category/:category",
-      element: <CategoryDetailPage />,
-    },
-    {
-      path: "/meetings",
-      element: <MeetingListPage />,
-    },
-    {
-      path: "/meeting/:id",
-      element: <MeetingDetailPage />,
-    },
-    {
-      path: "/signup",
-      element: (
-        <PublicRoute>
-          <SignupPage />
-        </PublicRoute>
-      ),
-    },
-    {
-      path: "/ai-matching",
-      element: (
-        <PreferenceGuard>
-          <ProtectedRoute>
-            <AIMatchingPage />
-          </ProtectedRoute>
-        </PreferenceGuard>
-      ),
-    },
-    {
-      path: "/my-meetings",
-      element: <MyPage />,
-    },
-    {
-      path: "/mypage",
-      element: <MyPage />,
-    },
-    {
-      path: "/profile",
-      element: <MyPage />,
-    },
-    {
-      path: "/profile/edit",
-      element: <ProfileEditPage />,
-    },
-    // ✅ userId로 프로필 조회 - /profile/id/123
-    {
-      path: "/profile/id/:userId",
-      element: <UserProfileById />,
-    },
-    // ✅ 이메일 앞부분으로 프로필 조회 - /profile/utmmppol
-    {
-      path: "/:emailPrefix",
-      element: <UserProfile />,
-    },
-    {
-      path: "/auth/callback",
-      element: <OAuth2CallbackPage />,
-    },
-    {
-      path: "/auth/callBack",
-      element: <OAuth2CallbackPage />,
-    },
-    {
-      path: "/chat/:roomId",
-      element: (
-        <ProtectedRoute>
-          <ChatRoomPage />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/test-chat",
-      element: (
-        <ProtectedRoute>
-          <TestChatPage />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/meetings/create",
-      element: (
-        <ProtectedRoute>
-          <MeetingCreatePage />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/meetings/:meetingId",
-      element: <MeetingDetailPage />,
-    },
-    {
-      path: "/meetings/:meetingId/chat-preview",
-      element: <ChatPreviewPage />,
-    },
-    {
-      path: "/meetings/:meetingId/manage",
-      element: <MeetingManagePage />,
-    },
-    {
-      path: "/meetings/:meetingId/edit",
-      element: <MeetingEditPage />,
-    },
-    // ✅ 1:1 DM 채팅 (새로 추가)
-    {
-      path: "/user-chat",
-      element: (
-        <ProtectedRoute>
-          <UserChatListPage />
-        </ProtectedRoute>
-      ),
-    },
-    {
-      path: "/user-chat/:roomId",
-      element: (
-        <ProtectedRoute>
-          <UserChatRoomPage />
-        </ProtectedRoute>
-      ),
-    },
-  ],
-  {
-    future: {
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    },
-  } as any
+        future: {
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+        },
+    } as any
 );

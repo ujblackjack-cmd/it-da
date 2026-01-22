@@ -1,0 +1,372 @@
+.my-meetings-list-page {
+    min-height: 100vh;
+    background: #f8f9fa;
+}
+
+.mml-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* ✅ 페이지 헤더 */
+.mml-page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.mml-page-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #212529;
+    margin: 0 0 0.5rem 0;
+}
+
+.mml-page-header p {
+    color: #6c757d;
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* ✅ 로딩 */
+.mml-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem;
+}
+
+.mml-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.mml-loading p {
+    color: #6c757d;
+    font-size: 1rem;
+}
+
+/* ✅ 로그인 필요 */
+.mml-login-required {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+.mml-login-required .mml-emoji {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.mml-login-required h2 {
+    margin: 0 0 0.5rem 0;
+    color: #212529;
+}
+
+.mml-login-required p {
+    color: #6c757d;
+    margin: 0 0 1.5rem 0;
+}
+
+.mml-login-btn {
+    padding: 0.8rem 2rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mml-login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* ✅ 섹션 */
+.mml-section {
+    margin-bottom: 3rem;
+}
+
+.mml-section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.mml-section-header h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0;
+}
+
+.mml-count {
+    padding: 0.3rem 0.8rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.mml-count.completed {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+/* ✅ 빈 상태 */
+.mml-empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.mml-empty-section .mml-emoji {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.mml-empty-section p {
+    color: #6c757d;
+    margin: 0 0 1rem 0;
+}
+
+.mml-find-btn {
+    padding: 0.6rem 1.5rem;
+    background: transparent;
+    color: #667eea;
+    border: 2px solid #667eea;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mml-find-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* ✅ 카드 그리드 */
+.mml-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+/* ✅ 카드 */
+.mml-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mml-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+}
+
+.mml-card.completed {
+    border: 2px solid #e9ecef;
+}
+
+.mml-card.completed:hover {
+    border-color: #28a745;
+}
+
+/* ✅ 카드 이미지 */
+.mml-card-image {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+}
+
+.mml-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.mml-card:hover .mml-card-image img {
+    transform: scale(1.05);
+}
+
+.mml-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mml-placeholder.completed {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.mml-placeholder span {
+    font-size: 3rem;
+}
+
+/* ✅ D-Day 뱃지 */
+.mml-dday {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 0.4rem 0.8rem;
+    background: rgba(102, 126, 234, 0.95);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+}
+
+/* ✅ 완료 뱃지 */
+.mml-badge.completed {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 0.4rem 0.8rem;
+    background: rgba(40, 167, 69, 0.95);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+/* ✅ 카드 컨텐츠 */
+.mml-card-content {
+    padding: 1.2rem;
+}
+
+.mml-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 0.8rem 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.mml-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin: 0 0 0.5rem 0;
+}
+
+.mml-icon {
+    font-size: 1rem;
+}
+
+/* ✅ 평점 */
+.mml-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.8rem 0;
+}
+
+.mml-stars {
+    color: #ffc107;
+    font-size: 1rem;
+    letter-spacing: 1px;
+}
+
+.mml-score {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #495057;
+}
+
+/* ✅ 카드 액션 버튼 */
+.mml-card-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f3f5;
+}
+
+.mml-btn {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mml-btn.chat {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.mml-btn.chat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.mml-btn.review {
+    background: transparent;
+    color: #28a745;
+    border: 2px solid #28a745;
+}
+
+.mml-btn.review:hover {
+    background: #28a745;
+    color: white;
+}
+
+/* ✅ 반응형 */
+@media (max-width: 768px) {
+    .mml-container {
+        padding: 1rem;
+    }
+
+    .mml-page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .mml-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mml-section-header h2 {
+        font-size: 1.2rem;
+    }
+}
