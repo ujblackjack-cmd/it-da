@@ -67,24 +67,18 @@ public class AISearchService {
             }
         }
 
-        // category
+        // category (✅ 소프트로 변경)
         if (hasText(request.getCategory())) {
             String cat = request.getCategory().trim();
 
-            List<Meeting> filtered = meetings.stream()
-                    .filter(m -> m.getCategory() != null && m.getCategory().trim().equalsIgnoreCase(cat))
-                    .toList();
-
-            if (filtered.isEmpty()) {
-                log.info("⚠️ [category={}] 결과 0개 → (AI용) 빈 결과 반환", cat);
-                return AISearchResponse.builder()
-                        .meetings(List.of())
-                        .totalCount(0)
-                        .build();
-            }
-
-            meetings = filtered;
+            meetings = applySoftFilter(
+                    meetings,
+                    m -> m.getCategory() != null && m.getCategory().trim().equalsIgnoreCase(cat),
+                    "category=" + cat,
+                    MIN_CATEGORY_CANDIDATES   // ✅ category는 최소 기준을 더 낮게
+            );
         }
+
 
         // 3) subcategory (✅ 세미-하드: 결과가 있으면 적용)
         if (hasText(request.getSubcategory())) {
@@ -320,6 +314,11 @@ public class AISearchService {
                 .avgRating(meeting.getAvgRating())
                 .ratingCount(meeting.getRatingCount())
                 .distanceKm(meeting.getDistanceKm())
+                // ✅ NEW: Sentiment 데이터 추가
+                .avgSentimentScore(meeting.getAvgSentimentScore())
+                .positiveReviewRatio(meeting.getPositiveReviewRatio())
+                .negativeReviewRatio(meeting.getNegativeReviewRatio())
+                .reviewSentimentVariance(meeting.getReviewSentimentVariance())
                 .organizer(convertOrganizerInfo(meeting))
                 .build();
     }

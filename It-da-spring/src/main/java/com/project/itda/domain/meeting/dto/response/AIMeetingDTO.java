@@ -72,6 +72,19 @@ public class AIMeetingDTO {
     @JsonProperty("distance_km")
     private Double distanceKm;
 
+    // ✅ NEW: Sentiment 데이터 추가
+    @JsonProperty("avg_sentiment_score")
+    private Double avgSentimentScore;
+
+    @JsonProperty("positive_review_ratio")
+    private Double positiveReviewRatio;
+
+    @JsonProperty("negative_review_ratio")
+    private Double negativeReviewRatio;
+
+    @JsonProperty("review_sentiment_variance")
+    private Double reviewSentimentVariance;
+
     private OrganizerInfo organizer;
 
     @Getter

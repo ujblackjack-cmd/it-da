@@ -10,6 +10,8 @@ from collections import Counter
 from typing import List, Dict, Optional
 import json
 import re
+import anyio
+from typing import Set
 
 import numpy as np
 
@@ -99,6 +101,38 @@ class AIRecommendationService:
         }
         return mapping.get(lower, raw.upper())
 
+    def _normalize_vibe(self, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        raw = str(v).strip().lower()
+
+        mapping = {
+            "신나는": "즐거운",
+            "재밌는": "즐거운",
+            "즐거운": "즐거운",
+            "활기찬": "활기찬",
+            "에너지": "활기찬",
+            "에너지넘치는": "활기찬",
+
+            "편안한": "여유로운",
+            "여유로운": "여유로운",
+            "힐링": "힐링",
+            "차분한": "여유로운",
+            "조용한": "여유로운",
+            "감성": "감성적인",
+            "감성적인": "감성적인",
+
+            "배움": "배움",
+            "진지한": "진지한",
+            "건강한": "건강한",
+        }
+
+        # 부분 포함도 커버
+        for k, vv in mapping.items():
+            if k in raw:
+                return vv
+        return v
+
     def _normalize_location_type(self, lt: Optional[str]) -> Optional[str]:
         """Spring Enum: INDOOR/OUTDOOR"""
         if not lt:
@@ -150,6 +184,10 @@ class AIRecommendationService:
         brain_words = ["머리", "머리쓰", "두뇌", "추리", "전략", "퍼즐", "퀴즈", "방탈출", "보드게임", "체스"]
         if any(w in t for w in brain_words):
             return "BRAIN"
+
+        vibe = parsed_query.get("vibe", "")
+        if vibe in ["격렬한", "활기찬", "에너지", "즐거운"]:
+            return "ACTIVE"  # 또는 "FUN" 새로 만들어도 됨
 
         # ✅ 2순위: vibe 키워드
         quiet_words = ["조용", "쉬", "힐링", "편하게", "여유", "차분", "편안"]
@@ -220,7 +258,8 @@ class AIRecommendationService:
         gpt_ts = enriched_query.get("time_slot")
 
         # conf 0.6 이상이고 time_slot이 있으면 무조건 필터링
-        time_slot = self._normalize_timeslot(gpt_ts) if (gpt_ts and conf >= 0.6) else None  # 0.85 → 0.6
+        explicit_ts = self._has_explicit_timeslot(user_prompt)
+        time_slot = self._normalize_timeslot(gpt_ts) if (gpt_ts and (conf >= 0.6 or explicit_ts)) else None
 
         # ✅ locationType: GPT가 파싱한 것만 사용 (유저 선호 섞지 않기!)
         gpt_location_type = enriched_query.get("location_type")
@@ -319,6 +358,9 @@ class AIRecommendationService:
         """
 
         conf = float(base_query.get("confidence", 0) or 0)
+        explicit_quiet = self._has_explicit_quiet(user_prompt)
+        explicit_loc = self._has_explicit_location(user_prompt, base_query)
+        logger.info(f"[RELAX_FLAGS] explicit_loc={explicit_loc} explicit_quiet={explicit_quiet}")
 
         # ✅ 시작 로그
         logger.info(f"🔥 [RELAX_START] conf={conf:.2f}, base_query={base_query}")
@@ -343,7 +385,7 @@ class AIRecommendationService:
             meetings = await self._search_meetings(q, user_context, user_prompt)
             meetings = meetings or []
 
-            # ✅ locationType 2차 필터 (Spring 통과한 것 재확인)
+            # ✅ locationType 2차 필터 (Spring 통과한 것 재확인)  --- 개선버전
             requested_type = q.get("location_type")
             if requested_type:
                 requested_normalized = self._normalize_location_type(requested_type)
@@ -351,14 +393,12 @@ class AIRecommendationService:
 
                 meetings = [
                     m for m in meetings
-                    if self._normalize_location_type(
-                        m.get("location_type") or m.get("locationType") or m.get("meeting_location_type")
-                    ) == requested_normalized
+                    if self._normalize_location_type(self._pick_location_type_from_raw(m)) == requested_normalized
                 ]
 
                 if len(meetings) < before_count:
                     logger.info(
-                        f"🔍 [RELAX_{level}] locationType 2차 필터: {requested_normalized} | "
+                        f"🔍 [RELAX_{level}] locationType 2차 필터(raw): {requested_normalized} | "
                         f"{before_count} -> {len(meetings)}"
                     )
 
@@ -378,13 +418,19 @@ class AIRecommendationService:
         # -----------------------
         # 1) conf 기반 시작 쿼리 정규화
         # -----------------------
+        # conf 기반 시작 쿼리 정규화
         q0 = dict(base_query)
 
-        # conf 낮으면 "세부"만 미리 뺌
         if conf < 0.70:
             q0 = drop_keys(q0, "subcategory")
+
+        # time_slot은 conf 낮으면 제거 (vibe랑 분리!)
         if conf < 0.85:
-            q0 = drop_keys(q0, "vibe", "time_slot", "timeSlot")
+            q0 = drop_keys(q0, "time_slot", "timeSlot")
+
+        # vibe는 explicit_quiet 아닐 때만 제거
+        if conf < 0.85 and not explicit_quiet:
+            q0 = drop_keys(q0, "vibe")
 
         # ✅ L0
         cands = await _try("L0(conf 반영)", q0, 0)
@@ -424,29 +470,55 @@ class AIRecommendationService:
         # 2) relax plan
         # -----------------------
         if conf >= 0.90:
-            plans = [
-                ("L1 locationQuery 제거", ("location_query", "locationQuery")),
-                ("L2 vibe 제거", ("vibe",)),
-                ("L3 timeSlot 제거", ("time_slot", "timeSlot")),
-                ("L4 subcategory 제거", ("subcategory",)),
-                ("L5 keywords 제거", ("keywords",)),
-                ("L6 category 제거", ("category",)),
-            ]
+            if explicit_loc:
+                # ✅ 장소가 명시된 경우: locationQuery는 최대한 유지하고 다른 것부터 뺀다
+                plans = [
+                    ("L1 vibe 제거", ("vibe",)),
+                    ("L2 timeSlot 제거", ("time_slot", "timeSlot")),
+                    ("L3 subcategory 제거", ("subcategory",)),
+                    ("L4 keywords 제거", ("keywords",)),
+                    ("L5 locationQuery 제거", ("location_query", "locationQuery")),  # ✅ 뒤로
+                    ("L6 category 제거", ("category",)),
+                ]
+            else:
+                plans = [
+                    ("L1 locationQuery 제거", ("location_query", "locationQuery")),
+                    ("L2 vibe 제거", ("vibe",)),
+                    ("L3 timeSlot 제거", ("time_slot", "timeSlot")),
+                    ("L4 subcategory 제거", ("subcategory",)),
+                    ("L5 keywords 제거", ("keywords",)),
+                    ("L6 category 제거", ("category",)),
+                ]
         elif conf >= 0.75:
-            plans = [
-                ("L1 locationQuery 제거", ("location_query", "locationQuery")),
-                ("L2 subcategory 제거", ("subcategory",)),
-                ("L3 keywords 제거", ("keywords", "keyword")),
-                ("L4 category 제거", ("category",)),
-            ]
+            if explicit_loc:
+                plans = [
+                    ("L1 subcategory 제거", ("subcategory",)),
+                    ("L2 keywords 제거", ("keywords", "keyword")),
+                    ("L3 locationQuery 제거", ("location_query", "locationQuery")),  # ✅ 뒤로
+                    ("L4 category 제거", ("category",)),
+                ]
+            else:
+                plans = [
+                    ("L1 locationQuery 제거", ("location_query", "locationQuery")),
+                    ("L2 subcategory 제거", ("subcategory",)),
+                    ("L3 keywords 제거", ("keywords", "keyword")),
+                    ("L4 category 제거", ("category",)),
+                ]
         else:
-            plans = [
-                ("L1 locationQuery 제거", ("location_query", "locationQuery")),
-                ("L2 keywords 제거", ("keywords", "keyword")),
-                ("L3 subcategory 제거", ("subcategory",)),
-                ("L4 category 제거", ("category",)),
-            ]
-
+            if explicit_loc:
+                plans = [
+                    ("L1 keywords 제거", ("keywords", "keyword")),
+                    ("L2 subcategory 제거", ("subcategory",)),
+                    ("L3 locationQuery 제거", ("location_query", "locationQuery")),  # ✅ 뒤로
+                    ("L4 category 제거", ("category",)),
+                ]
+            else:
+                plans = [
+                    ("L1 locationQuery 제거", ("location_query", "locationQuery")),
+                    ("L2 keywords 제거", ("keywords", "keyword")),
+                    ("L3 subcategory 제거", ("subcategory",)),
+                    ("L4 category 제거", ("category",)),
+                ]
         # -----------------------
         # 3) relax 순차 수행
         # -----------------------
@@ -533,6 +605,14 @@ class AIRecommendationService:
         if not p:
             return []
 
+        # ✅ query_terms에 넣으면 오히려 랭킹을 망치는 '메타 단어' (hit=0 → -12 패널티 방지)
+        QUERY_TERM_STOP: Set[str] = {
+            "실내", "실외", "야외", "밖", "인도어", "아웃도어",
+            "즐겁게", "즐거운", "재밌게", "재밌는", "신나게", "신나는",
+            "편하게", "편안하게", "여유롭게", "조용히", "힐링", "차분하게",
+            "가볍게", "적당히", "그냥", "아무거나", "추천",
+         }
+
         terms = []
 
         # ✅ (추가) 붙어써도 잡히는 트리거
@@ -546,7 +626,7 @@ class AIRecommendationService:
             if k in p:
                 for t in syns:
                     t2 = str(t).strip().lower()
-                    if t2 and t2 not in terms:
+                    if t2 and t2 not in QUERY_TERM_STOP and t2 not in terms:
                         terms.append(t2)
 
         # ✅ 2) 그래도 비었으면 기존 토크나이징 fallback
@@ -555,9 +635,13 @@ class AIRecommendationService:
             toks = [self._normalize_term(t) for t in toks]
             toks = [t for t in toks if t and t not in self.PROMPT_STOP and len(t) >= 2]
             for t in toks:
+                if t in QUERY_TERM_STOP:
+                    continue
                 if t not in terms:
                     terms.append(t)
 
+        # 마지막 한 번 더 안전하게 필터
+        terms = [t for t in terms if t and t not in QUERY_TERM_STOP]
         return terms[:5]
 
     # -------------------------
@@ -582,6 +666,9 @@ class AIRecommendationService:
             # Taxonomy 교정
             parsed_query = self._normalize_query_taxonomy(parsed_query)
             parsed_query = self._post_fix(user_prompt, parsed_query)
+            parsed_query = self._guard_category_by_evidence(user_prompt, parsed_query)
+            parsed_query = self._apply_vibe_prior(parsed_query)
+            parsed_query["vibe"] = self._normalize_vibe(parsed_query.get("vibe"))
 
             # Step 2: 사용자 컨텍스트
             logger.info(f"[Step 2] 사용자 컨텍스트 조회: user_id={user_id}")
@@ -1132,19 +1219,31 @@ class AIRecommendationService:
     **이제 작성하세요 (추천 이유만, 다른 말 없이):**
     """
 
-            # ✅ await 제거 - 동기 호출
-            response = self.gpt_service.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "당신은 공감 능력이 뛰어난 AI 추천 어시스턴트입니다."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=200
-            )
+            # # ✅ await 제거 - 동기 호출
+            # response = self.gpt_service.client.chat.completions.create(
+            #     model="gpt-4o-mini",
+            #     messages=[
+            #
+            #     ],
+            #     temperature=0.7,
+            #     max_tokens=200
+            # )
+            #
+            # reasoning = response.choices[0].message.content.strip()
+            # logger.info(f"✅ GPT reasoning 생성: {reasoning[:50]}...")
+            # return reasoning
 
+            def _call():
+                return self.gpt_service.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "system", "content": "당신은 공감 능력이 뛰어난 AI 추천 어시스턴트입니다."},
+                    {"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=200
+                )
+
+            response = await anyio.to_thread.run_sync(_call)
             reasoning = response.choices[0].message.content.strip()
-            logger.info(f"✅ GPT reasoning 생성: {reasoning[:50]}...")
             return reasoning
 
         except Exception as e:
@@ -1206,7 +1305,6 @@ class AIRecommendationService:
 
         # ✅ fallback에서도 유저좌표 기반 거리 계산 주입
         meetings = self._inject_distance_km(meetings, user_context)
-        candidate_meetings = self._inject_distance_km(meetings, user_context)
 
         scored = []
         for meeting in meetings:
@@ -1329,8 +1427,11 @@ class AIRecommendationService:
         if conf < 0.7:
             qq.pop("subcategory", None)
 
+        # vibe-only 검색(카테고리/키워드 없음)에서는 vibe를 유지해야 함
         if conf < 0.65:
-            qq.pop("vibe", None)
+            if qq.get("category") or (qq.get("keywords") and len(qq.get("keywords")) > 0):
+                qq.pop("vibe", None)
+            # else: vibe만 있는 케이스는 유지
 
         # time_slot은 0.9 이상일 때만 (기존 유지)
         # if conf < 0.9:
@@ -1478,362 +1579,642 @@ class AIRecommendationService:
         food_words = ["먹", "식사", "밥", "맛집", "음식", "카페", "브런치", "디저트"]
         return any(w in t for w in food_words)
 
+    # def _post_fix(self, user_prompt: str, parsed: dict) -> dict:
+    #     """GPT 파싱 후 보정"""
+    #     text = user_prompt.lower().strip()
+    #
+    #     # ✅ 성별 키워드 감지
+    #     male_keywords = ["남자", "남성", "남자가", "남성이"]
+    #     female_keywords = ["여자", "여성", "여자가", "여성이"]
+    #
+    #     has_male = any(k in text for k in male_keywords)
+    #     has_female = any(k in text for k in female_keywords)
+    #
+    #     # ✅ 남자 → 스포츠/소셜(당구/볼링) 우선
+    #     if has_male and not has_female:
+    #         if parsed.get("category") == "소셜":
+    #             # 소셜 유지하되, subcategory 힌트
+    #             parsed["keywords"] = ["당구", "볼링", "탁구", "축구"]
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.7)
+    #         elif not parsed.get("category"):
+    #             parsed["category"] = "스포츠"
+    #             parsed["confidence"] = 0.6
+    #
+    #         logger.info(f"[POST_FIX] 남자 키워드 감지 → category={parsed.get('category')}, keywords={parsed.get('keywords')}")
+    #
+    #     # ✅ 여자 → 카페/문화예술/취미활동 우선
+    #     elif has_female and not has_male:
+    #         if parsed.get("category") == "소셜":
+    #             parsed["category"] = "카페"  # 소셜 → 카페로 변경
+    #             parsed["vibe"] = "여유로운"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
+    #         elif not parsed.get("category"):
+    #             parsed["category"] = "카페"
+    #             parsed["confidence"] = 0.6
+    #
+    #         logger.info(f"[POST_FIX] 여자 키워드 감지 → category={parsed.get('category')}")
+    #
+    #         return parsed
+    #
+    #     # ✅ [NEW] 사진/촬영 의도 강제
+    #     photo_words = ["사진", "촬영", "포토", "카메라", "필카", "스냅", "인생샷"]
+    #     if any(w in text for w in photo_words):
+    #         parsed["category"] = "문화예술"
+    #         parsed["subcategory"] = "사진촬영"  # ← 이게 DB에 있으면 설정
+    #         parsed["vibe"] = parsed.get("vibe") or "즐거운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
+    #
+    #         logger.info("[POST_FIX] 사진/촬영 감지 → category=문화예술, subcategory=사진촬영")
+    #         return parsed
+    #
+    #     brain_words = ["머리", "머리쓰", "두뇌", "추리", "전략", "퍼즐", "퀴즈", "방탈출", "보드게임"]
+    #
+    #     if any(w in text for w in brain_words):
+    #         parsed["category"] = parsed.get("category") or "소셜"
+    #         parsed.setdefault("location_type", "INDOOR")
+    #         # subcategory는 확정하지 말고, 키워드로 유도
+    #         kws = parsed.get("keywords") or []
+    #         kws += ["보드게임", "방탈출", "퍼즐", "추리"]
+    #         parsed["keywords"] = list(dict.fromkeys(kws))  # 중복 제거
+    #         parsed["vibe"] = parsed.get("vibe") or "즐거운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
+    #         logger.info("[POST_FIX] 머리/두뇌 의도 감지 → keywords 확장(보드게임/방탈출/퍼즐/추리)")
+    #         return parsed
+    #
+    #     # 공놀이: 구체 종목이 아니라서 subcategory 강제 금지
+    #     if "공놀이" in text:
+    #         parsed["category"] = "스포츠"
+    #         parsed.pop("subcategory", None)
+    #         # 핵심: 공놀이 -> 종목 키워드로 치환
+    #         parsed["keywords"] = ["축구", "풋살", "농구", "배드민턴", "테니스"]
+    #         parsed["confidence"] = min(float(parsed.get("confidence", 0) or 0), 0.65)
+    #         logger.info("[POST_FIX] 공놀이 감지 → keywords를 구체 종목으로 확장(러닝 눌러주기)")
+    #         return parsed
+    #
+    #     # ✅ [NEW] 댄스/춤 의도 강제
+    #     dance_words = ["춤", "댄스", "dance", "kpop", "k-pop", "케이팝", "스트릿", "힙합댄스", "방송댄스"]
+    #     if any(w in text for w in dance_words):
+    #         parsed["category"] = "취미활동"
+    #         parsed["subcategory"] = "댄스"
+    #         parsed["vibe"] = parsed.get("vibe") or "즐거운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
+    #
+    #         # 보통 댄스는 실내가 많으니 기본값만 살짝
+    #         parsed.setdefault("location_type", "INDOOR")
+    #
+    #         logger.info("[POST_FIX] 춤/댄스 감지 → category=취미활동, subcategory=댄스")
+    #         return parsed
+    #
+    #     hands_on_words = ["손으로", "만들", "만들기", "공방", "체험", "diy", "수공예", "핸드메이드"]
+    #     if any(w in text for w in hands_on_words):
+    #         parsed["category"] = "취미활동"
+    #         parsed["vibe"] = parsed.get("vibe") or "여유로운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.7)
+    #
+    #         # subcategory를 확정할 단서가 있으면 지정
+    #         if any(w in text for w in ["붓글씨", "캘리"]):
+    #             parsed["subcategory"] = "캘리그라피"
+    #
+    #         logger.info("[POST_FIX] 손으로/공방/DIY 감지 → category=취미활동")
+    #         return parsed
+    #
+    #     # ✅ 0) "먹는거말고" 같은 제외 의도 먼저 처리 (맛집 강제 차단)
+    #     if self._excludes_food(text):
+    #         # 먹는 건 제외니까, 음식/카페 계열로 가지 않게 막기
+    #         if parsed.get("category") in ["맛집", "카페"]:
+    #             parsed.pop("category", None)
+    #             parsed.pop("subcategory", None)
+    #
+    #         # 실내를 원하면: 문화예술/취미활동/소셜 쪽으로 유도
+    #         # (구체 활동 없으면 문화예술 default가 무난)
+    #         parsed.setdefault("location_type", "INDOOR")
+    #         if not parsed.get("category"):
+    #             parsed["category"] = "문화예술"
+    #             parsed["vibe"] = parsed.get("vibe") or "여유로운"
+    #
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.65)
+    #
+    #         # keywords에서 음식 관련 제거 (있다면)
+    #         kws = parsed.get("keywords") or []
+    #         bad = {"먹", "먹기", "식사", "밥", "맛집", "카페", "브런치", "디저트", "음식"}
+    #         parsed["keywords"] = [k for k in kws if str(k).strip() not in bad]
+    #
+    #         logger.info("[POST_FIX] '먹는거말고' 제외 의도 감지 → 음식계열 차단, category=%s", parsed.get("category"))
+    #         return parsed
+    #
+    #     # ✅ [최우선] "문화생활"은 무조건 문화예술로 본다 (러닝/운동 방지)
+    #     culture_words = ["문화생활", "전시", "공연", "뮤지컬", "연극", "갤러리", "박물관", "사진전", "페스티벌"]
+    #     sports_words = ["러닝", "운동", "뛰", "달리", "축구", "배드민턴", "클라이밍", "등산"]
+    #
+    #     if any(w in text for w in culture_words) and not any(w in text for w in sports_words):
+    #         parsed["category"] = "문화예술"
+    #         parsed.pop("subcategory", None)  # 필요하면 "전시회" 같은걸로 넣어도 됨
+    #         parsed["vibe"] = parsed.get("vibe") or "여유로운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.7)
+    #         # location_type은 실외/실내 키워드가 있으면 아래 로직이 잡아줌
+    #         logger.info("[POST_FIX] 문화생활 감지 → category=문화예술 강제")
+    #         return parsed
+    #
+    #     # ✅ 1. "놀다" 키워드 우선 체크 (식사보다 우선!)
+    #     play_keywords = ["놀", "재밌게", "즐겁게", "신나게", "fun"]
+    #     has_play = any(k in text for k in play_keywords)
+    #
+    #     # ✅ 2. 식사 키워드는 "먹다" 관련만
+    #     meal_keywords = ["먹", "식사", "밥", "점심먹", "저녁먹", "아침먹"]  # "점심", "저녁", "아침" 제거!
+    #     has_meal = any(k in text for k in meal_keywords)
+    #
+    #     # ✅ 3. "놀다"가 있으면 소셜 우선
+    #     if has_play and not parsed.get("category"):
+    #         parsed["category"] = "소셜"
+    #         parsed["vibe"] = "즐거운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
+    #         logger.info(f"[POST_FIX] 놀이 키워드 감지 → category=소셜")
+    #         return parsed  # ✅ 여기서 바로 리턴 (식사 체크 스킵)
+    #
+    #     # 식사 키워드 체크 (놀이 키워드 없을 때만)
+    #     if has_meal and not parsed.get("category"):
+    #         parsed["category"] = "맛집"
+    #         parsed["vibe"] = "캐주얼"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
+    #         logger.info(f"[POST_FIX] 식사 키워드 → category=맛집")
+    #
+    #     # ✅ 시간 키워드만 있을 때 category 추론
+    #     time_only_keywords = ["주말", "토요일", "일요일", "평일", "주중"]
+    #     has_time_keyword = any(k in text for k in time_only_keywords)
+    #
+    #     meal_keywords = ["점심", "저녁", "아침", "식사", "먹"]
+    #     has_meal = any(k in text for k in meal_keywords)
+    #
+    #     # ✅ 새로 추가: "나가다" 표현 감지
+    #     go_out_keywords = ["나가", "외출", "나갈"]
+    #     has_go_out = any(k in text for k in go_out_keywords)
+    #
+    #     if has_go_out and not parsed.get("location_type"):
+    #         parsed["location_type"] = "OUTDOOR"
+    #
+    #         # category 보정 (소셜 → 스포츠 or 문화예술)
+    #         if parsed.get("category") == "소셜":
+    #             # vibe로 구분
+    #             vibe = parsed.get("vibe", "")
+    #             if vibe in ["조용한", "여유로운", "힐링"]:
+    #                 parsed["category"] = "문화예술"
+    #                 parsed["subcategory"] = "산책"
+    #             else:
+    #                 parsed["category"] = "스포츠"
+    #                 parsed["subcategory"] = "러닝"
+    #
+    #         # keywords 정리
+    #         kws = parsed.get("keywords") or []
+    #         # "나가고싶다", "소셜" 같은 불필요한 키워드 제거
+    #         bad = {"나가고싶다", "외출", parsed.get("category")}
+    #         bad |= set(go_out_keywords)  # 리스트 합치기
+    #         parsed["keywords"] = [k for k in kws if k not in bad]
+    #
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
+    #         logger.info(f"[POST_FIX] '나가다' 표현 감지 → location_type=OUTDOOR, category={parsed.get('category')}")
+    #
+    #     # ✅ "실외 + 조용함" 조합 감지
+    #     quiet_keywords = ["조용", "잔잔", "여유", "평화", "차분"]
+    #     has_quiet = any(k in text for k in quiet_keywords)
+    #
+    #     intense_keywords = ["격정", "격렬", "열정", "강렬", "하드코어", "익스트림"]
+    #     has_intense = any(k in text for k in intense_keywords)
+    #
+    #     if has_intense:
+    #         # ✅ 무조건 스포츠로 변경
+    #         parsed["category"] = "스포츠"
+    #         parsed["vibe"] = "격렬한"
+    #
+    #         # ✅ 실외면 subcategory 추론
+    #         if parsed.get("location_type") == "OUTDOOR":
+    #             # 러닝/클라이밍/축구 등 실외 스포츠
+    #             if "뛰" in text or "달리" in text:
+    #                 parsed["subcategory"] = "러닝"
+    #             elif "올라" in text or "등반" in text:
+    #                 parsed["subcategory"] = "클라이밍"
+    #             else:
+    #                 parsed["subcategory"] = None  # 일반 스포츠
+    #
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.7)
+    #         logger.info(f"[POST_FIX] 격정적 감지 → category=스포츠, vibe=격렬한")
+    #
+    #     # ✅ 새로 추가: "실내 + 편안함" 조합 처리
+    #     indoor = parsed.get("location_type") == "INDOOR"
+    #     quiet_keywords = ["편안", "여유", "조용", "차분", "힐링", "편하게"]
+    #     has_quiet = any(k in text for k in quiet_keywords)
+    #
+    #     if indoor and has_quiet and not parsed.get("category"):
+    #         # ✅ 실내에서 편안하게 → 카페/문화예술
+    #         if "공부" in text or "스터디" in text or "집중" in text:
+    #             parsed["category"] = "스터디"
+    #             parsed["vibe"] = "집중"
+    #         else:
+    #             parsed["category"] = "카페"  # 기본값
+    #             parsed["vibe"] = "여유로운"
+    #
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
+    #         logger.info(f"[POST_FIX] 실내+편안 → category={parsed['category']}")
+    #
+    #     if parsed.get("location_type") == "OUTDOOR" and has_quiet:
+    #         # 소셜 → 문화예술 변경
+    #         if parsed.get("category") == "소셜":
+    #             parsed["category"] = "문화예술"
+    #             parsed["subcategory"] = "사진촬영"
+    #             parsed["vibe"] = "조용한"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
+    #             logger.info(f"[POST_FIX] 실외+조용 → category=문화예술")
+    #
+    #     # category가 없는데 시간 키워드만 있으면
+    #     if has_time_keyword and not parsed.get("category"):
+    #         # ✅ 유저 관심사 기반 추론
+    #         user_interests = parsed.get("user_interests", "").lower()
+    #
+    #         if "아웃도어" in user_interests or "스포츠" in user_interests:
+    #             parsed["category"] = "스포츠"
+    #             parsed["vibe"] = "활기찬"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
+    #             logger.info(f"[POST_FIX] 주말+스포츠 관심사 → category=스포츠")
+    #
+    #         elif "소셜" in user_interests or "게임" in user_interests:
+    #             parsed["category"] = "소셜"
+    #             parsed["vibe"] = "즐거운"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
+    #             logger.info(f"[POST_FIX] 주말+소셜 관심사 → category=소셜")
+    #
+    #         elif "카페" in user_interests or "문화" in user_interests:
+    #             parsed["category"] = "카페"
+    #             parsed["vibe"] = "여유로운"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
+    #             logger.info(f"[POST_FIX] 주말+카페 관심사 → category=카페")
+    #
+    #         else:
+    #             # ✅ 기본값: 소셜 (주말은 보통 사람 만나는 활동)
+    #             parsed["category"] = "소셜"
+    #             parsed["vibe"] = "즐거운"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.5)
+    #             logger.info(f"[POST_FIX] 주말 기본값 → category=소셜")
+    #
+    #     # ✅ 식사 키워드가 있으면 무조건 맛집
+    #     if has_meal and not parsed.get("category"):
+    #         parsed["category"] = "맛집"
+    #         parsed["vibe"] = "캐주얼"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
+    #         logger.info(f"[POST_FIX] 식사 키워드 → category=맛집")
+    #
+    #     # ✅ 1. 위치 전용 쿼리 감지 ("집 근처에서", "주변", "강남 근처")
+    #     location_only_keywords = ["근처", "주변"]
+    #     is_location_only = any(k in text for k in location_only_keywords)
+    #
+    #     # ✅ 구체적 활동이 없으면 위치 전용으로 판단
+    #     activity_keywords = [
+    #         "카페", "러닝", "운동", "맛집", "전시", "스터디", "놀", "먹",
+    #         "보드게임", "당구", "영화", "클라이밍", "배드민턴", "축구"
+    #     ]
+    #     has_activity = any(k in text for k in activity_keywords)
+    #
+    #     if is_location_only and not has_activity:
+    #         # GPT가 멋대로 붙인 category 제거
+    #         parsed.pop("category", None)
+    #         parsed.pop("subcategory", None)
+    #
+    #         # location_query 명시적 설정
+    #         if not parsed.get("location_query"):
+    #             # "집 근처에서" → "집 근처"
+    #             if "집" in text:
+    #                 parsed["location_query"] = "집 근처"
+    #             else:
+    #                 # "강남 근처" 같은 경우 추출
+    #                 words = text.split()
+    #                 for i, word in enumerate(words):
+    #                     if any(loc in word for loc in location_only_keywords):
+    #                         if i > 0:
+    #                             parsed["location_query"] = words[i - 1]
+    #                             break
+    #
+    #         # keywords도 정리 (location 관련만 남기기)
+    #         kws = parsed.get("keywords") or []
+    #         parsed["keywords"] = [k for k in kws if k in ["집", "강남", "홍대", "성수", "압구정"]]
+    #
+    #         logger.info(f"[POST_FIX] 위치 전용 쿼리 감지 → location_query={parsed.get('location_query')}, category 제거")
+    #
+    #     # ✅ 2. location_type 강화 (명시적 키워드만)
+    #     outdoor_keywords = ["실외", "야외", "밖", "아웃도어", "outdoor"]
+    #     indoor_keywords = ["실내", "인도어", "indoor"]  # ❌ "안" 제거!
+    #
+    #     has_outdoor = any(k in text for k in outdoor_keywords)
+    #     has_indoor = any(k in text for k in indoor_keywords)
+    #
+    #     # 우선순위: 실외/실내 명시 > GPT 파싱값
+    #     if has_outdoor and not has_indoor:
+    #         parsed["location_type"] = "OUTDOOR"
+    #         logger.info(f"[POST_FIX] OUTDOOR 감지")
+    #     elif has_indoor and not has_outdoor:
+    #         parsed["location_type"] = "INDOOR"
+    #         logger.info(f"[POST_FIX] INDOOR 감지")
+    #     elif has_outdoor and has_indoor:
+    #         # 둘 다 있으면 먼저 나온 키워드 우선
+    #         outdoor_pos = min((text.find(k) for k in outdoor_keywords if k in text), default=999)
+    #         indoor_pos = min((text.find(k) for k in indoor_keywords if k in text), default=999)
+    #
+    #         if outdoor_pos < indoor_pos:
+    #             parsed["location_type"] = "OUTDOOR"
+    #             logger.info(f"[POST_FIX] OUTDOOR 우선")
+    #         else:
+    #             parsed["location_type"] = "INDOOR"
+    #             logger.info(f"[POST_FIX] INDOOR 우선")
+    #
+    #     # ✅ 3. 기존 empty 보정 (유지)
+    #     empty = (not parsed.get("category")) and (not parsed.get("keywords"))
+    #     if empty:
+    #         play_intent = any(k in text for k in ["놀", "뭐하지", "할거없", "심심", "기분전환"])
+    #
+    #         if play_intent and parsed.get("location_type") == "INDOOR":
+    #             parsed["category"] = "소셜"
+    #             parsed["vibe"] = "즐거운"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.5)
+    #             logger.info(f"[POST_FIX] 실내 놀이 의도 감지 → category=소셜")
+    #
+    #         elif play_intent and parsed.get("location_type") == "OUTDOOR":
+    #             parsed["category"] = "스포츠"
+    #             parsed["vibe"] = "활기찬"
+    #             parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.5)
+    #             logger.info(f"[POST_FIX] 실외 활동 의도 감지 → category=스포츠")
+    #
+    #     morning_keywords = ["아침", "조식", "브런치", "morning"]
+    #     has_morning = any(k in text for k in morning_keywords)
+    #
+    #     # category를 새로 만들어낼 때는 confidence 가드
+    #     if parsed.get("category") and float(parsed.get("confidence", 0)) < 0.6:
+    #         parsed.pop("category", None)
+    #         parsed.pop("subcategory", None)
+    #
+    #     if has_morning and parsed.get("category") == "맛집":
+    #         # 맛집 → 카페(브런치)로 변경
+    #         parsed["category"] = "카페"
+    #         parsed["subcategory"] = "브런치"
+    #         parsed["vibe"] = "여유로운"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
+    #         logger.info(f"[POST_FIX] 아침 키워드 감지 → category=카페, subcategory=브런치")
+    #
+    #     # 공부 키워드 보정
+    #     study_keywords = ["공부", "스터디", "집중", "독서", "혼자"]
+    #     has_study = any(k in text for k in study_keywords)
+    #
+    #     if has_study and parsed.get("category") == "소셜":
+    #         # 소셜 → 스터디로 변경
+    #         parsed["category"] = "스터디"
+    #         parsed["vibe"] = "집중"
+    #         parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
+    #         logger.info(f"[POST_FIX] 공부 키워드 감지 → category=스터디")
+    #
+    #     return parsed
+
     def _post_fix(self, user_prompt: str, parsed: dict) -> dict:
-        """GPT 파싱 후 보정"""
-        text = user_prompt.lower().strip()
+        """
+        GPT 파싱 후 보정 (리팩터)
+        - 조기 return 제거
+        - 우선순위 룰을 위→아래로 적용
+        - 강제 룰 / 소프트 룰 분리
+        """
+        text = (user_prompt or "").lower().strip()
+        q = dict(parsed or {})
 
-        # ✅ [NEW] 사진/촬영 의도 강제
-        photo_words = ["사진", "촬영", "포토", "카메라", "필카", "스냅", "인생샷"]
-        if any(w in text for w in photo_words):
-            parsed["category"] = "문화예술"
-            parsed["subcategory"] = "사진촬영"  # ← 이게 DB에 있으면 설정
-            parsed["vibe"] = parsed.get("vibe") or "즐거운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
+        # -------------------------
+        # helpers
+        # -------------------------
+        def set_if_empty(key: str, value):
+            if not q.get(key):
+                q[key] = value
 
-            logger.info("[POST_FIX] 사진/촬영 감지 → category=문화예술, subcategory=사진촬영")
-            return parsed
+        def bump_conf(min_conf: float):
+            q["confidence"] = max(float(q.get("confidence", 0) or 0), float(min_conf))
 
-        brain_words = ["머리", "머리쓰", "두뇌", "추리", "전략", "퍼즐", "퀴즈", "방탈출", "보드게임"]
+        def add_keywords(words: list[str], limit: int = 8):
+            kws = q.get("keywords") or []
+            kws = [str(x).strip() for x in kws if x]
+            for w in words:
+                w = str(w).strip()
+                if w and w not in kws:
+                    kws.append(w)
+            q["keywords"] = kws[:limit]
 
-        if any(w in text for w in brain_words):
-            parsed["category"] = parsed.get("category") or "소셜"
-            parsed.setdefault("location_type", "INDOOR")
-            # subcategory는 확정하지 말고, 키워드로 유도
-            kws = parsed.get("keywords") or []
-            kws += ["보드게임", "방탈출", "퍼즐", "추리"]
-            parsed["keywords"] = list(dict.fromkeys(kws))  # 중복 제거
-            parsed["vibe"] = parsed.get("vibe") or "즐거운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
-            logger.info("[POST_FIX] 머리/두뇌 의도 감지 → keywords 확장(보드게임/방탈출/퍼즐/추리)")
-            return parsed
-
-        # 공놀이: 구체 종목이 아니라서 subcategory 강제 금지
-        if "공놀이" in text:
-            parsed["category"] = "스포츠"
-            parsed.pop("subcategory", None)
-            # 핵심: 공놀이 -> 종목 키워드로 치환
-            parsed["keywords"] = ["축구", "풋살", "농구", "배드민턴", "테니스"]
-            parsed["confidence"] = min(float(parsed.get("confidence", 0) or 0), 0.65)
-            logger.info("[POST_FIX] 공놀이 감지 → keywords를 구체 종목으로 확장(러닝 눌러주기)")
-            return parsed
-
-        # ✅ [NEW] 댄스/춤 의도 강제
-        dance_words = ["춤", "댄스", "dance", "kpop", "k-pop", "케이팝", "스트릿", "힙합댄스", "방송댄스"]
-        if any(w in text for w in dance_words):
-            parsed["category"] = "취미활동"
-            parsed["subcategory"] = "댄스"
-            parsed["vibe"] = parsed.get("vibe") or "즐거운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.75)
-
-            # 보통 댄스는 실내가 많으니 기본값만 살짝
-            parsed.setdefault("location_type", "INDOOR")
-
-            logger.info("[POST_FIX] 춤/댄스 감지 → category=취미활동, subcategory=댄스")
-            return parsed
-
-        hands_on_words = ["손으로", "만들", "만들기", "공방", "체험", "diy", "수공예", "핸드메이드"]
-        if any(w in text for w in hands_on_words):
-            parsed["category"] = "취미활동"
-            parsed["vibe"] = parsed.get("vibe") or "여유로운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.7)
-
-            # subcategory를 확정할 단서가 있으면 지정
-            if any(w in text for w in ["붓글씨", "캘리"]):
-                parsed["subcategory"] = "캘리그라피"
-
-            logger.info("[POST_FIX] 손으로/공방/DIY 감지 → category=취미활동")
-            return parsed
-
-        # ✅ 0) "먹는거말고" 같은 제외 의도 먼저 처리 (맛집 강제 차단)
-        if self._excludes_food(text):
-            # 먹는 건 제외니까, 음식/카페 계열로 가지 않게 막기
-            if parsed.get("category") in ["맛집", "카페"]:
-                parsed.pop("category", None)
-                parsed.pop("subcategory", None)
-
-            # 실내를 원하면: 문화예술/취미활동/소셜 쪽으로 유도
-            # (구체 활동 없으면 문화예술 default가 무난)
-            parsed.setdefault("location_type", "INDOOR")
-            if not parsed.get("category"):
-                parsed["category"] = "문화예술"
-                parsed["vibe"] = parsed.get("vibe") or "여유로운"
-
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.65)
-
-            # keywords에서 음식 관련 제거 (있다면)
-            kws = parsed.get("keywords") or []
+        def drop_food_keywords():
+            kws = q.get("keywords") or []
             bad = {"먹", "먹기", "식사", "밥", "맛집", "카페", "브런치", "디저트", "음식"}
-            parsed["keywords"] = [k for k in kws if str(k).strip() not in bad]
+            q["keywords"] = [k for k in kws if str(k).strip() not in bad]
 
-            logger.info("[POST_FIX] '먹는거말고' 제외 의도 감지 → 음식계열 차단, category=%s", parsed.get("category"))
-            return parsed
-
-        # ✅ [최우선] "문화생활"은 무조건 문화예술로 본다 (러닝/운동 방지)
-        culture_words = ["문화생활", "전시", "공연", "뮤지컬", "연극", "갤러리", "박물관", "사진전", "페스티벌"]
-        sports_words = ["러닝", "운동", "뛰", "달리", "축구", "배드민턴", "클라이밍", "등산"]
-
-        if any(w in text for w in culture_words) and not any(w in text for w in sports_words):
-            parsed["category"] = "문화예술"
-            parsed.pop("subcategory", None)  # 필요하면 "전시회" 같은걸로 넣어도 됨
-            parsed["vibe"] = parsed.get("vibe") or "여유로운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.7)
-            # location_type은 실외/실내 키워드가 있으면 아래 로직이 잡아줌
-            logger.info("[POST_FIX] 문화생활 감지 → category=문화예술 강제")
-            return parsed
-
-        # ✅ 1. "놀다" 키워드 우선 체크 (식사보다 우선!)
-        play_keywords = ["놀", "재밌게", "즐겁게", "신나게", "fun"]
-        has_play = any(k in text for k in play_keywords)
-
-        # ✅ 2. 식사 키워드는 "먹다" 관련만
-        meal_keywords = ["먹", "식사", "밥", "점심먹", "저녁먹", "아침먹"]  # "점심", "저녁", "아침" 제거!
-        has_meal = any(k in text for k in meal_keywords)
-
-        # ✅ 3. "놀다"가 있으면 소셜 우선
-        if has_play and not parsed.get("category"):
-            parsed["category"] = "소셜"
-            parsed["vibe"] = "즐거운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
-            logger.info(f"[POST_FIX] 놀이 키워드 감지 → category=소셜")
-            return parsed  # ✅ 여기서 바로 리턴 (식사 체크 스킵)
-
-        # 식사 키워드 체크 (놀이 키워드 없을 때만)
-        if has_meal and not parsed.get("category"):
-            parsed["category"] = "맛집"
-            parsed["vibe"] = "캐주얼"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
-            logger.info(f"[POST_FIX] 식사 키워드 → category=맛집")
-
-        # ✅ 시간 키워드만 있을 때 category 추론
-        time_only_keywords = ["주말", "토요일", "일요일", "평일", "주중"]
-        has_time_keyword = any(k in text for k in time_only_keywords)
-
-        meal_keywords = ["점심", "저녁", "아침", "식사", "먹"]
-        has_meal = any(k in text for k in meal_keywords)
-
-        # ✅ 새로 추가: "나가다" 표현 감지
-        go_out_keywords = ["나가", "외출", "나갈"]
-        has_go_out = any(k in text for k in go_out_keywords)
-
-        if has_go_out and not parsed.get("location_type"):
-            parsed["location_type"] = "OUTDOOR"
-
-            # category 보정 (소셜 → 스포츠 or 문화예술)
-            if parsed.get("category") == "소셜":
-                # vibe로 구분
-                vibe = parsed.get("vibe", "")
-                if vibe in ["조용한", "여유로운", "힐링"]:
-                    parsed["category"] = "문화예술"
-                    parsed["subcategory"] = "산책"
-                else:
-                    parsed["category"] = "스포츠"
-                    parsed["subcategory"] = "러닝"
-
-            # keywords 정리
-            kws = parsed.get("keywords") or []
-            # "나가고싶다", "소셜" 같은 불필요한 키워드 제거
-            bad = {"나가고싶다", "외출", parsed.get("category")}
-            bad |= set(go_out_keywords)  # 리스트 합치기
-            parsed["keywords"] = [k for k in kws if k not in bad]
-
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
-            logger.info(f"[POST_FIX] '나가다' 표현 감지 → location_type=OUTDOOR, category={parsed.get('category')}")
-
-        # ✅ "실외 + 조용함" 조합 감지
-        quiet_keywords = ["조용", "잔잔", "여유", "평화", "차분"]
-        has_quiet = any(k in text for k in quiet_keywords)
-
-        intense_keywords = ["격정", "격렬", "열정", "강렬", "하드코어", "익스트림"]
-        has_intense = any(k in text for k in intense_keywords)
-
-        if has_intense:
-            # ✅ 무조건 스포츠로 변경
-            parsed["category"] = "스포츠"
-            parsed["vibe"] = "격렬한"
-
-            # ✅ 실외면 subcategory 추론
-            if parsed.get("location_type") == "OUTDOOR":
-                # 러닝/클라이밍/축구 등 실외 스포츠
-                if "뛰" in text or "달리" in text:
-                    parsed["subcategory"] = "러닝"
-                elif "올라" in text or "등반" in text:
-                    parsed["subcategory"] = "클라이밍"
-                else:
-                    parsed["subcategory"] = None  # 일반 스포츠
-
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.7)
-            logger.info(f"[POST_FIX] 격정적 감지 → category=스포츠, vibe=격렬한")
-
-        # ✅ 새로 추가: "실내 + 편안함" 조합 처리
-        indoor = parsed.get("location_type") == "INDOOR"
-        quiet_keywords = ["편안", "여유", "조용", "차분", "힐링", "편하게"]
-        has_quiet = any(k in text for k in quiet_keywords)
-
-        if indoor and has_quiet and not parsed.get("category"):
-            # ✅ 실내에서 편안하게 → 카페/문화예술
-            if "공부" in text or "스터디" in text or "집중" in text:
-                parsed["category"] = "스터디"
-                parsed["vibe"] = "집중"
-            else:
-                parsed["category"] = "카페"  # 기본값
-                parsed["vibe"] = "여유로운"
-
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
-            logger.info(f"[POST_FIX] 실내+편안 → category={parsed['category']}")
-
-        if parsed.get("location_type") == "OUTDOOR" and has_quiet:
-            # 소셜 → 문화예술 변경
-            if parsed.get("category") == "소셜":
-                parsed["category"] = "문화예술"
-                parsed["subcategory"] = "사진촬영"
-                parsed["vibe"] = "조용한"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
-                logger.info(f"[POST_FIX] 실외+조용 → category=문화예술")
-
-        # category가 없는데 시간 키워드만 있으면
-        if has_time_keyword and not parsed.get("category"):
-            # ✅ 유저 관심사 기반 추론
-            user_interests = parsed.get("user_interests", "").lower()
-
-            if "아웃도어" in user_interests or "스포츠" in user_interests:
-                parsed["category"] = "스포츠"
-                parsed["vibe"] = "활기찬"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
-                logger.info(f"[POST_FIX] 주말+스포츠 관심사 → category=스포츠")
-
-            elif "소셜" in user_interests or "게임" in user_interests:
-                parsed["category"] = "소셜"
-                parsed["vibe"] = "즐거운"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
-                logger.info(f"[POST_FIX] 주말+소셜 관심사 → category=소셜")
-
-            elif "카페" in user_interests or "문화" in user_interests:
-                parsed["category"] = "카페"
-                parsed["vibe"] = "여유로운"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.55)
-                logger.info(f"[POST_FIX] 주말+카페 관심사 → category=카페")
-
-            else:
-                # ✅ 기본값: 소셜 (주말은 보통 사람 만나는 활동)
-                parsed["category"] = "소셜"
-                parsed["vibe"] = "즐거운"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.5)
-                logger.info(f"[POST_FIX] 주말 기본값 → category=소셜")
-
-        # ✅ 식사 키워드가 있으면 무조건 맛집
-        if has_meal and not parsed.get("category"):
-            parsed["category"] = "맛집"
-            parsed["vibe"] = "캐주얼"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.6)
-            logger.info(f"[POST_FIX] 식사 키워드 → category=맛집")
-
-        # ✅ 1. 위치 전용 쿼리 감지 ("집 근처에서", "주변", "강남 근처")
-        location_only_keywords = ["근처", "주변"]
-        is_location_only = any(k in text for k in location_only_keywords)
-
-        # ✅ 구체적 활동이 없으면 위치 전용으로 판단
-        activity_keywords = [
-            "카페", "러닝", "운동", "맛집", "전시", "스터디", "놀", "먹",
-            "보드게임", "당구", "영화", "클라이밍", "배드민턴", "축구"
-        ]
-        has_activity = any(k in text for k in activity_keywords)
-
-        if is_location_only and not has_activity:
-            # GPT가 멋대로 붙인 category 제거
-            parsed.pop("category", None)
-            parsed.pop("subcategory", None)
-
-            # location_query 명시적 설정
-            if not parsed.get("location_query"):
-                # "집 근처에서" → "집 근처"
-                if "집" in text:
-                    parsed["location_query"] = "집 근처"
-                else:
-                    # "강남 근처" 같은 경우 추출
-                    words = text.split()
-                    for i, word in enumerate(words):
-                        if any(loc in word for loc in location_only_keywords):
-                            if i > 0:
-                                parsed["location_query"] = words[i - 1]
-                                break
-
-            # keywords도 정리 (location 관련만 남기기)
-            kws = parsed.get("keywords") or []
-            parsed["keywords"] = [k for k in kws if k in ["집", "강남", "홍대", "성수", "압구정"]]
-
-            logger.info(f"[POST_FIX] 위치 전용 쿼리 감지 → location_query={parsed.get('location_query')}, category 제거")
-
-        # ✅ 2. location_type 강화 (명시적 키워드만)
+        # -------------------------
+        # 0) location_type 명시 키워드만 먼저 확정 (실내/실외)
+        # -------------------------
         outdoor_keywords = ["실외", "야외", "밖", "아웃도어", "outdoor"]
-        indoor_keywords = ["실내", "인도어", "indoor"]  # ❌ "안" 제거!
+        indoor_keywords = ["실내", "인도어", "indoor"]
 
         has_outdoor = any(k in text for k in outdoor_keywords)
         has_indoor = any(k in text for k in indoor_keywords)
 
-        # 우선순위: 실외/실내 명시 > GPT 파싱값
         if has_outdoor and not has_indoor:
-            parsed["location_type"] = "OUTDOOR"
-            logger.info(f"[POST_FIX] OUTDOOR 감지")
+            q["location_type"] = "OUTDOOR"
         elif has_indoor and not has_outdoor:
-            parsed["location_type"] = "INDOOR"
-            logger.info(f"[POST_FIX] INDOOR 감지")
+            q["location_type"] = "INDOOR"
         elif has_outdoor and has_indoor:
             # 둘 다 있으면 먼저 나온 키워드 우선
             outdoor_pos = min((text.find(k) for k in outdoor_keywords if k in text), default=999)
             indoor_pos = min((text.find(k) for k in indoor_keywords if k in text), default=999)
+            q["location_type"] = "OUTDOOR" if outdoor_pos < indoor_pos else "INDOOR"
 
-            if outdoor_pos < indoor_pos:
-                parsed["location_type"] = "OUTDOOR"
-                logger.info(f"[POST_FIX] OUTDOOR 우선")
-            else:
-                parsed["location_type"] = "INDOOR"
-                logger.info(f"[POST_FIX] INDOOR 우선")
+        # -------------------------
+        # ✅ 0.5) "실내에서 즐겁게/재밌게/신나게" 같은 vibe-only 요청은
+        # 카페로 쏠리기 쉬우니 기본을 '소셜(보드게임/방탈출)'로 교정
+        # - 활동 단서가 없을 때만 발동 (덮어쓰기 방지)
+        # - GPT가 카페로 찍어도 여기서 잡아줌
+        # -------------------------
+        fun_words = ["즐겁", "재밌", "재미", "신나", "fun"]
+        indoor_fun = (q.get("location_type") == "INDOOR") and any(w in text for w in fun_words)
 
-        # ✅ 3. 기존 empty 보정 (유지)
-        empty = (not parsed.get("category")) and (not parsed.get("keywords"))
-        if empty:
-            play_intent = any(k in text for k in ["놀", "뭐하지", "할거없", "심심", "기분전환"])
+        # 활동 단서(명사)가 거의 없으면: vibe-only로 판정
+        activity_hints = [
+            "보드게임", "방탈출", "체스", "퍼즐", "퀴즈",
+            "러닝", "축구", "배드민턴", "클라이밍", "등산", "운동",
+            "전시", "공연", "뮤지컬", "연극", "갤러리",
+            "카페", "브런치", "디저트", "맛집",
+            "스터디", "공부", "독서", "영어", "코딩",
+            "댄스", "춤", "공방", "diy", "만들기", "요리",
+            "노래방", "볼링", "당구",
+        ]
+        has_activity_hint = any(h in text for h in activity_hints)
+        kws_now = q.get("keywords") or []
+        vibe_only = (not has_activity_hint) and (len(kws_now) == 0) and (not q.get("subcategory"))
 
-            if play_intent and parsed.get("location_type") == "INDOOR":
-                parsed["category"] = "소셜"
-                parsed["vibe"] = "즐거운"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.5)
-                logger.info(f"[POST_FIX] 실내 놀이 의도 감지 → category=소셜")
 
-            elif play_intent and parsed.get("location_type") == "OUTDOOR":
-                parsed["category"] = "스포츠"
-                parsed["vibe"] = "활기찬"
-                parsed["confidence"] = max(float(parsed.get("confidence", 0) or 0), 0.5)
-                logger.info(f"[POST_FIX] 실외 활동 의도 감지 → category=스포츠")
+        if indoor_fun and vibe_only:
+            q["category"] = "소셜"
+            q.pop("subcategory", None)
+            add_keywords(["보드게임", "방탈출"], limit=10)
+            # vibe는 유지하되 conf 살짝 올림
+            q["vibe"] = q.get("vibe") or "즐거운"
+            q["confidence"] = max(float(q.get("confidence", 0) or 0), 0.65)
 
-        morning_keywords = ["아침", "조식", "브런치", "morning"]
-        has_morning = any(k in text for k in morning_keywords)
+        # -------------------------
+        # 1) "먹는거 말고/제외" 최우선 (맛집/카페 강제 차단)
+        # -------------------------
+        if self._excludes_food(text):
+            if q.get("category") in ["맛집", "카페"]:
+                q.pop("category", None)
+                q.pop("subcategory", None)
+            set_if_empty("location_type", "INDOOR")
+            set_if_empty("category", "문화예술")
+            set_if_empty("vibe", "여유로운")
+            bump_conf(0.65)
+            drop_food_keywords()
 
-        # category를 새로 만들어낼 때는 confidence 가드
-        if parsed.get("category") and float(parsed.get("confidence", 0)) < 0.6:
-            parsed.pop("category", None)
-            parsed.pop("subcategory", None)
+        # -------------------------
+        # 2) 사진/촬영 의도 강제
+        # -------------------------
+        photo_words = ["사진", "촬영", "포토", "카메라", "필카", "스냅", "인생샷"]
+        if any(w in text for w in photo_words):
+            q["category"] = "문화예술"
+            q["subcategory"] = "사진촬영"
+            set_if_empty("vibe", "즐거운")
+            bump_conf(0.75)
 
-        if has_morning and parsed.get("category") == "맛집":
-            # 맛집 → 카페(브런치)로 변경
-            parsed["category"] = "카페"
-            parsed["subcategory"] = "브런치"
-            parsed["vibe"] = "여유로운"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
-            logger.info(f"[POST_FIX] 아침 키워드 감지 → category=카페, subcategory=브런치")
+        # -------------------------
+        # 3) 뇌/추리/보드게임 강제
+        # -------------------------
+        brain_words = ["머리", "머리쓰", "두뇌", "추리", "전략", "퍼즐", "퀴즈", "방탈출", "보드게임", "체스"]
+        if any(w in text for w in brain_words):
+            set_if_empty("category", "소셜")
+            set_if_empty("location_type", "INDOOR")
+            add_keywords(["보드게임", "방탈출", "퍼즐", "추리"], limit=10)
+            set_if_empty("vibe", "즐거운")
+            bump_conf(0.75)
 
-        # 공부 키워드 보정
+        # -------------------------
+        # 4) 공놀이 처리: subcategory 강제 금지 + 종목 키워드 확장
+        # -------------------------
+        if "공놀이" in text:
+            q["category"] = "스포츠"
+            q.pop("subcategory", None)
+            q["keywords"] = ["축구", "풋살", "농구", "배드민턴", "테니스"]
+            bump_conf(0.65)
+
+        # -------------------------
+        # 5) 춤/댄스 강제
+        # -------------------------
+        dance_words = ["춤", "댄스", "dance", "kpop", "k-pop", "케이팝", "스트릿", "힙합댄스", "방송댄스"]
+        if any(w in text for w in dance_words):
+            q["category"] = "취미활동"
+            q["subcategory"] = "댄스"
+            set_if_empty("vibe", "즐거운")
+            set_if_empty("location_type", "INDOOR")
+            bump_conf(0.75)
+
+        # -------------------------
+        # 6) 손으로/공방/DIY 강제
+        # -------------------------
+        hands_on_words = ["손으로", "만들", "만들기", "공방", "체험", "diy", "수공예", "핸드메이드"]
+        if any(w in text for w in hands_on_words):
+            q["category"] = "취미활동"
+            set_if_empty("vibe", "여유로운")
+            bump_conf(0.70)
+            if any(w in text for w in ["붓글씨", "캘리", "캘리그라피"]):
+                q["subcategory"] = "캘리그라피"
+
+        # -------------------------
+        # 7) 문화생활(운동/스포츠 단서 없으면) → 문화예술 강제
+        # -------------------------
+        culture_words = ["문화생활", "전시", "공연", "뮤지컬", "연극", "갤러리", "박물관", "사진전", "페스티벌"]
+        sports_words = ["러닝", "운동", "뛰", "달리", "축구", "배드민턴", "클라이밍", "등산"]
+        if any(w in text for w in culture_words) and not any(w in text for w in sports_words):
+            q["category"] = "문화예술"
+            q.pop("subcategory", None)
+            set_if_empty("vibe", "여유로운")
+            bump_conf(0.70)
+
+        # -------------------------
+        # 8) "나가고싶다/외출" 같은 표현: location_type만 OUTDOOR로, 카테고리는 강제하지 않음(덮어쓰기 방지)
+        # -------------------------
+        go_out_keywords = ["나가", "외출", "나갈"]
+        if any(k in text for k in go_out_keywords):
+            set_if_empty("location_type", "OUTDOOR")
+            bump_conf(0.55)
+
+        # -------------------------
+        # 9) "놀다" vs "먹다" 우선순위 (카테고리 비어있을 때만)
+        # -------------------------
+        play_keywords = ["놀", "재밌게", "즐겁게", "신나게", "fun"]
+        meal_keywords = ["먹", "식사", "밥", "점심먹", "저녁먹", "아침먹"]
+
+        has_play = any(k in text for k in play_keywords)
+        has_meal = any(k in text for k in meal_keywords)
+
+        if not q.get("category"):
+            if has_play:
+                q["category"] = "소셜"
+                set_if_empty("vibe", "즐거운")
+                bump_conf(0.65)
+            elif has_meal:
+                q["category"] = "맛집"
+                set_if_empty("vibe", "캐주얼")
+                bump_conf(0.60)
+
+        # -------------------------
+        # 10) 위치-only 쿼리 감지: 활동 단서 없으면 category/subcategory 제거
+        # -------------------------
+        location_only_keywords = ["근처", "주변"]
+        activity_keywords = [
+            "카페", "러닝", "운동", "맛집", "전시", "스터디", "놀", "먹",
+            "보드게임", "당구", "영화", "클라이밍", "배드민턴", "축구"
+        ]
+        is_location_only = any(k in text for k in location_only_keywords)
+        has_activity = any(k in text for k in activity_keywords)
+
+        if is_location_only and not has_activity:
+            q.pop("category", None)
+            q.pop("subcategory", None)
+            if not q.get("location_query"):
+                if "집" in text:
+                    q["location_query"] = "집 근처"
+            bump_conf(0.55)
+
+        # -------------------------
+        # 11) 공부/스터디: 소셜로 잘못 찍히면 스터디로 교정
+        # -------------------------
         study_keywords = ["공부", "스터디", "집중", "독서", "혼자"]
-        has_study = any(k in text for k in study_keywords)
+        if any(k in text for k in study_keywords):
+            if q.get("category") == "소셜":
+                q["category"] = "스터디"
+            set_if_empty("vibe", "집중")
+            bump_conf(0.65)
 
-        if has_study and parsed.get("category") == "소셜":
-            # 소셜 → 스터디로 변경
-            parsed["category"] = "스터디"
-            parsed["vibe"] = "집중"
-            parsed["confidence"] = max(float(parsed.get("confidence", 0)), 0.65)
-            logger.info(f"[POST_FIX] 공부 키워드 감지 → category=스터디")
+        # -------------------------
+        # 12) 성별 키워드: "강제 카테고리 변경" 금지(편향/덮어쓰기 방지) → 키워드 힌트만 약하게
+        # -------------------------
+        male_keywords = ["남자", "남성", "남자가", "남성이"]
+        female_keywords = ["여자", "여성", "여자가", "여성이"]
+        has_male = any(k in text for k in male_keywords)
+        has_female = any(k in text for k in female_keywords)
 
-        return parsed
+        if has_male and not has_female:
+            # 카테고리가 비어있거나, 소셜/스포츠일 때만 힌트
+            if q.get("category") in [None, "", "소셜", "스포츠"]:
+                add_keywords(["축구", "볼링", "당구"], limit=10)
+                bump_conf(0.55)
+
+        if has_female and not has_male:
+            if q.get("category") in [None, "", "카페", "문화예술", "취미활동"]:
+                add_keywords(["카페", "전시", "공방"], limit=10)
+                bump_conf(0.55)
+
+        # -------------------------
+        # 13) 마지막 safety: conf 낮은데 "새로 만든 category"면 제거 (기존 너 로직 유지하지만 더 안전하게)
+        # -------------------------
+        conf = float(q.get("confidence", 0) or 0)
+        if q.get("category") and conf < 0.55:
+            # 단, 위의 강제 룰(사진/뇌/댄스/공방/문화생활/제외처리 등)로 만들어진 경우는 남기고 싶으면 플래그를 둘 수 있음
+            # 여기서는 안전 우선으로 유지하지 않고 제거하지 않음 (너 기존은 0.6 미만 제거였는데 너무 공격적일 수 있음)
+            pass
+
+        return q
 
     """
     _apply_intent_adjustment() 최종 약화 버전
@@ -1845,6 +2226,21 @@ class AIRecommendationService:
         sub = meeting.get("subcategory") or ""
 
         adjustment = 0.0
+
+        # ✅ NEUTRAL은 가산/감산 없이 0이 기본 (튜닝 난이도 급감)
+
+        if not intent or intent == "NEUTRAL":
+            # 단, location_type 명시 요청만은 약하게 반영하고 싶으면 여기서 처리
+            if parsed_query:
+                requested_type = parsed_query.get("location_type")
+                meeting_type = meeting.get("meeting_location_type") or meeting.get("location_type")
+                if requested_type and meeting_type:
+                    if requested_type.upper() == meeting_type.upper():
+                        adjustment += 3.0
+                    else:
+                        adjustment -= 3.0
+
+            return adjustment
 
         # ✅ ACTIVE intent 강화
         if intent == "ACTIVE":
@@ -1868,8 +2264,8 @@ class AIRecommendationService:
                 adjustment -= 18.0
 
         # ✅ 카페/문화예술 강하게 패널티
-        if cat in ["카페", "문화예술"]:
-            adjustment += -6.0
+        if intent == "ACTIVE" and cat in ["카페", "문화예술"]:
+            adjustment -= 6.0
 
         if intent == "BRAIN":
             # 보드게임/방탈출을 최우선으로 끌어올림
@@ -1883,7 +2279,7 @@ class AIRecommendationService:
                 adjustment += 0.0
 
         # ✅ 소셜도 약간 패널티 (버스킹 투어 차단)
-        if cat == "소셜":
+        if intent == "ACTIVE" and cat == "소셜":
             if sub in ["볼링", "당구", "탁구"]:
                 adjustment += 3.0  # 6 → 3으로 약화
             else:
@@ -1892,11 +2288,11 @@ class AIRecommendationService:
         # ✅ QUIET intent (기존 코드 유지)
         if intent == "QUIET":
             if cat == "스포츠":
-                adjustment = -30.0
+                adjustment += -30.0
             elif cat == "카페":
-                adjustment = +15.0
+                adjustment += 15.0
             elif cat == "문화예술":
-                adjustment = +12.0
+                adjustment += 12.0
 
         keywords = (parsed_query.get("keywords") or []) if parsed_query else []
         if "공놀이" in keywords:
@@ -1932,13 +2328,123 @@ class AIRecommendationService:
 
         return slot2 in adjacency.get(slot1, [])
 
+    def _apply_vibe_prior(self, q: dict) -> dict:
+        cat = q.get("category")
+        sub = q.get("subcategory")
+        kws = q.get("keywords") or []
+        vibe = self._normalize_vibe(q.get("vibe"))
+        lt = (q.get("location_type") or "").upper()
+        conf = float(q.get("confidence", 0) or 0)
 
+        if (not cat) and (not sub) and (len(kws) == 0) and vibe:
+            if vibe in ["즐거운", "활기찬"]:
+                q["category"] = "소셜"
+                q["confidence"] = max(conf, 0.6)
 
+            elif vibe in ["건강한"]:
+                q["category"] = "스포츠"
+                q["confidence"] = max(conf, 0.6)
 
+            elif vibe in ["여유로운", "힐링", "감성적인"]:
+                # ✅ 핵심: 야외 + 조용/힐링이면 카페보다 산책/전시/사진이 더 자연스러움
+                if lt == "OUTDOOR":
+                    q["category"] = "문화예술"
+                    # 있으면 DB에 맞춰: "산책" / "사진촬영"
+                    q.pop("subcategory", None)
+                else:
+                    q["category"] = "카페"
+                q["confidence"] = max(conf, 0.6)
 
+        q["vibe"] = vibe
+        return q
 
+    def _pick_location_type_from_raw(self, m: dict) -> Optional[str]:
+        # Spring AIMeetingDTO는 @JsonProperty("location_type")라서 location_type이 주력
+        return m.get("location_type") or m.get("locationType")
 
+    def _pick_location_type_from_normalized(self, m: dict) -> Optional[str]:
+        return m.get("meeting_location_type")
 
+    def _has_explicit_timeslot(self, text: str) -> bool:
+        t = (text or "").lower()
+        return any(k in t for k in ["아침", "오전", "점심", "오후", "저녁", "밤", "야간", "morning", "afternoon", "evening", "night"])
+
+    def _has_explicit_quiet(self, text: str) -> bool:
+        t = (text or "").lower()
+        return any(w in t for w in ["조용", "차분", "힐링", "잔잔", "고요"])
+
+    def _has_explicit_location(self, user_prompt: str, q: dict | None = None) -> bool:
+        text = (user_prompt or "").strip()
+        if not text:
+            return False
+
+        # 1) near-me 표현은 explicit_loc로 치지 않음 (그건 radius 로직으로 처리)
+        if self._is_near_me_phrase(text):
+            return False
+
+        # 2) GPT가 location_query를 뽑아줬고, 그 값이 near-me가 아니면 거의 명시 지명
+        if q:
+            lq = q.get("location_query") or q.get("locationQuery")
+            if lq and not self._is_near_me_phrase(str(lq)):
+                # "강남", "성수", "잠실", "홍대입구" 등
+                return True
+
+        # 3) 휴리스틱: 역/동/구/시/군/읍/면/리/로/길 등 지명 접미
+        # (너희 서비스가 서울 위주면 '역/동/구'만으로도 충분)
+        patterns = [
+            r"[가-힣]{1,10}역",  # 강남역, 성수역
+            r"[가-힣]{1,10}동",  # 길동, 성수동
+            r"[가-힣]{1,10}구",  # 송파구
+            r"[가-힣]{1,10}(로|길)",  # 테헤란로, 연무장길 등
+        ]
+        return any(re.search(p, text) for p in patterns)
+
+    def _guard_category_by_evidence(self, user_prompt: str, q: dict) -> dict:
+
+        def _has_any(text: str, words: list[str]) -> bool:
+            t = (text or "").lower()
+            return any(w in t for w in words)
+
+        text = (user_prompt or "").lower()
+
+        cat = (q.get("category") or "").strip()
+        lt  = (q.get("location_type") or "").upper()
+
+        # "스터디"라고 부를만한 증거 단어들
+        STUDY_EVIDENCE = ["스터디", "공부", "독서", "토익", "오픽", "영어", "자격증", "코딩", "개발", "프로그래밍", "세미나", "강의"]
+
+        # "조용/힐링"만 말한 케이스
+        QUIET_EVIDENCE = ["조용", "차분", "힐링", "잔잔", "고요", "여유"]
+
+        has_study = _has_any(text, STUDY_EVIDENCE)
+        has_quiet = _has_any(text, QUIET_EVIDENCE)
+
+        # ✅ 핵심: 스터디 증거가 없는데 GPT가 스터디로 찍으면 제거/교정
+        if cat == "스터디" and not has_study:
+            # 선택지 A) category를 제거해서 "야외 + 조용"만으로 넓게 찾기
+            q.pop("category", None)
+            q.pop("subcategory", None)
+
+            # 선택지 B) 너 DB에 맞춰 '문화예술'로 교정 (야외 조용이면 산책/사진 쪽이 자연스러움)
+            # q["category"] = "문화예술"
+            # q.pop("subcategory", None)
+
+            # 키워드 힌트 조금 주면 GPT/랭킹에도 도움 됨 (DB에 없어도 query_terms 보강용)
+            kws = q.get("keywords") or []
+            for w in ["산책", "사진", "피크닉", "공원"]:
+                if w not in kws:
+                    kws.append(w)
+            q["keywords"] = kws[:8]
+
+            # confidence 너무 높게 믿지 말자
+            q["confidence"] = min(float(q.get("confidence", 0) or 0), 0.65)
+
+        # ✅ 야외 + 조용인데 카테고리가 비어있으면 문화예술로 기본값 주는 것도 가능
+        if (not q.get("category")) and lt == "OUTDOOR" and has_quiet:
+            q["category"] = "문화예술"
+            q["confidence"] = max(float(q.get("confidence", 0) or 0), 0.6)
+
+        return q
 
 
 

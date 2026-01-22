@@ -11,6 +11,9 @@ class FeatureBuilder:
     def __init__(self):
         self.categories = ["스포츠", "맛집", "카페", "문화예술", "스터디", "취미활동", "소셜"]
 
+        # ✅ 성별 카테고리 (3개)
+        self.genders = ["M", "F", "N"]
+
         # ✅ 모델 학습 시 사용된 8개 vibe (27 features)
         self.vibes = [
             "활기찬", "여유로운", "힐링", "진지한",
@@ -38,12 +41,12 @@ class FeatureBuilder:
         self.time_slots = ["MORNING", "AFTERNOON", "EVENING", "NIGHT"]
         self.location_types = ["INDOOR", "OUTDOOR"]
 
-        # ✅ 고정 feature 길이: 12 + 7 + 8 = 27
+        # ✅ 총 피처: 12 + 7(cat) + 8(vibe) + 3(gender) + 5(sentiment) = 35
         base = 12
-        self.n_features = base + len(self.categories) + len(self.vibes)
+        self.n_features = (base + len(self.categories) + len(self.vibes) +
+                           len(self.genders) + 5)  # 35
 
         # ✅ 카테고리(상위 관심사) → 서브카테고리(구체 활동) 확장
-        # 베이커리 ✅ 카페로 분류
         self.expand_interest = {
             "문화예술": {"전시회", "공연", "갤러리", "공방체험"},
             "스터디": {"코딩", "영어회화", "독서토론", "재테크"},
@@ -51,13 +54,8 @@ class FeatureBuilder:
             "소셜": {"보드게임", "방탈출", "볼링", "당구"},
             "스포츠": {"러닝", "축구", "배드민턴", "요가", "사이클링", "등산", "클라이밍"},
             "맛집": {"한식", "중식", "일식", "양식", "이자카야"},
-            "카페": {"브런치", "디저트", "카페투어", "베이커리"},  # ✅ 여기!
+            "카페": {"브런치", "디저트", "카페투어", "베이커리"},
         }
-
-        # ✅ 유저가 “손으로/손” 같이 말하면 취미활동 쪽을 더 잘 끌어오도록
-        # (FeatureBuilder는 prompt를 모르니까, AI 서비스에서 query_terms로 bonus 주는 건 너가 이미 하고 있고,
-        #  여기선 “관심사 확장”만 안정적으로)
-        # 필요하면 여기서 alias도 추가 가능.
 
     def _normalize_vibe(self, vibe: str) -> str:
         """14개 vibe를 8개로 매핑"""
@@ -78,16 +76,8 @@ class FeatureBuilder:
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
 
-    # -------------------------
-    # ✅ NEW: robust interest parsing + subcategory-aware match
-    # -------------------------
     def _parse_user_interests(self, user_interests) -> set:
-        """
-        입력 형태:
-        - '["아웃도어","취미활동","문화예술","맛집"]' (JSON string)
-        - '취미활동, 문화예술, 카페'
-        - '취미활동 문화예술 카페'
-        """
+        """입력 형태: JSON string, 콤마/공백 구분"""
         if not user_interests:
             return set()
 
@@ -105,33 +95,60 @@ class FeatureBuilder:
         parts = re.split(r"[,\s]+", s)
         return {p.strip().lower() for p in parts if p.strip()}
 
-    def calculate_interest_match(self, user_interests: str, meeting_category: str, meeting_subcategory: str = "") -> float:
-        """
-        관심사 매칭 점수 (0~1)
-        - 유저 관심사(카페/문화예술/취미활동/...)가
-          모임 category/subcategory(브런치/전시회/...)와 매칭되도록 확장
-        """
+    def _calculate_user_sentiment_match(
+            self,
+            user_mbti: str,
+            positive_ratio: float,
+            negative_ratio: float,
+            sentiment_variance: float
+    ) -> float:
+        """유저 성향과 모임 감성 매칭 (MBTI 기반)"""
+        if not user_mbti or len(user_mbti) < 4:
+            return 0.5
+
+        score = 0.5
+
+        # E/I 차원
+        if user_mbti[0] == "E":  # 외향
+            if positive_ratio > 0.6:
+                score += 0.2
+            if sentiment_variance > 0.3:
+                score += 0.1
+        elif user_mbti[0] == "I":  # 내향
+            if sentiment_variance < 0.3:
+                score += 0.2
+            if negative_ratio < 0.2:
+                score += 0.1
+
+        # F/T 차원
+        if user_mbti[2] == "F":  # 감정형
+            if positive_ratio > 0.5:
+                score += 0.1
+        elif user_mbti[2] == "T":  # 사고형
+            if sentiment_variance < 0.4:
+                score += 0.1
+
+        return min(1.0, max(0.0, score))
+
+    def calculate_interest_match(self, user_interests: str, meeting_category: str,
+                                 meeting_subcategory: str = "") -> float:
+        """관심사 매칭 점수 (0~1)"""
         u = self._parse_user_interests(user_interests)
         if not u:
             return 0.0
 
-        # 모임 토큰: category + subcategory
         m_tokens = set()
         if meeting_category:
             m_tokens.add(str(meeting_category).strip().lower())
         if meeting_subcategory:
             m_tokens.add(str(meeting_subcategory).strip().lower())
 
-        # 유저 관심사 확장: "카페" 관심사면 {"브런치","디저트","카페투어","베이커리"}도 관심사로 간주
         u_expanded = set(u)
         for k, subs in self.expand_interest.items():
             if k.lower() in u:
                 u_expanded |= {x.strip().lower() for x in subs}
 
-        # hit 계산
         hit = len(u_expanded & m_tokens)
-
-        # 정규화: 유저 관심사 개수 기준 (너무 작아지는 것 방지)
         denom = max(1, len(u))
         return hit / denom
 
@@ -158,7 +175,6 @@ class FeatureBuilder:
     def build_vector(self, user: Dict, meeting: Dict) -> Tuple[Dict, List[float]]:
         """특징 dict + 1D feature vector(List[float]) 생성"""
 
-        # ---- 기본값/타입 방어 ----
         u_lat = float(user.get("lat", 37.5) or 37.5)
         u_lng = float(user.get("lng", 127.0) or 127.0)
         m_lat = float(meeting.get("lat", 37.5) or 37.5)
@@ -169,7 +185,6 @@ class FeatureBuilder:
         time_match = 1.0 if user.get("time_preference") == meeting.get("time_slot") else 0.0
         location_type_match = 1.0 if user.get("user_location_pref") == meeting.get("meeting_location_type") else 0.0
 
-        # ✅ category + subcategory 반영
         interest_match_score = self.calculate_interest_match(
             user.get("interests", ""),
             meeting.get("category", ""),
@@ -192,21 +207,57 @@ class FeatureBuilder:
 
         category_onehot = self.one_hot_encode(meeting.get("category", ""), self.categories)
 
-        # ✅ vibe 매핑 적용
         raw_vibe = meeting.get("vibe", "")
         normalized_vibe = self._normalize_vibe(raw_vibe)
         vibe_onehot = self.one_hot_encode(normalized_vibe, self.vibes)
 
+        # ✅ 성별 원-핫 인코딩
+        user_gender = user.get("gender", "N") or "N"
+        gender_onehot = self.one_hot_encode(user_gender, self.genders)
+
+        # ✅ 감성 피처
+        sentiment_data = meeting.get("sentiment", {})
+
+        avg_sentiment = float(sentiment_data.get("avg_sentiment_score", 0.5))
+        positive_ratio = float(sentiment_data.get("positive_review_ratio", 0.5))
+        negative_ratio = float(sentiment_data.get("negative_review_ratio", 0.5))
+        sentiment_variance = float(sentiment_data.get("review_sentiment_variance", 0.0))
+
+        # ✅ 유저 성향 매칭
+        user_sentiment_match = self._calculate_user_sentiment_match(
+            user.get("mbti", ""),
+            positive_ratio,
+            negative_ratio,
+            sentiment_variance
+        )
+
         feature_vector = [
-            distance_km, time_match, location_type_match, interest_match_score, cost_match_score,
+            # 기존 12개
+            distance_km, time_match, location_type_match,
+            interest_match_score, cost_match_score,
             user_avg_rating, user_meeting_count, user_rating_std,
-            meeting_avg_rating, meeting_rating_count, meeting_participant_count, meeting_max_participants,
+            meeting_avg_rating, meeting_rating_count,
+            meeting_participant_count, meeting_max_participants,
+
+            # 카테고리 7개
             *category_onehot,
+
+            # vibe 8개
             *vibe_onehot,
+
+            # ✅ 성별 3개
+            *gender_onehot,
+
+            # ✅ 감성 5개
+            avg_sentiment,
+            positive_ratio,
+            negative_ratio,
+            sentiment_variance,
+            user_sentiment_match,
         ]
 
         if len(feature_vector) != self.n_features:
-            raise ValueError(f"Feature length mismatch: {len(feature_vector)} != {self.n_features} (expected 27)")
+            raise ValueError(f"Feature mismatch: {len(feature_vector)} != 35")
 
         features = {
             "distance_km": distance_km,
@@ -238,10 +289,24 @@ class FeatureBuilder:
 
     def get_feature_names(self) -> List[str]:
         base_features = [
-            "distance_km", "time_match", "location_type_match", "interest_match_score", "cost_match_score",
+            "distance_km", "time_match", "location_type_match",
+            "interest_match_score", "cost_match_score",
             "user_avg_rating", "user_meeting_count", "user_rating_std",
-            "meeting_avg_rating", "meeting_rating_count", "meeting_participant_count", "meeting_max_participants",
+            "meeting_avg_rating", "meeting_rating_count",
+            "meeting_participant_count", "meeting_max_participants",
         ]
         category_features = [f"category_{cat}" for cat in self.categories]
         vibe_features = [f"vibe_{v}" for v in self.vibes]
-        return base_features + category_features + vibe_features
+
+        # ✅ NEW
+        gender_features = [f"gender_{g}" for g in self.genders]
+        sentiment_features = [
+            "avg_sentiment_score",
+            "positive_review_ratio",
+            "negative_review_ratio",
+            "review_sentiment_variance",
+            "user_sentiment_match"
+        ]
+
+        return (base_features + category_features + vibe_features +
+                gender_features + sentiment_features)

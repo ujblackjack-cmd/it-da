@@ -239,6 +239,18 @@ public class Meeting {
         this.distanceKm = distance;
     }
 
+    @Column(name = "avg_sentiment_score")
+    private Double avgSentimentScore;
+
+    @Column(name = "positive_review_ratio")
+    private Double positiveReviewRatio;
+
+    @Column(name = "negative_review_ratio")
+    private Double negativeReviewRatio;
+
+    @Column(name = "review_sentiment_variance")
+    private Double reviewSentimentVariance;
+
     // ========================================
     // Enum 정의
     // ========================================

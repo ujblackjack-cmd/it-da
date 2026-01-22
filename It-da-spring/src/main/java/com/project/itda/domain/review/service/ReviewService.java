@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 후기 서비스 (감성 분석 통합)
+ * 후기 서비스 (감성 분석 + 모임별 집계 통합)
  */
 @Service
 @Slf4j
@@ -37,6 +37,7 @@ public class ReviewService {
     private final ParticipationRepository participationRepository;
     private final MeetingRepository meetingRepository;
     private final SentimentAnalysisService sentimentAnalysisService;
+    private final MeetingSentimentService meetingSentimentService;  // ✅ 추가
 
     /**
      * 사용자 리뷰 목록 조회 (AI SVD용)
@@ -123,9 +124,17 @@ public class ReviewService {
         // 7. 모임 평균 평점 업데이트
         updateMeetingAvgRating(meeting.getMeetingId());
 
+        // ✅ 8. 모임 감성 집계 업데이트 (추가)
+        try {
+            meetingSentimentService.updateMeetingSentiment(meeting.getMeetingId());
+            log.info("📊 모임 감성 집계 업데이트 완료");
+        } catch (Exception e) {
+            log.warn("⚠️ 모임 감성 집계 실패 (계속 진행): {}", e.getMessage());
+        }
+
         log.info("✅ 후기 작성 완료 - reviewId: {}", savedReview.getReviewId());
 
-        // 8. 응답 생성
+        // 9. 응답 생성
         return toReviewResponse(savedReview, sentimentResult);
     }
 
@@ -174,6 +183,13 @@ public class ReviewService {
         // 6. 평점 변경 시 모임 평균 평점 업데이트
         updateMeetingAvgRating(review.getMeeting().getMeetingId());
 
+        // ✅ 7. 모임 감성 재집계 (추가)
+        try {
+            meetingSentimentService.updateMeetingSentiment(review.getMeeting().getMeetingId());
+        } catch (Exception e) {
+            log.warn("⚠️ 모임 감성 재집계 실패: {}", e.getMessage());
+        }
+
         log.info("✅ 후기 수정 완료 - reviewId: {}", reviewId);
 
         return toReviewResponse(review, sentimentResult);
@@ -193,10 +209,19 @@ public class ReviewService {
             throw new IllegalStateException("본인이 작성한 후기만 삭제할 수 있습니다");
         }
 
+        Long meetingId = review.getMeeting().getMeetingId();
+
         review.delete();
 
         // 평균 평점 업데이트
-        updateMeetingAvgRating(review.getMeeting().getMeetingId());
+        updateMeetingAvgRating(meetingId);
+
+        // ✅ 모임 감성 재집계 (추가)
+        try {
+            meetingSentimentService.updateMeetingSentiment(meetingId);
+        } catch (Exception e) {
+            log.warn("⚠️ 모임 감성 재집계 실패: {}", e.getMessage());
+        }
 
         log.info("✅ 후기 삭제 완료 - reviewId: {}", reviewId);
     }
@@ -317,13 +342,10 @@ public class ReviewService {
                 .reviewId(review.getReviewId())
                 .userId(review.getUser().getUserId())
                 .username(review.getUser().getUsername())
-                // ✅ 프론트엔드와 일치: profileImageUrl
                 .profileImageUrl(review.getUser().getProfileImageUrl())
                 .meetingId(review.getMeeting().getMeetingId())
-                // ✅ 추가: meetingTitle
                 .meetingTitle(review.getMeeting().getTitle())
                 .rating(review.getRating())
-                // ✅ 프론트엔드와 일치: content (reviewText → content)
                 .content(review.getReviewText())
                 .sentiment(review.getSentiment() != null ? review.getSentiment().name() : null)
                 .sentimentScore(review.getSentimentScore())
