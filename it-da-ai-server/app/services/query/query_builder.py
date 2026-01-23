@@ -5,7 +5,7 @@ Spring Boot 검색 API용 payload 생성
 
 from typing import Optional
 from app.core.logging import logger
-from app.core.keyword_utils import clean_keywords
+from app.core.keyword_utils import clean_keywords  # ✅ 임포트 추가
 
 
 class QueryBuilder:
@@ -68,12 +68,16 @@ class QueryBuilder:
         gpt_location_type = enriched_query.get("location_type")
         location_type = self.normalizer.normalize_location_type(gpt_location_type) if gpt_location_type else None
 
-        # 8) payload 구성
+        # ✅ 8) vibe 추가
+        vibe = self.normalizer.normalize_vibe(enriched_query.get("vibe"))
+
+        # 9) payload 구성
         payload = {
             "category": enriched_query.get("category"),
             "subcategory": enriched_query.get("subcategory"),
             "timeSlot": time_slot,
             "locationType": location_type,
+            "vibe": vibe,  # ✅ vibe 추가
             "keywords": keywords if keywords else None,
             "userLocation": {
                 "latitude": lat,
@@ -83,20 +87,20 @@ class QueryBuilder:
             "maxCost": enriched_query.get("maxCost") or enriched_query.get("max_cost"),
         }
 
-        logger.info(f"[PAYLOAD_DEBUG] category={payload.get('category')} subcategory={payload.get('subcategory')}")
+        logger.info(f"[PAYLOAD_DEBUG] category={payload.get('category')} subcategory={payload.get('subcategory')} vibe={payload.get('vibe')}")
 
-        # 9) radius는 근처 의도일 때만
+        # 10) radius는 근처 의도일 때만
         if near_me:
             payload["radius"] = float(enriched_query.get("radius") or 10.0)
 
         # 로그
         logger.info(
-            f"[PAYLOAD] near_me={near_me} locationType={location_type} "
+            f"[PAYLOAD] near_me={near_me} locationType={location_type} vibe={vibe} "
             f"userLocation={payload.get('userLocation')} "
             f"radius={payload.get('radius', None)} timeSlot={payload.get('timeSlot')}"
         )
 
-        # 10) null/""/[] 제거
+        # 11) null/""/[] 제거
         return self._clean_payload(payload)
 
     def _is_near_me_phrase(self, q: str | None) -> bool:

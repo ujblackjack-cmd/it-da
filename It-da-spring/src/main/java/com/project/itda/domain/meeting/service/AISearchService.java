@@ -9,7 +9,6 @@ import com.project.itda.domain.meeting.enums.MeetingStatus;
 import com.project.itda.domain.meeting.repository.MeetingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +25,13 @@ public class AISearchService {
 
     private final MeetingRepository meetingRepository;
 
-    // ✅ 핵심: 어떤 필터든 이 개수 미만이면 "필터 스킵"
-    private static final int MIN_CANDIDATES = 30; // 데이터 적으면 10~20으로 낮춰도 됨
-
+    private static final int MIN_CANDIDATES = 30;
     private static final int MIN_CATEGORY_CANDIDATES = 5;
 
-    // AISearchService.java 수정
-
     public AISearchResponse searchForAI(AISearchRequest request) {
-        log.info("🤖 AI 검색: category={}, subcategory={}, timeSlot={}, locationQuery={}, locationType={}, maxCost={}, keywords={}",
+        log.info("🤖 AI 검색: category={}, subcategory={}, timeSlot={}, locationQuery={}, locationType={}, vibe={}, maxCost={}, keywords={}",
                 request.getCategory(), request.getSubcategory(), request.getTimeSlot(),
-                request.getLocationQuery(), request.getLocationType(),
+                request.getLocationQuery(), request.getLocationType(), request.getVibe(),
                 request.getMaxCost(), request.getKeywords());
 
         // 0) 기본 후보군: RECRUITING 전체
@@ -46,7 +41,7 @@ public class AISearchService {
 
         List<Meeting> meetings = base;
 
-        // ✅ 1) locationType 필터를 최우선 하드 필터로 이동
+        // ✅ 1) locationType 필터 (최우선 하드 필터)
         if (hasText(request.getLocationType())) {
             String lt = request.getLocationType().trim().toUpperCase();
 
@@ -67,7 +62,7 @@ public class AISearchService {
             }
         }
 
-        // category (✅ 소프트로 변경)
+        // 2) category (소프트)
         if (hasText(request.getCategory())) {
             String cat = request.getCategory().trim();
 
@@ -75,12 +70,11 @@ public class AISearchService {
                     meetings,
                     m -> m.getCategory() != null && m.getCategory().trim().equalsIgnoreCase(cat),
                     "category=" + cat,
-                    MIN_CATEGORY_CANDIDATES   // ✅ category는 최소 기준을 더 낮게
+                    MIN_CATEGORY_CANDIDATES
             );
         }
 
-
-        // 3) subcategory (✅ 세미-하드: 결과가 있으면 적용)
+        // 3) subcategory (세미-하드: 결과가 있으면 적용)
         if (hasText(request.getSubcategory())) {
             String sub = request.getSubcategory().trim();
             List<Meeting> filtered = meetings.stream()
@@ -95,21 +89,45 @@ public class AISearchService {
             }
         }
 
-        log.info("🧪 [REQ] category='{}', subcategory='{}', locationType='{}'",
-                request.getCategory(), request.getSubcategory(), request.getLocationType());
+        // ✅ 4) vibe 필터 추가 (소프트)
+        if (hasText(request.getVibe())) {
+            String vibeReq = request.getVibe().trim();
+
+            meetings = applySoftFilter(
+                    meetings,
+                    m -> {
+                        if (m.getVibe() == null) return false;
+                        String mVibe = m.getVibe().trim();
+
+                        // 완전 일치
+                        if (mVibe.equalsIgnoreCase(vibeReq)) return true;
+
+                        // ✅ 유사 vibe 매칭 (힐링 계열)
+                        if (isHealingVibe(vibeReq) && isHealingVibe(mVibe)) return true;
+
+                        // ✅ 유사 vibe 매칭 (즐거운 계열)
+                        if (isFunVibe(vibeReq) && isFunVibe(mVibe)) return true;
+
+                        return false;
+                    },
+                    "vibe=" + vibeReq
+            );
+        }
+
+        log.info("🧪 [REQ] category='{}', subcategory='{}', locationType='{}', vibe='{}'",
+                request.getCategory(), request.getSubcategory(), request.getLocationType(), request.getVibe());
 
         log.info("🧪 [CAND_BEFORE_SUB] size={}, subcats={}",
                 meetings.size(),
                 meetings.stream().map(Meeting::getSubcategory).filter(Objects::nonNull)
                         .map(String::trim).distinct().limit(20).toList());
 
-        /* subcategory 필터 적용 후 */
         log.info("🧪 [CAND_AFTER_SUB] size={}, subcats={}",
                 meetings.size(),
                 meetings.stream().map(Meeting::getSubcategory).filter(Objects::nonNull)
                         .map(String::trim).distinct().limit(20).toList());
 
-        // 4) timeSlot (소프트)
+        // 5) timeSlot (소프트)
         if (hasText(request.getTimeSlot())) {
             Set<String> allowed = Arrays.stream(request.getTimeSlot().split(","))
                     .map(String::trim)
@@ -126,7 +144,7 @@ public class AISearchService {
             }
         }
 
-        // 5) maxCost (소프트)
+        // 6) maxCost (소프트)
         if (request.getMaxCost() != null) {
             Integer max = request.getMaxCost();
             meetings = applySoftFilter(
@@ -136,7 +154,7 @@ public class AISearchService {
             );
         }
 
-        // 6) locationQuery 텍스트 필터 (소프트)
+        // 7) locationQuery 텍스트 필터 (소프트)
         if (hasText(request.getLocationQuery()) && !isNearMePhrase(request.getLocationQuery())) {
             String q = request.getLocationQuery().trim().toLowerCase();
             meetings = applySoftFilter(
@@ -146,7 +164,7 @@ public class AISearchService {
             );
         }
 
-        // 7) keywords 텍스트 필터 (소프트)
+        // 8) keywords 텍스트 필터 (소프트)
         if (request.getKeywords() != null && !request.getKeywords().isEmpty()) {
             List<String> kws = request.getKeywords().stream()
                     .filter(Objects::nonNull)
@@ -171,7 +189,7 @@ public class AISearchService {
             }
         }
 
-        // 8) 거리 계산 + nearMe일 때만 radius 적용/정렬
+        // 9) 거리 계산 + nearMe일 때만 radius 적용/정렬
         meetings = applyDistanceLogic(meetings, request);
 
         // DTO 변환
@@ -203,8 +221,33 @@ public class AISearchService {
     }
 
     // =========================
-    // ✅ 핵심 유틸: "필터 적용" vs "스킵"
+    // ✅ Vibe 유사도 매칭 헬퍼
     // =========================
+
+    /**
+     * 힐링 계열 vibe 체크
+     */
+    private boolean isHealingVibe(String vibe) {
+        if (vibe == null) return false;
+        String v = vibe.trim().toLowerCase();
+        return v.equals("힐링") || v.equals("여유로운") || v.equals("차분한") ||
+                v.equals("조용한") || v.equals("편안한") || v.equals("잔잔한");
+    }
+
+    /**
+     * 즐거운 계열 vibe 체크
+     */
+    private boolean isFunVibe(String vibe) {
+        if (vibe == null) return false;
+        String v = vibe.trim().toLowerCase();
+        return v.equals("즐거운") || v.equals("신나는") || v.equals("재밌는") ||
+                v.equals("활기찬") || v.equals("흥미로운");
+    }
+
+    // =========================
+    // 필터 로직
+    // =========================
+
     private List<Meeting> applySoftFilter(List<Meeting> current, Predicate<Meeting> predicate, String label) {
         return applySoftFilter(current, predicate, label, MIN_CANDIDATES);
     }
@@ -224,7 +267,6 @@ public class AISearchService {
             return current;
         }
 
-        // ✅ 동적 기준: 현재 후보가 20개면 8개 이상만 되어도 적용 같은 방식
         int dynamicMin = Math.min(minCandidates, Math.max(5, (int)Math.ceil(current.size() * 0.4)));
 
         if (filtered.size() < dynamicMin) {
@@ -240,6 +282,7 @@ public class AISearchService {
     // =========================
     // 거리 로직
     // =========================
+
     private List<Meeting> applyDistanceLogic(List<Meeting> meetings, AISearchRequest request) {
         if (meetings == null || meetings.isEmpty()) return meetings;
         if (request.getUserLocation() == null) return meetings;
@@ -251,9 +294,8 @@ public class AISearchService {
         boolean nearMe = hasText(request.getLocationQuery()) && isNearMePhrase(request.getLocationQuery());
 
         Double radius = request.getRadius();
-        if (nearMe && radius == null) radius = 10.0; // nearMe 기본 반경
+        if (nearMe && radius == null) radius = 10.0;
 
-        // distanceKm 채우기
         for (Meeting m : meetings) {
             if (m.getLatitudeAsDouble() != null && m.getLongitudeAsDouble() != null) {
                 double d = calculateDistance(userLat, userLng, m.getLatitudeAsDouble(), m.getLongitudeAsDouble());
@@ -261,14 +303,12 @@ public class AISearchService {
             }
         }
 
-        // radius 필터는 nearMe일 때만 의미있게
         if (nearMe && radius != null) {
             double r = radius;
             List<Meeting> filtered = meetings.stream()
                     .filter(m -> m.getDistanceKm() != null && m.getDistanceKm() <= r)
                     .toList();
 
-            // ✅ radius도 소프트 처리: 너무 줄면 스킵
             if (!filtered.isEmpty() && filtered.size() >= Math.min(MIN_CANDIDATES, meetings.size())) {
                 log.info("✅ [radius<={}km] 적용: {} -> {}", r, meetings.size(), filtered.size());
                 meetings = filtered;
@@ -278,7 +318,6 @@ public class AISearchService {
             }
         }
 
-        // nearMe면 거리순 정렬
         if (nearMe) {
             meetings = meetings.stream()
                     .sorted(Comparator.comparing(Meeting::getDistanceKm, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -291,6 +330,7 @@ public class AISearchService {
     // =========================
     // DTO 변환
     // =========================
+
     private AIMeetingDTO convertToDTO(Meeting meeting) {
         return AIMeetingDTO.builder()
                 .meetingId(meeting.getMeetingId())
@@ -314,7 +354,6 @@ public class AISearchService {
                 .avgRating(meeting.getAvgRating())
                 .ratingCount(meeting.getRatingCount())
                 .distanceKm(meeting.getDistanceKm())
-                // ✅ NEW: Sentiment 데이터 추가
                 .avgSentimentScore(meeting.getAvgSentimentScore())
                 .positiveReviewRatio(meeting.getPositiveReviewRatio())
                 .negativeReviewRatio(meeting.getNegativeReviewRatio())
@@ -337,6 +376,7 @@ public class AISearchService {
     // =========================
     // Helpers
     // =========================
+
     private boolean isNearMePhrase(String q) {
         if (q == null) return false;
         String s = q.toLowerCase();
@@ -365,9 +405,8 @@ public class AISearchService {
         return s == null ? "" : s;
     }
 
-    // Haversine
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371; // km
+        final int R = 6371;
         double latDistance = Math.toRadians(lat2 - lat1);
         double lonDistance = Math.toRadians(lon2 - lon1);
 

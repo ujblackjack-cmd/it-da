@@ -33,6 +33,14 @@ from app.services.utils import QueryTermExtractor
 class AIRecommendationService:
     """AI 추천 통합 서비스 - 메인 오케스트레이터"""
 
+    # 개인 감정 표현 키워드 (클래스 변수로 이동)
+    PERSONAL_EMOTIONS = {
+        "love": ["사랑해", "좋아해", "예뻐", "이뻐", "멋져", "최고"],
+        "praise": ["잘했어", "대단해", "훌륭해", "멋있어"],
+        "random": ["동원이", "진우", "클로드"],  # 이름
+        "body_part": ["발가락", "손가락", "머리카락", "무릎"],  # 신체 부위 (활동 무관)
+    }
+
     def __init__(
         self,
         gpt_service: GPTPromptService,
@@ -103,13 +111,12 @@ class AIRecommendationService:
             # ==========================================
             # Step 1: GPT 파싱
             # ==========================================
-            logger.info(f"[Step 1] GPT 프롬프트 파싱: {user_prompt}")
             parsed_query = await self.gpt_service.parse_search_query(user_prompt)
 
             # Taxonomy 교정
             parsed_query = self.normalizer.normalize_taxonomy(parsed_query)
 
-            # Post-processing (배고파, 사진, 뇌, 춤 등)
+            # Post-processing (배고파, 사진, 뇌, 춤, 감정 등)
             parsed_query = self.postprocessor.post_fix(user_prompt, parsed_query)
 
             # Category 증거 기반 가드
@@ -124,12 +131,34 @@ class AIRecommendationService:
             # ==========================================
             # Step 2: 사용자 컨텍스트 조회
             # ==========================================
-            logger.info(f"[Step 2] 사용자 컨텍스트 조회: user_id={user_id}")
             user_context = await self._get_user_context(user_id)
             logger.info(f"[CTX] lat={user_context.get('latitude')} lng={user_context.get('longitude')}")
 
             # ==========================================
-            # Step 2.5: 초애매 케이스 체크
+            # Step 2.5: 개인 감정 표현 체크
+            # ==========================================
+            if self._is_personal_emotion(user_prompt, parsed_query):
+                logger.warning(f"⚠️ 개인 감정 표현 감지: '{user_prompt}' → clarification")
+
+                clarification_card = self._make_clarification_card(
+                    user_prompt, parsed_query, user_context
+                )
+
+                return {
+                    "user_prompt": user_prompt,
+                    "parsed_query": parsed_query,
+                    "total_candidates": 0,
+                    "recommendations": [clarification_card],
+                    "search_trace": {
+                        "steps": [],
+                        "final_level": 0,
+                        "final_label": "PERSONAL_EMOTION_CLARIFICATION",
+                        "fallback": False
+                    }
+                }
+
+            # ==========================================
+            # Step 2.6: 초애매 케이스 체크
             # ==========================================
             kw = parsed_query.get("keywords") or []
             conf = float(parsed_query.get("confidence", 0) or 0)
@@ -322,28 +351,83 @@ class AIRecommendationService:
                 "user_rating_std": 0.0
             }
 
+    def _is_personal_emotion(self, user_prompt: str, parsed_query: dict) -> bool:
+        """개인 감정 표현 감지"""
+
+        text = user_prompt.lower()
+        conf = float(parsed_query.get("confidence", 0) or 0)
+
+        # 1) 개인 감정 키워드 체크
+        for category, keywords in self.PERSONAL_EMOTIONS.items():
+            if any(kw in text for kw in keywords):
+                # 활동 키워드가 함께 있으면 OK
+                activity_keywords = [
+                    "모임", "만나", "같이", "함께", "할래", "하고싶",
+                    "추천", "찾아", "해줘", "있을까"
+                ]
+                has_activity = any(ak in text for ak in activity_keywords)
+
+                if not has_activity:
+                    logger.info(f"[PERSONAL_EMOTION] {category} 감지: '{text}'")
+                    return True
+
+        # 2) 신체 부위 + 통증 (활동 무관)
+        body_pain = ["아파", "아픈", "통증", "쑤셔", "저려"]
+        has_body_part = any(bp in text for bp in self.PERSONAL_EMOTIONS["body_part"])
+        has_pain = any(p in text for p in body_pain)
+
+        if has_body_part and has_pain:
+            # "등산 후 발가락 아픔" 같은 건 OK
+            if "후" not in text and "때문" not in text:
+                return True
+
+        # 3) 매우 낮은 confidence + 아무 정보 없음 (이미 Step 2.6에서 처리됨)
+        # 중복 체크 방지를 위해 제거
+
+        return False
+
     def _make_clarification_card(self, user_prompt: str, parsed_query: dict, user_context: dict) -> dict:
-        """Clarification 카드 생성"""
+        """Clarification 카드 생성 (개선)"""
+
+        # 감정별 맞춤 메시지
+        text = user_prompt.lower()
+
+        if any(w in text for w in ["사랑", "좋아", "예뻐", "이뻐"]):
+            suggestion = "좋아하는 사람과 함께 할 활동을 말해주세요!"
+            examples = [
+                "예: 좋아하는 사람이랑 카페 가기",
+                "예: 데이트로 전시회 보기",
+                "예: 친구랑 맛집 탐방",
+            ]
+        elif any(w in text for w in ["발가락", "손가락", "무릎"]):
+            suggestion = "어떤 활동을 하고 싶으신가요?"
+            examples = [
+                "예: 가벼운 산책하기",
+                "예: 실내 요가하기",
+                "예: 카페에서 책 읽기",
+            ]
+        else:
+            suggestion = "어떤 걸 하고 싶은지 한 가지만 더 알려줘요!"
+            examples = [
+                "예: 집 근처 카페에서 브런치",
+                "예: 실내에서 보드게임",
+                "예: 밖에서 러닝하기",
+            ]
+
         return {
             "meeting_id": -1,
-            "title": "어떤 걸 하고 싶은지 한 가지만 더 알려줘요 🙂",
+            "title": f"{suggestion} 🙂",
             "category": "SYSTEM",
             "subcategory": "CLARIFY",
-            "location_name": "추천을 위해 추가 정보가 필요해요",
+            "location_name": "추천을 위해 좀 더 구체적인 정보가 필요해요",
             "image_url": None,
-
             "match_score": 0,
             "match_level": "INFO",
             "predicted_rating": None,
-
-            "key_points": [
-                "예: 집에서 요리 같이 하기",
-                "예: 집에서 스터디/공부",
-                "예: 집 근처 카페에서 브런치",
-            ],
+            "key_points": examples,
             "reasoning": (
-                f"지금 입력은 '{user_prompt}'라서 추천 범위를 좁히기 어려워요. "
-                "원하는 활동(요리/스터디/영화/운동 등)이나 지역(홍대/성수 등) 중 1개만 더 말해줘요!"
+                f"지금 입력하신 '{user_prompt}'만으로는 어떤 모임을 추천해야 할지 "
+                f"판단하기 어려워요. {suggestion}"
             ),
             "is_clarification": True,
             "intent": "NEUTRAL",

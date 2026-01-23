@@ -20,13 +20,6 @@ class MeetingSearchService:
             search_strategy,
             normalizer
     ):
-        """
-        Args:
-            spring_boot_url: Spring Boot API URL
-            query_builder: QueryBuilder 인스턴스
-            search_strategy: SearchStrategy 인스턴스
-            normalizer: QueryNormalizer 인스턴스
-        """
         self.spring_boot_url = spring_boot_url
         self.query_builder = query_builder
         self.search_strategy = search_strategy
@@ -39,18 +32,7 @@ class MeetingSearchService:
             trace_steps: list,
             user_prompt: str = ""
     ) -> List[dict]:
-        """
-        점진적 완화 검색
-
-        Args:
-            base_query: 기본 쿼리
-            user_context: 유저 컨텍스트
-            trace_steps: 검색 추적 로그 (출력용)
-            user_prompt: 원본 프롬프트
-
-        Returns:
-            검색된 모임 리스트
-        """
+        """점진적 완화 검색"""
         conf = float(base_query.get("confidence", 0) or 0)
         explicit_quiet = self._has_explicit_quiet(user_prompt)
 
@@ -84,14 +66,12 @@ class MeetingSearchService:
 
             # category 가드
             if base_cat and all((m.get("category") or "").strip() != base_cat for m in cands):
-                # 1차: location_query 제거
                 q_fix = self._drop_keys(q0, "location_query", "locationQuery")
                 c2 = await self._try_search("L0-guard(locationQuery 제거)", q_fix, 1, user_context, trace_steps,
                                             user_prompt)
                 if c2 and any((m.get("category") or "").strip() == base_cat for m in c2):
                     return c2
 
-                # 2차: location_type까지 제거
                 q_fix2 = self._drop_keys(q0, "location_type", "locationType", "location_query", "locationQuery")
                 c3 = await self._try_search("L0-guard(locationType 제거)", q_fix2, 2, user_context, trace_steps,
                                             user_prompt)
@@ -111,7 +91,6 @@ class MeetingSearchService:
             cands = await self._try_search(label, qn, level, user_context, trace_steps, user_prompt)
 
             if cands:
-                # category 가드
                 if base_cat and all((m.get("category") or "").strip() != base_cat for m in cands):
                     q_fix = self._drop_keys(qn, "location_query", "locationQuery")
                     c2 = await self._try_search(f"{label}-guard", q_fix, level + 1, user_context, trace_steps,
@@ -141,6 +120,46 @@ class MeetingSearchService:
 
         meetings = await self._search_meetings(q, user_context, user_prompt)
         meetings = meetings or []
+
+        # ✅ VIBE 2차 필터링 (Spring이 안 했으니 여기서 처리)
+        requested_vibe = q.get("vibe")
+        if requested_vibe and meetings:
+            normalized_req_vibe = self.normalizer.normalize_vibe(requested_vibe)
+            before_count = len(meetings)
+
+            filtered_meetings = []
+            for m in meetings:
+                meeting_vibe = self.normalizer.normalize_vibe(m.get("vibe"))
+
+                # 완전 일치
+                if meeting_vibe == normalized_req_vibe:
+                    filtered_meetings.append(m)
+                    continue
+
+                # 힐링 계열 유사 매칭
+                healing_vibes = {"힐링", "여유로운", "차분한", "조용한", "편안한", "잔잔한"}
+                if normalized_req_vibe in healing_vibes and meeting_vibe in healing_vibes:
+                    filtered_meetings.append(m)
+                    continue
+
+                # 즐거운 계열 유사 매칭
+                fun_vibes = {"즐거운", "신나는", "재밌는", "활기찬", "흥미로운", "재미있는"}
+                if normalized_req_vibe in fun_vibes and meeting_vibe in fun_vibes:
+                    filtered_meetings.append(m)
+                    continue
+
+            # 필터링 결과가 충분하면 적용
+            min_threshold = min(30, int(len(meetings) * 0.4))
+            if len(filtered_meetings) >= max(5, min_threshold):
+                meetings = filtered_meetings
+                logger.info(
+                    f"🎨 [AI_VIBE_FILTER] {normalized_req_vibe} | "
+                    f"{before_count} -> {len(meetings)}"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ [AI_VIBE_FILTER] {normalized_req_vibe} 결과 {len(filtered_meetings)}개 → 스킵"
+                )
 
         # locationType 2차 필터
         requested_type = q.get("location_type")

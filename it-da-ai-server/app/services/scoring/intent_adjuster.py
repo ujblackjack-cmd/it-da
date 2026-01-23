@@ -39,7 +39,36 @@ class IntentAdjuster:
 
         adjustment = 0.0
 
-        # NEUTRAL은 가산/감산 없이 0
+        # ✅ 최우선: VIBE 매칭 체크
+        if parsed_query:
+            requested_vibe = self.normalizer.normalize_vibe(parsed_query.get("vibe"))
+            meeting_vibe = self.normalizer.normalize_vibe(meeting.get("vibe"))
+
+            if requested_vibe and meeting_vibe:
+                # 완전 일치 → 큰 보너스
+                if requested_vibe == meeting_vibe:
+                    adjustment += 18.0
+                    logger.info(f"[VIBE_MATCH] 완전일치 {requested_vibe} → +18점")
+                else:
+                    # 유사 vibe 체크
+                    healing_vibes = {"힐링", "여유로운", "차분한", "조용한", "편안한", "잔잔한"}
+                    fun_vibes = {"즐거운", "신나는", "재밌는", "활기찬", "흥미로운", "재미있는"}
+
+                    is_similar = False
+                    if requested_vibe in healing_vibes and meeting_vibe in healing_vibes:
+                        is_similar = True
+                        adjustment += 10.0
+                        logger.info(f"[VIBE_SIMILAR] 힐링계열 유사 → +10점")
+                    elif requested_vibe in fun_vibes and meeting_vibe in fun_vibes:
+                        is_similar = True
+                        adjustment += 10.0
+                        logger.info(f"[VIBE_SIMILAR] 즐거운계열 유사 → +10점")
+
+                    if not is_similar:
+                        adjustment -= 30.0  # ✅ 매우 큰 패널티
+                        logger.info(f"[VIBE_MISMATCH] 요청={requested_vibe}, 모임={meeting_vibe} → -30점")
+
+        # NEUTRAL은 가산/감산 없이 location_type만 체크
         if not intent or intent == "NEUTRAL":
             # location_type 약한 반영
             if parsed_query:
@@ -52,6 +81,27 @@ class IntentAdjuster:
                         adjustment -= 3.0
 
             return adjustment
+
+        # ✅ QUIET intent (힐링/여유/조용)
+        if intent == "QUIET":
+            # 시끄러운 subcategory → 매우 큰 패널티
+            noisy_subs = ["볼링", "당구", "방탈출", "노래방", "클럽", "술집", "와인바", "탁구"]
+            if sub in noisy_subs:
+                adjustment -= 45.0  # ✅ 강력 패널티
+                logger.info(f"[QUIET_MISMATCH] {sub} → -45점")
+
+            # 스포츠도 강력 패널티
+            if cat == "스포츠":
+                adjustment -= 45.0
+                logger.info(f"[QUIET_MISMATCH] 스포츠 → -45점")
+
+            # 힐링과 잘 맞는 카테고리 보너스
+            if cat == "카페":
+                adjustment += 22.0
+            elif cat == "문화예술":
+                adjustment += 18.0
+            elif cat == "소셜" and sub in ["보드게임", "책", "독서"]:
+                adjustment += 12.0  # 조용한 소셜
 
         # ACTIVE intent
         if intent == "ACTIVE":
@@ -96,15 +146,6 @@ class IntentAdjuster:
             # 카페/문화예술은 중립
             if cat in ["카페", "문화예술"]:
                 adjustment += 0.0
-
-        # QUIET intent
-        if intent == "QUIET":
-            if cat == "스포츠":
-                adjustment -= 30.0
-            elif cat == "카페":
-                adjustment += 15.0
-            elif cat == "문화예술":
-                adjustment += 12.0
 
         # 공놀이 키워드 특별 처리
         if parsed_query:
