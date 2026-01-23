@@ -83,14 +83,60 @@ const MeetingDetailPage = () => {
 
   const API_ORIGIN = "http://localhost:8080";
 
-  if (!meetingId) {
-    return (
-      <div className="error-container">
-        <p>잘못된 접근입니다. 모임 ID가 없습니다.</p>
-        <button onClick={() => navigate("/meetings")}>목록으로</button>
-      </div>
-    );
-  }
+  // ✅ 최근 조회 모임 localStorage에 저장하는 함수
+  const saveToRecentViewed = (meetingData: MeetingDetail) => {
+    try {
+      const STORAGE_KEY = "recentViewedMeetings";
+      const MAX_ITEMS = 10;
+
+      // 기존 데이터 가져오기
+      const existing = localStorage.getItem(STORAGE_KEY);
+      let recentList: any[] = existing ? JSON.parse(existing) : [];
+
+      // 새 아이템 생성
+      const newItem = {
+        id: meetingData.meetingId,
+        meetingId: meetingData.meetingId,
+        title: meetingData.title,
+        category: meetingData.category,
+        imageUrl: meetingData.imageUrl,
+        icon: getCategoryIcon(meetingData.category),
+        time: new Date().toISOString(),
+        type: "meeting" as const,
+      };
+
+      // 중복 제거 (같은 meetingId가 있으면 제거)
+      recentList = recentList.filter(
+        (item) => item.meetingId !== meetingData.meetingId,
+      );
+
+      // 맨 앞에 추가
+      recentList.unshift(newItem);
+
+      // 최대 개수 제한
+      if (recentList.length > MAX_ITEMS) {
+        recentList = recentList.slice(0, MAX_ITEMS);
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(recentList));
+      console.log("✅ 최근 조회 모임 저장:", newItem.title);
+    } catch (error) {
+      console.error("❌ 최근 조회 저장 실패:", error);
+    }
+  };
+
+  // ✅ 카테고리별 아이콘
+  const getCategoryIcon = (category: string): string => {
+    const iconMap: Record<string, string> = {
+      스포츠: "🏃",
+      맛집: "🍽️",
+      문화예술: "🎨",
+      스터디: "📚",
+      취미활동: "🎸",
+      소셜: "🎉",
+    };
+    return iconMap[category] || "📅";
+  };
 
   useEffect(() => {
     fetchMeetingDetail();
@@ -124,6 +170,9 @@ const MeetingDetailPage = () => {
 
       let meetingData = response.data;
 
+      // ✅ 최근 조회 모임 localStorage에 저장
+      saveToRecentViewed(meetingData);
+
       if (!meetingData.participants || meetingData.participants.length === 0) {
         try {
           const participantsRes = await axios.get(
@@ -133,7 +182,7 @@ const MeetingDetailPage = () => {
 
           console.log("✅ 참여자 API 응답:", participantsRes.data);
 
-          let participantsList: Participant[] = [];
+          let participantsList = [];
           if (Array.isArray(participantsRes.data)) {
             participantsList = participantsRes.data;
           } else if (participantsRes.data.participants) {
@@ -142,15 +191,13 @@ const MeetingDetailPage = () => {
 
           meetingData.participants = participantsList
             .filter((p: any) => p.status === "APPROVED")
-            .map(
-              (p: any): Participant => ({
-                userId: p.userId,
-                username: p.username,
-                profileImage: p.profileImage,
-                status: p.status,
-                joinedAt: p.createdAt || p.joinedAt,
-              }),
-            );
+            .map((p: any) => ({
+              userId: p.userId,
+              username: p.username,
+              profileImage: p.profileImage,
+              status: p.status,
+              joinedAt: p.createdAt || p.joinedAt,
+            }));
 
           console.log("✅ 변환된 참여자:", meetingData.participants);
         } catch (participantsErr) {
@@ -353,7 +400,10 @@ const MeetingDetailPage = () => {
     try {
       await axios.post(
         "http://localhost:8080/api/participations",
-        { meetingId: meeting?.meetingId },
+        {
+          meetingId: meeting?.meetingId,
+          userId: user.userId, // ✅ 여기 추가!
+        },
         { withCredentials: true },
       );
 
@@ -364,26 +414,40 @@ const MeetingDetailPage = () => {
     } catch (err: any) {
       console.error("참여 신청 실패:", err);
 
-      // ✅ 에러 메시지 안전하게 추출
+      // 에러 메시지 안전하게 추출
       const errorMessage =
         typeof err.response?.data === "string"
           ? err.response.data
           : err.response?.data?.message || err.response?.data?.error || "";
 
+      console.log("🔍 에러 메시지:", errorMessage);
+
       // 주최자 에러
-      if (err.response?.status === 500 && errorMessage.includes("주최자")) {
+      if (errorMessage.includes("주최자")) {
         alert("모임 주최자는 참여 신청을 할 수 없습니다.");
         return;
       }
 
-      // 중복 신청 에러
-      if (err.response?.status === 500 && errorMessage.includes("이미")) {
+      // ✅ 중복 신청 에러 - 다양한 키워드 체크
+      if (
+        errorMessage.includes("이미") ||
+        errorMessage.includes("신청") ||
+        errorMessage.includes("참여")
+      ) {
         alert("이미 참여 신청한 모임입니다.");
         checkParticipationStatus();
         return;
       }
 
+      // 409 Conflict
       if (err.response?.status === 409) {
+        alert("이미 참여 신청한 모임입니다.");
+        checkParticipationStatus();
+        return;
+      }
+
+      // ✅ 500 에러인데 위에서 안 걸렸으면 중복 신청으로 간주
+      if (err.response?.status === 500) {
         alert("이미 참여 신청한 모임입니다.");
         checkParticipationStatus();
         return;
@@ -446,6 +510,11 @@ const MeetingDetailPage = () => {
     return vibeMap[vibe] || "✨";
   };
 
+  // ✅ 뒤로가기 핸들러 - 이전 페이지로 돌아가기
+  const handleGoBack = () => {
+    navigate(-1); // 브라우저 히스토리 기반 뒤로가기
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -480,7 +549,8 @@ const MeetingDetailPage = () => {
           />
         )}
         <div className="hero-content">
-          <button className="back-btn" onClick={() => navigate("/")}>
+          {/* ✅ 수정: navigate("/") → navigate(-1) */}
+          <button className="back-btn" onClick={handleGoBack}>
             ←
           </button>
 
@@ -777,7 +847,7 @@ const MeetingDetailPage = () => {
       <MeetingManageModal
         isOpen={isManageModalOpen}
         onClose={() => setIsManageModalOpen(false)}
-        meetingId={meetingId}
+        meetingId={meetingId!}
         meetingTitle={meeting?.title || ""}
         onUpdate={fetchMeetingDetail}
       />
@@ -786,7 +856,7 @@ const MeetingDetailPage = () => {
       <ChatPreviewModal
         isOpen={isPreviewModalOpen}
         onClose={() => setIsPreviewModalOpen(false)}
-        meetingId={meetingId}
+        meetingId={meetingId!}
         participationStatus={participationStatus}
         onEnterChat={() => {
           setIsPreviewModalOpen(false);

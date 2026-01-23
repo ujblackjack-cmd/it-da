@@ -261,6 +261,15 @@ public class NotificationService {
 
     /**
      * 모임 참가 승인 알림 (참여자에게)
+     * ✅ 수정: pushParticipationApproved 호출로 변경 (실시간 카드 이동 지원)
+     */
+
+// 변경 후 (새 코드)
+// ========================================
+
+    /**
+     * 모임 참가 승인 알림 (참여자에게)
+     * ✅ 수정: pushParticipationApproved 호출로 변경 (실시간 카드 이동 지원)
      */
     @Transactional
     public void notifyParticipationApproved(User participant, Long meetingId, String meetingTitle, long participationCount) {
@@ -276,10 +285,15 @@ public class NotificationService {
                 null
         );
 
-        // ✅ WebSocket으로 참여 모임 카운트 업데이트 전송
-        pushNotificationService.pushProfileUpdate(participant.getUserId(), "participationCount", participationCount);
+        // ✅ [수정] WebSocket으로 참여 승인 알림 전송 (PARTICIPATION_APPROVED 타입)
+        // 프론트엔드에서 이 메시지를 받아 "진행 예정" → "진행 중인 모임"으로 카드 이동
+        pushNotificationService.pushParticipationApproved(
+                participant.getUserId(),
+                meetingId,
+                meetingTitle,
+                participationCount
+        );
     }
-
     /**
      * 내 모임에 누군가 참가 알림 (모임장에게)
      */

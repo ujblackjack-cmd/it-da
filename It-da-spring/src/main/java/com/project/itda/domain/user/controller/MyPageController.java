@@ -30,17 +30,15 @@ public class MyPageController {
     private final UserRepository userRepository;
     private final UserFollowRepository userFollowRepository;
 
-    // ✅ 접근 권한 체크 메서드 (디버그 로그 추가)
+    // ✅ 접근 권한 체크 메서드
     private boolean canAccessUserData(Long targetUserId, Long currentUserId) {
         log.info("🔍 권한 체크 시작: targetUserId={}, currentUserId={}", targetUserId, currentUserId);
 
-        // 본인이면 허용
         if (targetUserId.equals(currentUserId)) {
             log.info("✅ 본인 접근 - 허용");
             return true;
         }
 
-        // 대상 유저 조회
         User targetUser = userRepository.findById(targetUserId).orElse(null);
         if (targetUser == null) {
             log.warn("❌ 대상 유저 없음");
@@ -49,13 +47,11 @@ public class MyPageController {
 
         log.info("🔍 대상 유저 isPublic 값: {}", targetUser.getIsPublic());
 
-        // 공개 계정이면 허용
         if (targetUser.getIsPublic() != null && targetUser.getIsPublic()) {
             log.info("✅ 공개 계정 - 허용");
             return true;
         }
 
-        // 팔로우 중이면 허용
         boolean isFollowing = userFollowRepository.existsByFollowerIdAndFollowingId(currentUserId, targetUserId);
         log.info("🔍 팔로우 여부: {}", isFollowing);
 
@@ -93,6 +89,23 @@ public class MyPageController {
         }
 
         List<MyReviewResponse> response = myPageService.getMyReviews(userId, currentUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * ✅ 진행 중인 모임 조회 (NEW!)
+     */
+    @GetMapping("/{userId}/ongoing-meetings")
+    public ResponseEntity<?> getOngoingMeetings(
+            @PathVariable Long userId,
+            @RequestParam Long currentUserId) {
+        log.info("진행 중인 모임 조회: userId={}, currentUserId={}", userId, currentUserId);
+
+        if (!canAccessUserData(userId, currentUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "접근 권한이 없습니다."));
+        }
+
+        List<MyMeetingResponse> response = myPageService.getOngoingMeetings(userId, currentUserId);
         return ResponseEntity.ok(response);
     }
 

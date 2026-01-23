@@ -8,9 +8,10 @@ export interface MyMeeting {
     dateTime: string;
     location: string;
     statusText: string;
+    status?: string;  // ✅ 참여 상태 (PENDING, APPROVED, REJECTED, COMPLETED)
     averageRating?: number;
     hasMyReview?: boolean;
-    imageUrl?: string;  // ✅ 이미지 URL 추가
+    imageUrl?: string;
 }
 
 // ✅ 내가 주최한 모임 타입
@@ -20,10 +21,11 @@ export interface OrganizedMeeting {
     dateTime: string;
     location: string;
     statusText: string;
+    status?: string;
     currentParticipants: number;
     maxParticipants: number;
     category?: string;
-    imageUrl?: string;  // ✅ 이미지 URL 추가
+    imageUrl?: string;
 }
 
 export interface MyReview {
@@ -72,6 +74,19 @@ const mypageApi = {
             return response.data || [];
         } catch (error) {
             console.error('getMyReviews error:', error);
+            return [];
+        }
+    },
+
+    // ✅ 진행 중인 모임 목록 (NEW!)
+    async getOngoingMeetings(userId: number, currentUserId: number): Promise<MyMeeting[]> {
+        try {
+            const response = await apiClient.get(`/api/users/${userId}/ongoing-meetings`, {
+                params: { currentUserId }
+            });
+            return response.data || [];
+        } catch (error) {
+            console.error('getOngoingMeetings error:', error);
             return [];
         }
     },

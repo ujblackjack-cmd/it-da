@@ -25,6 +25,7 @@ export interface ProfileUpdate {
     meetingId?: number;
     meetingTitle?: string;
 
+    participationCount?: number;  // ✅ 추가
 }
 
 interface UseProfileWebSocketOptions {
@@ -55,6 +56,8 @@ export function useProfileWebSocket({
             case 'PROFILE_FOLLOWING_UPDATE':
             case 'PROFILE_INFO_UPDATE':
             case 'MEETING_COMPLETED':  // ✅ 모임 완료 타입 추가
+            case 'MEETING_UPDATED':           // ✅ 추가!
+            case 'PARTICIPATION_APPROVED':    // ✅ 추가!
                 onProfileUpdate?.(data);
                 break;
 
