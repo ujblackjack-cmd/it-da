@@ -39,7 +39,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final GeocodingService geocodingService;
     private final ReviewRepository reviewRepository;
-    private final UserFollowService userFollowService;  // ✅ 추가!
+    private final UserFollowService userFollowService;
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {

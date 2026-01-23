@@ -64,6 +64,9 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 .map(entity -> entity.updateSocialInfo(attributes.getName(), attributes.getPicture()))
                 .orElseGet(() -> attributes.toEntity());
 
+        // ✅ 소셜 로그인 시 마지막 로그인 시간 업데이트
+        user.updateLastLogin();
+
         User savedUser = userRepository.save(user);
 
         // ✅ 세션에 명시적으로 저장

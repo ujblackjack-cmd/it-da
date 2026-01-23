@@ -1,11 +1,14 @@
 package com.project.itda.domain.user.repository;
 
 import com.project.itda.domain.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,4 +34,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 전화번호 존재 여부 확인
     boolean existsByPhone(String phone);
+
+    Long countByCreatedAtAfter(LocalDateTime date);
+    Long countByCreatedAtBefore(LocalDateTime date);
+
+    Page<User> findByUsernameContainingOrEmailContaining(String username, String email, Pageable pageable);
 }

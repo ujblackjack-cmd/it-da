@@ -22,6 +22,7 @@ public class AuthService {
     /**
      * 이메일/비밀번호 인증
      */
+    @Transactional
     public User authenticate(String email, String password) {
         // N+1 방지를 위해 필요시 findByEmailWithAll 사용 가능
         User user = userRepository.findByEmail(email)

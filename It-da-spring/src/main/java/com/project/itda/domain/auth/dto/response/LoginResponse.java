@@ -10,9 +10,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginResponse {
+    private String userType;
     private String sessionId;
+
+    // 일반 사용자 필드
     private Long userId;
     private String email;
     private String username;
     private String nickname;
+
+    // 관리자 필드
+    private Long adminId;
+    private String role;
 }

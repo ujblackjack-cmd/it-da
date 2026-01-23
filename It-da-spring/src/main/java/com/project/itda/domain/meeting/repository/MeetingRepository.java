@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.project.itda.domain.meeting.enums.MeetingStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -177,5 +178,196 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     // ✅ chatRoomId로 Meeting 찾기
     @Query("SELECT m FROM Meeting m WHERE m.chatRoom.id = :chatRoomId")
     Optional<Meeting> findByChatRoomId(@Param("chatRoomId") Long chatRoomId);
+    Long countByCreatedAtBefore(LocalDateTime date);
+
+    Long countByStatusIn(List<MeetingStatus> statuses);
+
+    /**
+     * 검색 + 필터 조합
+     */
+    // ✅ 제목 검색
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.title LIKE %:title%
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByTitleContaining(@Param("title") String title, Pageable pageable);
+
+    // ✅ 카테고리 검색
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.category = :category
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByCategory(@Param("category") String category, Pageable pageable);
+
+    // ✅ 카테고리 + 상태
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.category = :category
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByCategoryAndStatus(@Param("category") String category, @Param("status") MeetingStatus status, Pageable pageable);
+
+    // ✅ 제목 + 카테고리
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.title LIKE %:title%
+      AND m.category = :category
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByTitleContainingAndCategory(@Param("title") String title, @Param("category") String category, Pageable pageable);
+
+    // ✅ 제목 + 상태
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.title LIKE %:title%
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByTitleContainingAndStatus(@Param("title") String title, @Param("status") MeetingStatus status, Pageable pageable);
+
+    // ✅ 제목 + 카테고리 + 상태
+    @Query("""
+    SELECT m FROM Meeting m
+    WHERE m.title LIKE %:title%
+      AND m.category = :category
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+    Page<Meeting> findByTitleContainingAndCategoryAndStatus(@Param("title") String title, @Param("category") String category, @Param("status") MeetingStatus status, Pageable pageable);
+
+
+/**
+ * ⭐ 관리자용: 전체 조회 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findAllWithOrganizer(Pageable pageable);
+
+/**
+ * ⭐ 관리자용: 제목 검색 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.title LIKE %:title%
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByTitleContainingWithOrganizer(@Param("title") String title, Pageable pageable);
+
+/**
+ * ⭐ 관리자용: 카테고리 검색 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.category = :category
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByCategoryWithOrganizer(@Param("category") String category, Pageable pageable);
+
+/**
+ * ⭐ 관리자용: 상태 검색 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByStatusWithOrganizer(@Param("status") MeetingStatus status, Pageable pageable);
+
+/**
+ * ⭐ 관리자용: 제목 + 카테고리 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.title LIKE %:title%
+      AND m.category = :category
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByTitleContainingAndCategoryWithOrganizer(
+        @Param("title") String title,
+        @Param("category") String category,
+        Pageable pageable
+);
+
+/**
+ * ⭐ 관리자용: 제목 + 상태 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.title LIKE %:title%
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByTitleContainingAndStatusWithOrganizer(
+        @Param("title") String title,
+        @Param("status") MeetingStatus status,
+        Pageable pageable
+);
+
+/**
+ * ⭐ 관리자용: 카테고리 + 상태 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.category = :category
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByCategoryAndStatusWithOrganizer(
+        @Param("category") String category,
+        @Param("status") MeetingStatus status,
+        Pageable pageable
+);
+
+/**
+ * ⭐ 관리자용: 제목 + 카테고리 + 상태 with organizer
+ */
+@Query("""
+    SELECT DISTINCT m 
+    FROM Meeting m
+    LEFT JOIN FETCH m.organizer
+    WHERE m.title LIKE %:title%
+      AND m.category = :category
+      AND m.status = :status
+      AND m.deletedAt IS NULL
+    ORDER BY m.createdAt DESC
+    """)
+Page<Meeting> findByTitleContainingAndCategoryAndStatusWithOrganizer(
+        @Param("title") String title,
+        @Param("category") String category,
+        @Param("status") MeetingStatus status,
+        Pageable pageable
+);
 
 }

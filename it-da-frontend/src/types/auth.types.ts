@@ -8,11 +8,18 @@ export interface LoginRequest {
 
 // 로그인 응답 (Redis 세션 방식)
 export interface LoginResponse {
+  userType: 'USER' | 'ADMIN';
   sessionId: string;
+
+  // 일반 사용자 필드
   userId: number;
   email: string;
   username: string;
   nickname?: string;
+
+  // 관리자 필드
+  adminId?: number;
+  role?: string;
 }
 
 // ✅ UserPreference 타입

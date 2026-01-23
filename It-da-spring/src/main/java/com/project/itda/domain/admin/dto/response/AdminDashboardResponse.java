@@ -23,6 +23,17 @@ public class AdminDashboardResponse {
     private Long todayAnnouncementsCount;
     private Long activeUsersCount;
 
+    private Long totalUsersCount;           // 전체 회원수
+    private Long totalMeetingsCount;        // 전체 모임수
+    private Long todayJoinedUsersCount;     // 오늘 가입자수
+    private Long activeMeetingsCount;       // 활성 모임수
+
+    private Long pendingInquiriesCount;     // 대기중인 1:1 문의 수
+
+    // 증가율
+    private Double userGrowthRate;          // 회원 증가율 (지난주 대비)
+    private Double meetingGrowthRate;       // 모임 증가율 (지난주 대비)
+
     public static AdminDashboardResponse from(AdminUser admin) {
         return AdminDashboardResponse.builder()
                 .adminId(admin.getAdminId())

@@ -100,10 +100,12 @@ public class User {
     private String providerId;
 
     @Column(name = "rating")
-    private Double rating;
+    @Builder.Default
+    private Double rating = 0.0;;
 
     @Column(name = "meeting_count")
-    private Integer meetingCount;
+    @Builder.Default
+    private Integer meetingCount = 0;
 
     @Column(name = "birth_date")
     private LocalDate birthDate;
@@ -113,6 +115,7 @@ public class User {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
 
     public void updateInfo(String username, String phone, String address, Double latitude, Double longitude,
                            String profileImageUrl, String bio, String gender, String mbti, String interests, Boolean isPublic) {
