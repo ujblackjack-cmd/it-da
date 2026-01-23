@@ -23,9 +23,9 @@ export interface ChatMessage { // ✅ 이 부분이 Page의 인터페이스와 �
     senderId: number;
     senderNickname: string;
     content: string;
-    type: string;
+    type: 'TALK' | 'BILL' | 'POLL' | 'IMAGE' | 'LOCATION'| 'NOTICE' | 'VOTE_UPDATE' | 'BILL_UPDATE';
     sentAt: string;
-    unreadCount:number;
+    unreadCount: number;
     email?:string;
     voteData?: VoteData;
     metadata?:any;
@@ -72,16 +72,26 @@ export const useChatStore = create<ChatState>((set) => ({
             }
             // 💡 만약 실시간 투표 생성 신호라면 아래 '2. 일반 메시지 추가' 로직으로 내려가서 추가됩니다.
         }
-        if (msg.type === 'BILL_UPDATE' && msg.metadata) {
-            // targetMessageId가 있으면 해당 ID를, 없으면 metadata 안에서 찾음
-            const targetId = msg.targetMessageId || msg.metadata.messageId;
-            const hasExistingBill = state.messages.some(m => m.type === 'BILL' && String(m.messageId) === String(targetId));
+        if (msg.type === 'BILL' || msg.type === 'BILL_UPDATE') {
+            const targetId = Number(msg.targetMessageId || msg.messageId || msg.metadata?.messageId);
+
+            // ✅ 기존에 같은 ID를 가진 BILL 메시지가 있는지 확인
+            const hasExistingBill = state.messages.some(m =>
+                m.type === 'BILL' && Number(m.messageId) === targetId
+            );
 
             if (hasExistingBill) {
                 return {
                     messages: state.messages.map(m => {
-                        if (m.type === 'BILL' && String(m.messageId) === String(targetId)) {
-                            return { ...m, metadata: typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata };
+                        if (m.type === 'BILL' && Number(m.messageId) === targetId) {
+                            console.log("🔄 스토어: 기존 정산 데이터 덮어쓰기 실행", targetId);
+                            return {
+                                ...m,
+                                // 새로운 metadata 객체를 생성하여 참조 변경 (리액트 리렌더링 유발)
+                                metadata: typeof msg.metadata === 'string'
+                                    ? JSON.parse(msg.metadata)
+                                    : { ...msg.metadata }
+                            };
                         }
                         return m;
                     })
@@ -112,12 +122,21 @@ export const useChatStore = create<ChatState>((set) => ({
     markAllAsRead: () => set((state) => ({
         messages: state.messages.map((msg) => ({ ...msg, unreadCount: 0 }))
     })),
-    decrementUnreadCount: () => set((state) => ({
-        messages: state.messages.map((msg) => ({
-            ...msg,
-            unreadCount: Math.max(0, (msg.unreadCount || 0) - 1)
-        }))
-    })),
+    decrementUnreadCount: () => set((state) => {
+        // 메시지가 없으면 업데이트하지 않음
+        if (state.messages.length === 0) return state;
+
+        return {
+            messages: state.messages.map((msg) => {
+                // 이미 0인 것은 건드리지 않고, 숫자가 있는 것만 1 차감
+                const currentCount = Number(msg.unreadCount ?? 0);
+                return {
+                    ...msg,
+                    unreadCount: currentCount > 0 ? currentCount - 1 : 0
+                };
+            })
+        };
+    }),
 
 }));
 

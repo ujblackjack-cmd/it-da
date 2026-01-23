@@ -38,14 +38,14 @@ public class ChatMessageService {
     }
 
     @Transactional
-    public void saveMessage(String email, Long chatRoomId, String content,MessageType type) {
+    public ChatMessage saveMessage(String email, Long chatRoomId, String content, MessageType type, int unreadCount) {
         // 1. 보낸 사람 조회
         User sender = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없음"));
+                .orElseThrow();
 
         // 2. 채팅방 조회
         ChatRoom room = chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new RuntimeException("채팅방을 찾을 수 없음"));
+                .orElseThrow();
 
         // 3. 메시지 엔티티 생성 및 저장
         ChatMessage message = ChatMessage.builder()
@@ -53,9 +53,10 @@ public class ChatMessageService {
                 .chatRoom(room)
                 .content(content)
                 .type(type) // 기본 타입 설정
+                .unreadCount(unreadCount)
                 .build();
 
-        chatMessageRepository.save(message);
+        return chatMessageRepository.save(message);
     }
 
     // ✅ 페이징을 지원하는 새로운 메서드
@@ -106,7 +107,7 @@ public class ChatMessageService {
         participant.updateLastReadAt(java.time.LocalDateTime.now());
     }
     @Transactional
-    public void saveMessageWithMetadata(String email, Long chatRoomId, String content, MessageType type, Map<String, Object> metadata) {
+    public ChatMessage saveMessageWithMetadata(String email, Long chatRoomId, String content, MessageType type, Map<String, Object> metadata, int unreadCount) {
         User sender = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없음"));
 
@@ -121,12 +122,15 @@ public class ChatMessageService {
                 .metadata(metadata)
                 .build();
 
-        chatMessageRepository.save(message);
+        ChatMessage savedMessage = chatMessageRepository.save(message);
 
         if (type == MessageType.BILL && message.getMetadata() != null) {
             message.getMetadata().put("messageId", message.getId());
+            message.updateMetadata(metadata);
             // JPA 영속성 컨텍스트에 의해 자동 업데이트됨
         }
+
+        return savedMessage;
     }
     // ChatMessageService.java에 추가
     @Transactional

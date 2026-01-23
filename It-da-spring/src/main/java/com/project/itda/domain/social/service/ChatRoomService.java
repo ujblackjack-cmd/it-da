@@ -230,4 +230,16 @@ public class ChatRoomService {
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
     }
+    public int getUnreadCount(Long roomId, LocalDateTime messageSentAt) {
+        // 1. 채팅방의 전체 참여자 수 조회
+        long totalParticipants = chatParticipantRepository.countByChatRoomId(roomId);
+
+        // 2. 💡 수정: 단순히 시간 비교가 아니라, 현재 "실시간으로 접속 중인 인원수"를 가져옵니다.
+        // 이미 구현해두신 getConnectedCount를 활용합니다.
+        int onlineCount = getConnectedCount(roomId);
+
+        // 3. 결과 = 전체 참여자 - 현재 방에 들어와 있는 사람 수
+        // 이렇게 해야 방에 없는 사람 수만큼 숫자가 안정적으로 유지됩니다.
+        return Math.max(0, (int)(totalParticipants - onlineCount));
+    }
 }

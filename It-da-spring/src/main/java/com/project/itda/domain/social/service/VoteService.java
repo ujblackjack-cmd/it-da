@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,7 @@ public class VoteService {
     private final UserRepository userRepository;
     private final ChatMessageService chatMessageService;
     private final SimpMessageSendingOperations messagingTemplate;
+    private final ChatRoomService chatRoomService;
 
     @Transactional
     public VoteResponse createVote(VoteRequest request, String email, Long roomId) {
@@ -75,8 +77,10 @@ public class VoteService {
 
         // 5. 채팅 메시지 저장 (한 번만 호출)
         String systemContent = "📊 투표: " + savedVote.getTitle();
+
+        int unreadCount = chatRoomService.getUnreadCount(roomId, LocalDateTime.now());
         // 2. DB 저장 (MessageType.POLL 지정)
-        chatMessageService.saveMessageWithMetadata(email, roomId, systemContent, MessageType.POLL, metadata);
+        chatMessageService.saveMessageWithMetadata(email, roomId, systemContent, MessageType.POLL, metadata,unreadCount);
 
         // 3. 웹소켓 브로드캐스트 (metadata를 포함하여 전송)
         Map<String, Object> socketPayload = new HashMap<>();

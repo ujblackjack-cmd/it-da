@@ -12,6 +12,8 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Controller;
+
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Controller
@@ -28,24 +30,18 @@ public class ChatStompController {
     // ChatStompController.java 수정
     @MessageMapping("/chat/send/{roomId}")
     public void sendMessage(@DestinationVariable Long roomId, Map<String, Object> message, SimpMessageHeaderAccessor headerAccessor) {
-        String email =(String) message.get("email");
+        String email = (String) message.get("email");
         User sender = userRepository.findByEmail(email).orElseThrow();
 
+        // 1. 읽음 시간 및 온라인 카운트 로직 (기존 유지)
         chatRoomService.updateLastReadAt(roomId, email);
+        int onlineCount = chatRoomService.getConnectedCount(roomId);
+        long totalParticipants = chatParticipantRepository.countByChatRoomId(roomId);
+        int initialUnreadCount = (int) Math.max(0, totalParticipants - onlineCount);
 
         String finalNickname = (sender.getNickname() != null && !sender.getNickname().trim().isEmpty())
                 ? sender.getNickname()
                 : sender.getUsername();
-
-        // 💡 1. 자신의 상태를 먼저 DB에 반영 (인원수 카운트 정확도 향상)
-        long totalparticipants = chatParticipantRepository.countByChatRoomId(roomId);
-        int initialUnreadCount =(int) Math.max(0, totalparticipants - 1);
-
-        // ✅ 2. 데이터 타입에 맞게 값 설정 (String.valueOf 제거 가능)
-        message.put("senderNickname", finalNickname);
-        message.put("unreadCount",  initialUnreadCount);
-        message.put("senderId", sender.getUserId());
-        message.put("messageId", String.valueOf(System.currentTimeMillis()));
 
         String typeStr = message.getOrDefault("type", "TALK").toString();
         com.project.itda.domain.social.enums.MessageType messageType;
@@ -58,11 +54,20 @@ public class ChatStompController {
         Object rawMetadata = message.get("metadata");
         Map<String, Object> metadata = (rawMetadata instanceof Map) ? (Map<String, Object>) rawMetadata : null;
 
+        com.project.itda.domain.social.entity.ChatMessage savedMsg;
+        // ✅ 3. 변경 포인트: 메시지를 먼저 저장하고 '진짜 ID'를 받아옵니다.
         if (messageType == MessageType.BILL || metadata != null) {
-            chatMessageService.saveMessageWithMetadata(email, roomId, (String) message.get("content"), messageType, metadata);
+            savedMsg = chatMessageService.saveMessageWithMetadata(email, roomId, (String) message.get("content"), messageType, metadata, initialUnreadCount);
         } else {
-            chatMessageService.saveMessage(email, roomId, (String) message.get("content"), messageType);
+            savedMsg = chatMessageService.saveMessage(email, roomId, (String) message.get("content"), messageType, initialUnreadCount);
         }
+
+        // ✅ 2. 데이터 타입에 맞게 값 설정 (String.valueOf 제거 가능)
+        message.put("messageId", savedMsg.getId());
+        message.put("senderNickname", finalNickname);
+        message.put("unreadCount",  initialUnreadCount);
+        message.put("senderId", sender.getUserId());
+//        message.put("messageId", String.valueOf(System.currentTimeMillis()));
 
         messagingTemplate.convertAndSend("/topic/room/" + roomId, message);
     }

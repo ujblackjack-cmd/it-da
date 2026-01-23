@@ -44,6 +44,7 @@ public class ChatMessage {
     private String fileUrl;
 
     @Column(name = "is_read") // [cite: 278]
+    @Builder.Default
     private boolean isRead = false;
 
     @CreationTimestamp // [cite: 279]
@@ -55,4 +56,8 @@ public class ChatMessage {
     private Map<String, Object> metadata;
 
     public void updateMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+
+    @Column(name = "unread_count")
+    @Builder.Default
+    private Integer unreadCount = 0;
 }

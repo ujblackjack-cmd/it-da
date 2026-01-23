@@ -6,6 +6,7 @@ import VoteMessage from "@/components/chat/VoteMessage.tsx";
 import api from "@/api/axios.config";
 import { useAuthStore } from "@/stores/useAuthStore.ts";
 import "./BillMessage.css"
+import toast from "react-hot-toast";
 
 interface Props {
     message: ChatMessageType;
@@ -19,11 +20,15 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
     const parsedData = React.useMemo(() => {
         try {
             if (!message.metadata) return null;
-            return typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
+            const data = typeof message.metadata === 'string'
+                ? JSON.parse(message.metadata)
+                : message.metadata;
+
+            return data;
         } catch (e) {
             console.error("Metadata 파싱 에러:", e);
             return null; }
-    }, [message.metadata]);
+    }, [message.metadata, message.sentAt]);
 
     // 2. 특수 타입 렌더링 (parsedData 기반)
     const renderSpecialContent = () => {
@@ -35,9 +40,13 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
             const isAllPaid = participants.length > 0 && participants.every((p: any) => p.isPaid);
 
             const handleCheckPaid = async (participantUserId: number) => {
-                if (Number(message.senderId) !== Number(currentUser?.userId)) return;
+                if (Number(message.senderId) !== Number(currentUser?.userId)) {
+                    toast.error("정산 확인은 요청자만 가능합니다.");
+                    return;
+                }
+                if (participantUserId === currentUser.userId) return;
                 try {
-                    const realMessageId = parsedData?.messageId || message.messageId;
+                    const realMessageId =  message.messageId;
                     // ✅ axios 사용 - baseURL이 자동으로 추가됨
                     await api.post(`/social/messages/${Number(realMessageId)}/bill/check`, {
                         userId: participantUserId
@@ -84,7 +93,7 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
 
                             return (
                                 <div
-                                    key={p.userId}
+                                    key={`bill-participant-${p.userId}-${p.isPaid}`} // 💡 key에 isPaid를 포함하면 강제 리렌더링 효과가 있습니다.
                                     className={`bill-member-row ${p.isPaid ? 'is-paid' : ''}`}
                                     onClick={() => handleCheckPaid(p.userId)}
                                     style={{
