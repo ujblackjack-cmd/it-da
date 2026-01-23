@@ -7,8 +7,8 @@ from typing import List, Dict, Optional
 
 
 class ParticipantLocation(BaseModel):
-    """참가자 위치"""
     user_id: int
+    address: Optional[str] = None
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
 
@@ -37,13 +37,19 @@ class PlaceRecommendation(BaseModel):
     phone: Optional[str] = None
     url: Optional[str] = None
 
+class Point(BaseModel):
+    latitude: float
+    longitude: float
 
 class PlaceRecommendRequest(BaseModel):
-    """장소 추천 요청"""
-    participants: List[ParticipantLocation] = Field(..., min_items=1)
-    category: Optional[str] = "카페"
-    max_distance: Optional[float] = 3.0  # km
-    limit: Optional[int] = 10
+    meeting_id: int
+    meeting_category: str
+    meeting_title: str  # ✅ 추가 (키워드 추출에 필요)
+    meeting_description: Optional[str] = ""
+    participants: List[ParticipantLocation] = Field(..., min_items=2)
+
+    max_distance: float = 3.0  # km
+    top_n: int = 3
 
 
 class PlaceRecommendResponse(BaseModel):

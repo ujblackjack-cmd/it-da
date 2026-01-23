@@ -173,4 +173,9 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
     // 이 메서드가 있어야 함
     List<Meeting> findTop100ByOrderByCreatedAtDesc();
+
+    // ✅ chatRoomId로 Meeting 찾기
+    @Query("SELECT m FROM Meeting m WHERE m.chatRoom.id = :chatRoomId")
+    Optional<Meeting> findByChatRoomId(@Param("chatRoomId") Long chatRoomId);
+
 }

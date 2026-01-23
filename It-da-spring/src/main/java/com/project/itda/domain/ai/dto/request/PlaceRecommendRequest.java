@@ -38,6 +38,18 @@ public class PlaceRecommendRequest {
     @JsonProperty("meeting_category")
     private String meetingCategory;
 
+    @JsonProperty("meeting_title")
+    private String meetingTitle;
+
+    @JsonProperty("meeting_description")
+    private String meetingDescription; // optional
+
+    @JsonProperty("max_distance")
+    private Double maxDistance;
+
+    @JsonProperty("top_n")
+    private Integer topN;
+
     /**
      * 참가자 위치 정보
      */

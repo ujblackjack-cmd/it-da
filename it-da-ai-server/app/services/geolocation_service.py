@@ -1,20 +1,28 @@
 # app/services/geolocation_service.py
 from app.schemas.place import ParticipantLocation, Centroid  # ✅ 수정
 from app.utils.distance_calculator import calculate_centroid, haversine_distance
-from typing import List
-
+from typing import List, Any, Tuple
 
 class GeolocationService:
+    async def calculate_centroid(self, participants: List[Any]) -> Tuple[float, float]:
+        def get_lat_lon(p):
+            # pydantic 객체
+            if hasattr(p, "latitude") and hasattr(p, "longitude"):
+                return p.latitude, p.longitude
+            # dict
+            if isinstance(p, dict):
+                return p.get("latitude"), p.get("longitude")
+            raise ValueError(f"Invalid participant type: {type(p)}")
 
-    async def calculate_centroid(self, participants: List[ParticipantLocation]) -> Centroid:  # ✅ 수정
-        """참가자들의 중간지점 계산"""
-        points = [(p.latitude, p.longitude) for p in participants]
-        avg_lat, avg_lon = calculate_centroid(points)
+        points = [get_lat_lon(p) for p in participants]
 
-        return Centroid(
-            latitude=avg_lat,
-            longitude=avg_lon
-        )
+        # None 체크(혹시 좌표 누락되면 여기서 명확히 에러)
+        if any(lat is None or lon is None for lat, lon in points):
+            raise ValueError(f"Participant missing lat/lon: {participants}")
+
+        avg_lat = sum(lat for lat, _ in points) / len(points)
+        avg_lon = sum(lon for _, lon in points) / len(points)
+        return avg_lat, avg_lon
 
     def get_max_distance_from_centroid(
             self,

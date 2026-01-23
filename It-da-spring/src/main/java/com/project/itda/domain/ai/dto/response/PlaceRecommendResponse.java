@@ -1,91 +1,71 @@
 package com.project.itda.domain.ai.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
+import java.util.Map;
 
-/**
- * 장소 추천 응답 (FastAPI - 중간지점 정보만)
- */
 @Getter
+@Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class PlaceRecommendResponse {
 
-    /**
-     * 성공 여부
-     */
     private Boolean success;
 
-    /**
-     * 중간지점 정보
-     */
+    // centroid: { latitude, longitude }
     private Centroid centroid;
 
-    /**
-     * 검색 반경 (m)
-     */
     @JsonProperty("search_radius")
-    private Integer searchRadius;
+    private Double searchRadius; // FastAPI: meters (float)
 
-    /**
-     * 추천 장소 목록 (FastAPI에서는 빈 리스트, Spring Boot에서 채움)
-     */
-    private List<RecommendedPlace> recommendations;
+    private List<PlaceRecommendation> recommendations;
 
-    /**
-     * 처리 시간 (ms)
-     */
+    @JsonProperty("filtered_count")
+    private Map<String, Integer> filteredCount;
+
     @JsonProperty("processing_time_ms")
     private Integer processingTimeMs;
 
-    /**
-     * 중간지점
-     */
     @Getter
+    @Setter
     @NoArgsConstructor
-    @AllArgsConstructor
     public static class Centroid {
         private Double latitude;
         private Double longitude;
+
+        // FastAPI가 address를 안주면 null로 옴 (니 python schema엔 없음)
         private String address;
     }
 
-    /**
-     * 추천 장소 (FastAPI에서는 사용 안 함, Spring Boot에서 채움)
-     */
     @Getter
+    @Setter
     @NoArgsConstructor
-    @AllArgsConstructor
-    public static class RecommendedPlace {
-        private Integer rank;
+    public static class PlaceRecommendation {
 
-        @JsonProperty("place_name")
-        private String placeName;
+        @JsonProperty("place_id")
+        private String placeId;
 
+        private String name;
         private String category;
         private String address;
+
         private Double latitude;
         private Double longitude;
 
         @JsonProperty("distance_from_centroid")
-        private Double distanceFromCentroid;
+        private Double distanceFromCentroid; // ✅ FastAPI: km 로 내려옴 (니 schema 기준)
 
-        @JsonProperty("kakao_rating")
-        private Double kakaoRating;
+        private Double rating;
 
         @JsonProperty("review_count")
         private Integer reviewCount;
 
         private String phone;
 
-        @JsonProperty("kakao_url")
-        private String kakaoUrl;
-
-        @JsonProperty("match_reasons")
-        private List<String> matchReasons;
+        // FastAPI는 url 필드
+        private String url;
     }
 }

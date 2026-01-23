@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -95,7 +96,9 @@ public class PlaceRecommendService {
             }
 
             PlaceRecommendResponse.Centroid centroid = aiResponse.getCentroid();
-            Integer searchRadius = aiResponse.getSearchRadius();
+            Integer searchRadius = Optional.ofNullable(aiResponse.getSearchRadius())
+                    .map(Double::intValue)
+                    .orElse(3000);
 
             log.info("📍 중간지점: lat={}, lng={}, radius={}m",
                     centroid.getLatitude(), centroid.getLongitude(), searchRadius);

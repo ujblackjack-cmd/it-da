@@ -36,6 +36,7 @@ public class AiRecommendationController {
     private final AIServiceClient aiServiceClient;
     private final MatchScoreService matchScoreService;  // ✅ 추가
     private final PersonalizedRecommendService personalizedRecommendService;
+    private final MeetingRecommendationService recommendationService;
 
     // ========================================================================
     // Step 2: SVD 모임 추천
@@ -105,24 +106,97 @@ public class AiRecommendationController {
     // ========================================================================
 
     /**
-     * 모임 장소 추천 (중간지점 + 카카오맵)
+     * 모임 기반 장소 추천 (POST 방식)
      *
-     * GET /api/ai/recommendations/place?meetingId=15
+     * @param meetingId 모임 ID
+     * @return 추천 장소 목록
      */
-    @Operation(
-            summary = "모임 장소 추천",
-            description = "참가자들의 중간지점을 계산하고 카카오맵으로 주변 장소를 추천합니다"
-    )
-    @GetMapping("/place")
+    @PostMapping("/meetings/{meetingId}/recommend-place")
     public ResponseEntity<PlaceRecommendationDTO> recommendPlace(
-            @Parameter(description = "모임 ID", required = true)
-            @RequestParam Long meetingId
+            @PathVariable Long meetingId
     ) {
-        log.info("📍 GET /api/ai/recommendations/place - meetingId: {}", meetingId);
+        log.info("🤖 장소 추천 요청 - Meeting ID: {}", meetingId);
 
-        PlaceRecommendationDTO response = placeRecommendService.recommendPlace(meetingId);
+        try {
+            PlaceRecommendationDTO result = recommendationService.recommendPlacesForMeeting(meetingId);
+            return ResponseEntity.ok(result);
 
-        return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("❌ 잘못된 요청: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(
+                    PlaceRecommendationDTO.builder()
+                            .success(false)
+                            .message(e.getMessage())
+                            .build()
+            );
+
+        } catch (Exception e) {
+            log.error("❌ 장소 추천 실패: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                    PlaceRecommendationDTO.builder()
+                            .success(false)
+                            .message("장소 추천에 실패했습니다: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 채팅방 ID 기반 장소 추천 (POST)
+     *
+     * POST /api/ai/recommendations/recommend-place
+     * Body: { "chatRoomId": 101 } 또는 { "meetingId": 1 }
+     */
+    @PostMapping("/recommend-place")
+    public ResponseEntity<PlaceRecommendationDTO> recommendPlace(
+            @RequestBody RecommendPlaceRequest request
+    ) {
+        log.info("🤖 장소 추천 요청 - ChatRoom ID: {}, Meeting ID: {}",
+                request.getChatRoomId(), request.getMeetingId());
+
+        try {
+            PlaceRecommendationDTO result;
+
+            // chatRoomId가 있으면 채팅방 기반, 없으면 meetingId 기반
+            if (request.getChatRoomId() != null) {
+                result = recommendationService.recommendPlacesByChatRoomId(request.getChatRoomId());
+            } else if (request.getMeetingId() != null) {
+                result = recommendationService.recommendPlacesForMeeting(request.getMeetingId());
+            } else {
+                throw new IllegalArgumentException("chatRoomId 또는 meetingId가 필요합니다");
+            }
+
+            return ResponseEntity.ok(result);
+
+        } catch (IllegalArgumentException e) {
+            log.error("❌ 잘못된 요청: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(
+                    PlaceRecommendationDTO.builder()
+                            .success(false)
+                            .message(e.getMessage())
+                            .build()
+            );
+
+        } catch (Exception e) {
+            log.error("❌ 장소 추천 실패: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(
+                    PlaceRecommendationDTO.builder()
+                            .success(false)
+                            .message("장소 추천에 실패했습니다: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 요청 DTO
+     */
+    @lombok.Getter
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class RecommendPlaceRequest {
+        private Long chatRoomId;  // 채팅방 ID (우선순위)
+        private Long meetingId;   // 모임 ID (대안)
     }
 
     // ========================================================================
@@ -319,5 +393,7 @@ public class AiRecommendationController {
         response.put("ageRange", "20-30대");
         return response;
     }
+
+
 
 }
