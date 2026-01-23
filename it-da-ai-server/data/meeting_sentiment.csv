@@ -1,0 +1,2 @@
+﻿meeting_id,avg_sentiment_score,sentiment_std,min_sentiment_score,max_sentiment_score,negative_sentiment_mean,negative_sentiment_std,positive_review_ratio,review_count,negative_review_ratio,review_sentiment_variance
+103,0.9970142841339112,,0.9970142841339112,0.9970142841339112,0.0029857701156288,,1.0,1,0.0,

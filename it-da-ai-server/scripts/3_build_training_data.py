@@ -38,6 +38,8 @@ def aggregate_meeting_sentiment(df: pd.DataFrame) -> pd.DataFrame:
         'review_count'
     ]
 
+    # ✅ negative_review_ratio 추가
+    meeting_sentiment['negative_review_ratio'] = 1.0 - meeting_sentiment['positive_review_ratio']
     meeting_sentiment['review_sentiment_variance'] = meeting_sentiment['sentiment_std']
 
     print(f"[OK] {len(meeting_sentiment)}개 모임 집계 완료")

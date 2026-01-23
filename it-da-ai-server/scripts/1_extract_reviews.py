@@ -21,7 +21,7 @@ DB_CONFIG = {
     'host': 'localhost',
     'port': 3306,
     'user': 'root',
-    'password': '1234',  # ⚠️ 실제 비밀번호로 변경
+    'password': '1234',
     'database': 'itda',
     'charset': 'utf8mb4'
 }
@@ -35,25 +35,27 @@ SELECT
     r.user_id,
     r.meeting_id,
     r.rating,
-    r.review_text AS content,  -- ✅ review_text로 수정
+    r.review_text AS content,
     r.created_at,
     
-    -- 사용자 정보
     u.latitude AS user_lat,
     u.longitude AS user_lng,
     u.gender AS user_gender,
-    up.mbti AS user_mbti,
-    up.interests AS user_interests,
+    u.mbti AS user_mbti,
+    u.interests AS user_interests,
+    
     up.time_preference,
     up.location_type AS user_location_pref,
     up.budget_type,
+    up.energy_type,
+    up.leadership_type,
+    up.frequency_type,
+    up.purpose_type,
     
-    -- 사용자 통계
-    (SELECT AVG(r2.rating) FROM reviews r2 WHERE r2.user_id = r.user_id) AS user_avg_rating,
+    (SELECT AVG(r2.rating) FROM reviews r2 WHERE r2.user_id = r.user_id AND r2.deleted_at IS NULL) AS user_avg_rating,
     (SELECT COUNT(*) FROM participations p WHERE p.user_id = r.user_id) AS user_meeting_count,
-    (SELECT STDDEV(r2.rating) FROM reviews r2 WHERE r2.user_id = r.user_id) AS user_rating_std,
+    (SELECT STDDEV(r2.rating) FROM reviews r2 WHERE r2.user_id = r.user_id AND r2.deleted_at IS NULL) AS user_rating_std,
     
-    -- 모임 정보
     m.category,
     m.subcategory,
     m.vibe,
@@ -64,9 +66,8 @@ SELECT
     m.expected_cost,
     m.max_participants,
     
-    -- 모임 통계
-    (SELECT AVG(r3.rating) FROM reviews r3 WHERE r3.meeting_id = r.meeting_id) AS meeting_avg_rating,
-    (SELECT COUNT(*) FROM reviews r3 WHERE r3.meeting_id = r.meeting_id) AS meeting_rating_count,
+    (SELECT AVG(r3.rating) FROM reviews r3 WHERE r3.meeting_id = r.meeting_id AND r3.deleted_at IS NULL) AS meeting_avg_rating,
+    (SELECT COUNT(*) FROM reviews r3 WHERE r3.meeting_id = r.meeting_id AND r3.deleted_at IS NULL) AS meeting_rating_count,
     (SELECT COUNT(*) FROM participations p2 WHERE p2.meeting_id = r.meeting_id) AS meeting_participant_count
 
 FROM reviews r
@@ -74,12 +75,13 @@ JOIN users u ON r.user_id = u.user_id
 LEFT JOIN user_preferences up ON u.user_id = up.user_id
 JOIN meetings m ON r.meeting_id = m.meeting_id
 
-WHERE r.review_text IS NOT NULL  -- ✅ content → review_text
+WHERE r.review_text IS NOT NULL
   AND r.review_text != ''
   AND r.rating IS NOT NULL
-  AND r.deleted_at IS NULL  -- ✅ 삭제된 리뷰 제외
+  AND r.deleted_at IS NULL
+  AND u.deleted_at IS NULL
 
-ORDER BY r.created_at DESC;
+ORDER BY r.created_at DESC
 """
 
 
@@ -94,12 +96,12 @@ def extract_reviews():
         # MySQL 연결
         print("\n[1/3] MySQL 연결 중...")
         conn = pymysql.connect(**DB_CONFIG)
-        print("✅ 연결 성공")
+        print("[OK] 연결 성공")
 
         # 데이터 추출
         print("\n[2/3] 리뷰 데이터 추출 중...")
         df = pd.read_sql(EXTRACT_QUERY, conn)
-        print(f"✅ {len(df):,}개 리뷰 추출 완료")
+        print(f"[OK] {len(df):,}개 리뷰 추출 완료")
 
         # NULL 처리
         df['user_rating_std'] = df['user_rating_std'].fillna(0.5)
@@ -107,12 +109,21 @@ def extract_reviews():
         df['user_mbti'] = df['user_mbti'].fillna('')
         df['user_gender'] = df['user_gender'].fillna('N')
 
+        # user_preferences가 없는 경우 기본값
+        df['time_preference'] = df['time_preference'].fillna('EVENING')
+        df['user_location_pref'] = df['user_location_pref'].fillna('INDOOR')
+        df['budget_type'] = df['budget_type'].fillna('value')
+        df['energy_type'] = df['energy_type'].fillna('EXTROVERT')
+        df['leadership_type'] = df['leadership_type'].fillna('FOLLOWER')
+        df['frequency_type'] = df['frequency_type'].fillna('REGULAR')
+        df['purpose_type'] = df['purpose_type'].fillna('TASK')
+
         # 저장
         print("\n[3/3] CSV 저장 중...")
         os.makedirs('data', exist_ok=True)
         output_path = 'data/reviews_raw.csv'
         df.to_csv(output_path, index=False, encoding='utf-8-sig')
-        print(f"✅ 저장 완료: {output_path}")
+        print(f"[OK] 저장 완료: {output_path}")
 
         # 통계 출력
         print("\n" + "=" * 70)
@@ -131,7 +142,7 @@ def extract_reviews():
         return df
 
     except Exception as e:
-        print(f"\n❌ 추출 실패: {e}")
+        print(f"\n[ERROR] 추출 실패: {e}")
         import traceback
         traceback.print_exc()
         raise

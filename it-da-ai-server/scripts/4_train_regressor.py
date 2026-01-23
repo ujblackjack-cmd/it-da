@@ -122,6 +122,21 @@ def train_regressor():
     X, y = prepare_features(df, meeting_sentiment, feature_builder)
 
     print("\n[3/5] Train/Test Split...")
+
+    # ✅ 최소 데이터 체크
+    if len(X) < 10:
+        print(f"[WARNING] 데이터가 너무 적습니다 ({len(X)}개)")
+        print("[INFO] 최소 10개 이상의 리뷰가 필요합니다")
+        print("[INFO] 학습을 건너뛰고 기존 모델을 유지합니다")
+        print("\n" + "=" * 70)
+        print("[완료] 데이터 부족으로 학습 건너뜀")
+        print("=" * 70)
+        print("\n💡 해결 방법:")
+        print("  1. Spring Boot에서 더 많은 리뷰 작성")
+        print("  2. 최소 10개 이상의 리뷰 필요 (권장: 100개 이상)")
+        print("  3. 다양한 평점(1~5)과 모임 카테고리 필요")
+        return
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, shuffle=True
     )
