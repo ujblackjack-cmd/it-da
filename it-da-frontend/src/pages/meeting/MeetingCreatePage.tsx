@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
-import api from "@/api/axios.config"
+import axios from "../../api/auth.api.ts";
 import "./MeetingCreatePage.css";
-import toast from "react-hot-toast";
 
 declare global {
   interface Window {
@@ -209,7 +208,7 @@ const MeetingCreatePage = () => {
     console.log("🗺️ 카카오맵 스크립트 로딩 시작");
 
     const mapScript = document.createElement("script");
-    const apiKey = import.meta.env.VITE_KAKAO_MAP_KEY || "16531d4c245afb546a5c2abcd7da82a4";
+    const apiKey = import.meta.env.VITE_KAKAO_MAP_KEY || "YOUR_KAKAO_API_KEY";
     mapScript.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&libraries=services&autoload=false`;
     mapScript.async = true;
 
@@ -301,47 +300,63 @@ const MeetingCreatePage = () => {
   };
 
   // Daum 주소 검색 API 팝업
-    const handleLocationSearch = () => {
-        new (window as any).daum.Postcode({
-            oncomplete: function (data: any) {
-                const fullAddress = data.address;
-                const roadAddress = data.roadAddress;
-                const selectedAddr = roadAddress || fullAddress;
+  const handleLocationSearch = () => {
+    new (window as any).daum.Postcode({
+      oncomplete: function (data: any) {
+        const fullAddress = data.address;
+        const roadAddress = data.roadAddress;
+        const selectedAddr = roadAddress || fullAddress;
 
-                // 💡 Geocoder를 사용하기 전에 라이브러리가 로드되었는지 확실히 확인합니다.
-                window.kakao.maps.load(() => {
-                    if (!window.kakao.maps.services || !window.kakao.maps.services.Geocoder) {
-                        console.error("❌ 카카오맵 서비스 라이브러리가 로드되지 않았습니다.");
-                        return;
-                    }
+        if (!window.kakao || !window.kakao.maps) {
+          alert("카카오맵 로드 중입니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
 
-                    const geocoder = new window.kakao.maps.services.Geocoder();
+        // 💡 Geocoder를 사용하기 전에 라이브러리가 로드되었는지 확실히 확인합니다.
+        window.kakao.maps.load(() => {
+          if (
+            !window.kakao.maps.services ||
+            !window.kakao.maps.services.Geocoder
+          ) {
+            console.error(
+              "❌ 카카오맵 서비스 라이브러리가 로드되지 않았습니다.",
+            );
+            return;
+          }
 
-                    geocoder.addressSearch(selectedAddr, function (result: any, status: any) {
-                        if (status === window.kakao.maps.services.Status.OK) {
-                            const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+          const geocoder = new window.kakao.maps.services.Geocoder();
 
-                            setSelectedLocation({
-                                name: data.buildingName || selectedAddr,
-                                address: selectedAddr,
-                                latitude: parseFloat(result[0].y),
-                                longitude: parseFloat(result[0].x),
-                            });
+          geocoder.addressSearch(
+            selectedAddr,
+            function (result: any, status: any) {
+              if (status === window.kakao.maps.services.Status.OK) {
+                const coords = new window.kakao.maps.LatLng(
+                  result[0].y,
+                  result[0].x,
+                );
 
-                            if (mapRef.current) {
-                                mapRef.current.setCenter(coords);
-                                if (markerRef.current) markerRef.current.setMap(null);
-                                markerRef.current = new window.kakao.maps.Marker({
-                                    position: coords,
-                                    map: mapRef.current,
-                                });
-                            }
-                        }
-                    });
+                setSelectedLocation({
+                  name: data.buildingName || selectedAddr,
+                  address: selectedAddr,
+                  latitude: parseFloat(result[0].y),
+                  longitude: parseFloat(result[0].x),
                 });
+
+                if (mapRef.current) {
+                  mapRef.current.setCenter(coords);
+                  if (markerRef.current) markerRef.current.setMap(null);
+                  markerRef.current = new window.kakao.maps.Marker({
+                    position: coords,
+                    map: mapRef.current,
+                  });
+                }
+              }
             },
-        }).open();
-    };
+          );
+        });
+      },
+    }).open();
+  };
 
   // 태그 추가
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -480,29 +495,26 @@ const MeetingCreatePage = () => {
         tags: JSON.stringify(tags),
       };
 
-        const response = await api.post("/meetings", requestData);
+      const response = await axios.post(
+        "http://localhost:8080/api/meetings",
+        requestData,
+        {
+          withCredentials: true,
+        },
+      );
 
       // ✅ 모임 생성 성공 시 임시저장 삭제!
       localStorage.removeItem("meetingDraft");
       console.log("🗑️ 모임 생성 완료 → 임시저장 삭제");
 
-      const { chatRoomId } = response.data;
-        toast.success("🎉 모임이 생성되었습니다!");
-
-        // 성공 페이지로 제목과 생성된 톡방 ID를 넘겨줍니다.
-        navigate(`/social/chat/success?title=${encodeURIComponent(formData.title)}&roomId=${chatRoomId}`);
-
-    } catch (error: any) {
-        console.error("모임 생성 실패:", error);
-
-        if (error.response?.status === 401) {
-            alert("세션이 만료되었습니다. 다시 로그인해주세요.");
-            navigate("/login");
-        } else {
-            alert("모임 생성에 실패했습니다. 입력 정보를 확인해주세요.");
-        }
+      const meetingId = response.data.meetingId;
+      alert("🎉 모임이 생성되었습니다!");
+      navigate(`/meetings/${meetingId}`);
+    } catch (error) {
+      console.error("모임 생성 실패:", error);
+      alert("모임 생성에 실패했습니다.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
