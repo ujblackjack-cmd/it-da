@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface ChatParticipantRepository extends JpaRepository<ChatParticipant, Long> {
     List<ChatParticipant> findByUserUserId(Long userId);
     List<ChatParticipant> findByChatRoomId(Long chatRoomId);
+    @Query("SELECT cp FROM ChatParticipant cp JOIN FETCH cp.chatRoom WHERE cp.user.email = :email")
+    List<ChatParticipant> findByUserEmail(@Param("email") String email);
     // 특정 방의 총 참여자 수
     long countByChatRoomId(Long chatRoomId);
 

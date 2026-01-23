@@ -26,4 +26,5 @@ public class MyRecentMeetingResponse {
     private LocalDateTime meetingTime;
     private String status;         // APPROVED, COMPLETED 등
     private LocalDateTime lastActivityAt;  // 마지막 활동 시간
+    private Long chatRoomId;
 }

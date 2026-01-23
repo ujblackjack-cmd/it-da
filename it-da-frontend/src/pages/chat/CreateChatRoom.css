@@ -1,0 +1,127 @@
+
+
+.create-room-container {
+    max-width: 500px;
+    margin: 0 auto;
+    background-color: #fcfaff;
+    min-height: 100vh;
+    padding-bottom: 50px;
+}
+
+.create-header {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    gap: 15px;
+}
+
+.create-header h2 {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.create-header button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+/* 모드 전환 탭 (기존 스타일 유지 및 보완) */
+.mode-toggle {
+    display: flex;
+    padding: 15px 20px;
+    gap: 10px;
+}
+
+.mode-toggle button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    background: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mode-toggle button.active {
+    border-color: #764ba2;
+    background: #f3ebff;
+    color: #764ba2;
+}
+
+/* 폼 레이아웃 */
+.room-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-section {
+    padding: 12px 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-section {
+    flex: 1;
+}
+
+.form-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.form-section input,
+.form-section textarea,
+.form-section select {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+    background-color: white;
+}
+
+/* AI 추천 상태 입력창 디자인 */
+.form-section input:disabled {
+    background-color: #f8f0ff;
+    border: 1px solid #d1b3ff;
+    color: #5a4b81;
+    cursor: not-allowed;
+}
+
+.form-section textarea {
+    min-height: 100px;
+    resize: none;
+}
+
+/* 생성 버튼 */
+.submit-btn {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 30px auto;
+    padding: 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 15px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.submit-btn:active {
+    transform: scale(0.98);
+}

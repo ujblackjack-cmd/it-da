@@ -2,6 +2,7 @@ package com.project.itda.domain.meeting.entity;
 
 import com.project.itda.domain.meeting.enums.MeetingStatus;
 import com.project.itda.domain.meeting.enums.MeetingTimeSlot;
+import com.project.itda.domain.social.entity.ChatRoom;
 import com.project.itda.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -180,6 +181,10 @@ public class Meeting {
     @Column(name = "review_count")
     @ColumnDefault("0")
     private Integer reviewCount;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "chat_room_id")
+    private ChatRoom chatRoom;
 
     /**
      * 평균 평점 업데이트 (ReviewService에서 호출)

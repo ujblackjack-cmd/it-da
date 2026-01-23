@@ -3,6 +3,7 @@ import apiClient from "./client";
 /** ========== Types ========== */
 export interface MyMeeting {
     meetingId: number;
+    chatRoomId: number;
     meetingTitle: string;
     dateTime: string;
     location: string;

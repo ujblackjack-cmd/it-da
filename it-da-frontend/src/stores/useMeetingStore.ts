@@ -27,6 +27,7 @@ interface Meeting {
 
 interface RecentItem {
     id: number;
+    chatRoomId: number;
     icon: string;
     title: string;
     time: string;
@@ -144,6 +145,7 @@ export const useMeetingStore = create<MeetingStore>()(
                     // API 응답을 RecentItem 형태로 변환
                     const recentData: RecentItem[] = response.data.map((item: any) => ({
                         id: item.meetingId,
+                        chatRoomId: item.chatRoomId,
                         icon: item.icon || "📅",
                         title: item.title,
                         time: item.timeAgo || "",

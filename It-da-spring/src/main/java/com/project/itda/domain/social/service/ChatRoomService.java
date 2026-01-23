@@ -2,6 +2,7 @@ package com.project.itda.domain.social.service;
 
 import com.project.itda.domain.social.dto.response.ChatParticipantResponse;
 import com.project.itda.domain.social.dto.response.ChatRoomResponse; // ✅ 추가
+import com.project.itda.domain.social.entity.ChatMessage;
 import com.project.itda.domain.social.entity.ChatParticipant;
 import com.project.itda.domain.social.entity.ChatRoom;
 import com.project.itda.domain.social.enums.ChatRole;
@@ -93,19 +94,42 @@ public class ChatRoomService {
     // ✅ 모든 방을 DTO 리스트로 변환하여 반환 (순환 참조 방지 핵심)
     public List<ChatRoomResponse> findAllRoomsAsResponse() {
         return chatRoomRepository.findAll().stream()
-                .map(this::convertToResponse)
+                .map(room -> {
+                    // 마지막 메시지가 없을 경우를 대비한 안전한 처리
+                    ChatMessage lastMsg = room.getMessages().isEmpty() ? null :
+                            room.getMessages().get(room.getMessages().size() - 1);
+
+                    return ChatRoomResponse.builder()
+                            .chatRoomId(room.getId())
+                            .roomName(room.getRoomName())
+                            .participantCount(room.getParticipants().size())
+                            .maxParticipants(room.getMaxParticipants())
+                            .category(room.getCategory())
+                            // 마지막 메시지가 없으면 기본 문구 출력 (Null 방지)
+                            .lastMessage(lastMsg != null ? lastMsg.getContent() : "대화 내용이 없습니다.")
+                            .lastMessageTime(lastMsg != null ? lastMsg.getCreatedAt() : LocalDateTime.now())
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
     // ✅ Entity -> DTO 변환 헬퍼 메서드
     private ChatRoomResponse convertToResponse(ChatRoom room) {
+        int count = (room.getParticipants() != null) ? room.getParticipants().size() : 0;
+        // 마지막 메시지 추출 (메시지 리스트가 비어있을 경우 대비)
+        List<ChatMessage> msgs = room.getMessages();
+        ChatMessage lastMsg = (msgs != null && !msgs.isEmpty())
+                ? msgs.get(msgs.size() - 1) : null;
+
+
         return ChatRoomResponse.builder()
                 .chatRoomId(room.getId())
                 .roomName(room.getRoomName())
                 .participantCount(room.getParticipants() != null ? room.getParticipants().size() : 0)
-                .maxParticipants(10) // 기본값 설정 (추후 Meeting 연동 권장)
-                .lastMessage("최근 메시지가 없습니다.") // 추후 Message 연동
-                .category("일반") // 기본값 설정
+                .maxParticipants(room.getMaxParticipants())
+                .category(room.getCategory() != null ? room.getCategory() : "일반")
+                .lastMessage(lastMsg != null ? lastMsg.getContent() : "아직 대화가 없습니다.")
+                .lastMessageTime(lastMsg != null ? lastMsg.getCreatedAt() : LocalDateTime.now())
                 .build();
     }
 
@@ -162,5 +186,48 @@ public class ChatRoomService {
             p.updateLastReadAt(LocalDateTime.now()); // 마지막 읽은 시간만 기록
         });
         log.info("채팅방 세션 종료 (멤버 유지): {}, 방: {}", email, roomId);
+    }
+    @Transactional
+    public ChatRoomResponse createChatRoomWithAllInfo(String roomName, String email, Integer maxParticipants,
+                                                      String description, String location, String category) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        // 1. 채팅방 엔티티 생성 및 저장
+        ChatRoom chatRoom = ChatRoom.builder()
+                .roomName(roomName)
+                .maxParticipants(maxParticipants != null ? maxParticipants : 10)
+                .category(category)
+                .description(description)
+                .locationName(location)
+                .isActive(true)
+                .build();
+
+        ChatRoom savedRoom = chatRoomRepository.save(chatRoom);
+
+        // 2. 주최자를 방장(ORGANIZER)으로 즉시 등록
+        ChatParticipant organizer = ChatParticipant.builder()
+                .chatRoom(savedRoom)
+                .user(user)
+                .role(ChatRole.ORGANIZER)
+                .joinedAt(LocalDateTime.now())
+                .lastReadAt(LocalDateTime.now()) // ✅ 생성 시점 읽음 처리
+                .build();
+        chatParticipantRepository.save(organizer);
+
+        return convertToResponse(savedRoom);
+    }
+    @Transactional(readOnly = true)
+    public List<ChatRoomResponse> findMyRooms(String email) {
+        // 1. Repository에 선언한 메서드 호출
+        return chatParticipantRepository.findByUserEmail(email).stream()
+                .map(participant -> {
+                    ChatRoom room = participant.getChatRoom(); // @Getter 필요
+                    return convertToResponse(room);
+                })
+                // 2. null 방지를 위해 Comparator.nullsLast 등을 활용하면 더 안전함
+                .sorted(Comparator.comparing(ChatRoomResponse::getLastMessageTime,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 }

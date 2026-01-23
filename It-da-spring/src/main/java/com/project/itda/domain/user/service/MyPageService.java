@@ -106,6 +106,7 @@ public class MyPageService {
                     Meeting m = p.getMeeting();
                     return MyMeetingResponse.builder()
                             .meetingId(m.getMeetingId())
+                            .chatRoomId(m.getChatRoom() != null ? m.getChatRoom().getId() : null)
                             .meetingTitle(m.getTitle())
                             .dateTime(m.getMeetingTime() != null
                                     ? m.getMeetingTime().format(DATETIME_FORMAT)
@@ -151,6 +152,7 @@ public class MyPageService {
 
                     return MyMeetingResponse.builder()
                             .meetingId(m.getMeetingId())
+                            .chatRoomId(m.getChatRoom() != null ? m.getChatRoom().getId() : null)
                             .meetingTitle(m.getTitle())
                             .dateTime(displayTime != null
                                     ? displayTime.format(DATETIME_FORMAT)

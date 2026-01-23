@@ -26,9 +26,19 @@ public class ChatRoomController {
         SessionUser user = (SessionUser) httpSession.getAttribute("user");
         if (user == null) return ResponseEntity.status(401).build();
 
-        String roomName = params.get("roomName");
+        // 프론트엔드에서 보낸 다양한 정보 추출
+        String roomName = (String) params.get("roomName");
+        Object maxPartObj = params.get("maxParticipants");
+        Integer maxParticipants = (maxPartObj instanceof Integer) ? (Integer) maxPartObj : 10;
+        String description = (String) params.get("description");
+        String location = (String) params.get("location");
+        String category = (String) params.get("category");
 
-        ChatRoomResponse response = chatRoomService.createChatRoomWithResponse(roomName, user.getEmail());
+        // ChatRoomService에 해당 정보들을 전달하여 생성 (Service 메서드 확장 필요)
+        // 기존 createChatRoomWithResponse 메서드를 오버로딩하거나 파라미터를 추가하여 호출합니다.
+        ChatRoomResponse response = chatRoomService.createChatRoomWithAllInfo(
+                roomName, user.getEmail(), maxParticipants, description, location, category
+        );
 
         return ResponseEntity.ok(response);
     }
@@ -45,13 +55,23 @@ public class ChatRoomController {
         SessionUser user = (SessionUser) httpSession.getAttribute("user");
         if (user != null) {
             chatRoomService.updateLastReadAt(roomId, user.getEmail());
+            return ResponseEntity.ok().build();
         }
         // 세션 유저 정보를 가져와서 해당 방의 마지막 읽은 시간 업데이트 로직
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(401).build();
     }
     @GetMapping("/rooms/{roomId}/members")
     public ResponseEntity<List<ChatParticipantResponse>> getRoomMembers(@PathVariable Long roomId) {
         List<ChatParticipantResponse> members = chatRoomService.getParticipantList(roomId);
         return ResponseEntity.ok(members);
+    }
+    @GetMapping("/my-rooms")
+    public ResponseEntity<List<ChatRoomResponse>> getMyRooms() {
+        SessionUser user = (SessionUser) httpSession.getAttribute("user");
+        if (user == null) return ResponseEntity.status(401).build();
+
+        // 서비스에서 구현한 findMyRooms 호출
+        List<ChatRoomResponse> myRooms = chatRoomService.findMyRooms(user.getEmail());
+        return ResponseEntity.ok(myRooms);
     }
 }

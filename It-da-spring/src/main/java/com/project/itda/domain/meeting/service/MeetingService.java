@@ -12,6 +12,11 @@ import com.project.itda.domain.participation.dto.response.ParticipantDto;
 import com.project.itda.domain.participation.entity.Participation;
 import com.project.itda.domain.participation.enums.ParticipationStatus;
 import com.project.itda.domain.participation.repository.ParticipationRepository;
+import com.project.itda.domain.social.entity.ChatParticipant;
+import com.project.itda.domain.social.entity.ChatRoom;
+import com.project.itda.domain.social.enums.ChatRole;
+import com.project.itda.domain.social.repository.ChatParticipantRepository;
+import com.project.itda.domain.social.repository.ChatRoomRepository;
 import com.project.itda.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +47,8 @@ public class MeetingService {
 
     private final MeetingRepository meetingRepository;
     private final ParticipationRepository participationRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
 
     // ✅ 이미지 저장 경로 설정 (application.yml에서 관리하는 게 더 좋음)
     private final String uploadDir = "uploads/meetings/";
@@ -53,6 +60,14 @@ public class MeetingService {
     public MeetingResponse createMeeting(User user, MeetingCreateRequest request) {
         log.info("📍 POST /api/meetings - userId: {}", user.getUserId());
 
+        ChatRoom chatRoom = ChatRoom.builder()
+                .roomName(request.getTitle())
+                .maxParticipants(request.getMaxParticipants())
+                .category(request.getCategory())
+                .isActive(true)
+                .build();
+        chatRoomRepository.save(chatRoom);
+
         // 시간대 자동 설정
         MeetingTimeSlot timeSlot = MeetingTimeSlot.fromHour(request.getMeetingTime().getHour());
 
@@ -63,6 +78,7 @@ public class MeetingService {
 
         Meeting meeting = Meeting.builder()
                 .organizer(user)
+                .chatRoom(chatRoom)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .category(request.getCategory())
@@ -86,16 +102,26 @@ public class MeetingService {
 
         Meeting savedMeeting = meetingRepository.save(meeting);
 
-        // ✅ 주최자를 참여자로 자동 등록 (APPROVED 상태)
-        Participation organizerParticipation = Participation.builder()
+        ChatParticipant chatOrganizer = ChatParticipant.builder()
+                .chatRoom(chatRoom)
+                .user(user)
+                .role(ChatRole.ORGANIZER) // 방장 권한 부여
+                .joinedAt(LocalDateTime.now())
+                .lastReadAt(LocalDateTime.now())
+                .build();
+        chatParticipantRepository.save(chatOrganizer);
+
+        Participation participation = Participation.builder()
                 .user(user)
                 .meeting(savedMeeting)
                 .status(ParticipationStatus.APPROVED)
-                .applicationMessage("모임 주최자")
+                .appliedAt(LocalDateTime.now())
+                .approvedAt(LocalDateTime.now())
                 .build();
-        participationRepository.save(organizerParticipation);
+        participationRepository.save(participation);
 
-        log.info("✅ 모임 생성 완료 - meetingId: {}, 주최자 참여 등록 완료", savedMeeting.getMeetingId());
+        log.info("✅ 모임 생성 및 주최자 참여 완료 - meetingId: {}, chatRoomId: {}",
+                savedMeeting.getMeetingId(), chatRoom.getId());
 
         return toMeetingResponse(savedMeeting);
     }
@@ -113,6 +139,7 @@ public class MeetingService {
 
         return MeetingDetailResponse.builder()
                 .meetingId(meeting.getMeetingId())
+                .chatRoomId(meeting.getChatRoom() != null ? meeting.getChatRoom().getId() : null)
                 .organizerId(meeting.getOrganizer().getUserId())
                 .organizerUsername(meeting.getOrganizer().getUsername())
                 .organizerEmail(meeting.getOrganizer().getEmail())
@@ -232,6 +259,7 @@ public class MeetingService {
 
         return MeetingResponse.builder()
                 .meetingId(meeting.getMeetingId())
+                .chatRoomId(meeting.getChatRoom() != null ? meeting.getChatRoom().getId() : null)
                 .organizerId(meeting.getOrganizer().getUserId())
                 .organizerUsername(meeting.getOrganizer().getUsername())
                 .organizerProfileImage(meeting.getOrganizer().getProfileImageUrl())
@@ -288,6 +316,7 @@ public class MeetingService {
 
         MeetingDetailResponse response = MeetingDetailResponse.builder()
                 .meetingId(meeting.getMeetingId())
+                .chatRoomId(meeting.getChatRoom() != null ? meeting.getChatRoom().getId() : null)
                 .organizerId(meeting.getOrganizer().getUserId())
                 .organizerUsername(meeting.getOrganizer().getUsername())
                 .organizerProfileImage(meeting.getOrganizer().getProfileImageUrl())

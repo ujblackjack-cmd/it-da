@@ -1,5 +1,6 @@
 package com.project.itda.domain.meeting.controller;
 
+import com.project.itda.domain.auth.dto.SessionUser;
 import com.project.itda.domain.meeting.dto.request.BatchRequestDto;
 import com.project.itda.domain.meeting.dto.request.MeetingCreateRequest;
 import com.project.itda.domain.meeting.dto.request.MeetingUpdateRequest;
@@ -15,6 +16,7 @@ import com.project.itda.domain.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,9 +53,18 @@ public class MeetingController {
     )
     @PostMapping
     public ResponseEntity<MeetingResponse> createMeeting(
-            @AuthenticationPrincipal Long userId,
+            HttpSession session,
+//            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody MeetingCreateRequest request
     ) {
+        SessionUser sessionUser = (SessionUser) session.getAttribute("user");
+
+        if (sessionUser == null) {
+            log.error("❌ 인증되지 않은 사용자 요청");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Long userId = sessionUser.getUserId();
+
         log.info("📍 POST /api/meetings - userId: {}", userId);
 
         User user = userRepository.findById(userId)

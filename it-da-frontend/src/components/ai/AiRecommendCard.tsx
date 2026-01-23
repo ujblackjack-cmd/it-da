@@ -83,7 +83,7 @@ const AIRecommendCard = ({
           </div>
 
           <div className="card-actions">
-            <button className="btn-primary">🌙 톡방 입장하기</button>
+            <button className="btn-primary">🌙 모임 입장하기</button>
             <button className="btn-secondary">상세보기</button>
           </div>
         </div>

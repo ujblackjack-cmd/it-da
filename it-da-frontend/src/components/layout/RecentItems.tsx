@@ -3,6 +3,7 @@ import './RecentItems.css';
 
 interface RecentItem {
   id: number;
+  chatRoomId: number;
   icon: string;
   title: string;
   time: string;
@@ -18,7 +19,7 @@ const RecentItems = ({ items }: RecentItemsProps) => {
 
   const handleClick = (item: RecentItem) => {
     if (item.type === 'chat') {
-      navigate(`/chat/${item.id}`);
+        navigate(`/chat/${item.chatRoomId}`);
     } else {
       navigate(`/meetings/${item.id}`);
     }

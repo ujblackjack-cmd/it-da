@@ -29,4 +29,16 @@ public class ChatRoom {
 
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL)
     private List<ChatMessage> messages = new ArrayList<>();
+
+    @Column(name = "max_participants")
+    private Integer maxParticipants; // 최대 인원
+
+    @Column(name = "category")
+    private String category; // 카테고리
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description; // 모임 소개글
+
+    @Column(name = "location_name")
+    private String locationName; // 장소명
 }

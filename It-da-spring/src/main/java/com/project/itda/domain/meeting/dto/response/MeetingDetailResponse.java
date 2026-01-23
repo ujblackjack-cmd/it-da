@@ -28,6 +28,8 @@ public class MeetingDetailResponse {
      */
     private Long meetingId;
 
+    private Long chatRoomId;
+
     /**
      * 주최자 ID
      */

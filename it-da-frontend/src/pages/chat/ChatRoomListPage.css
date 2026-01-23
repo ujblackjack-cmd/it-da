@@ -1,0 +1,145 @@
+/* 레이아웃 컨테이너 */
+.chat-page-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: #fff;
+    min-height: 100vh;
+}
+
+/* 헤더 */
+.chat-page-header {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.chat-page-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+/* 리스트 아이템 */
+.chat-list-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-room-card {
+    display: flex;
+    padding: 15px 20px;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid #fafafa;
+}
+
+.chat-room-card:hover {
+    background-color: #f9f9f9;
+}
+
+/* 아바타 */
+.chat-room-avatar {
+    width: 48px;
+    height: 48px;
+    background-color: #f0f0f0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #555;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+/* 정보 텍스트 */
+.chat-room-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-room-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.chat-room-name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-right: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-room-count {
+    color: #ccc;
+    font-size: 0.85rem;
+    margin-right: auto;
+}
+
+.chat-room-time {
+    color: #999;
+    font-size: 0.75rem;
+}
+
+.chat-room-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-room-last-msg {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80%;
+}
+
+.chat-room-category {
+    font-size: 0.7rem;
+    color: #888;
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* 상태 표시 */
+.chat-loading-wrapper, .chat-list-empty {
+    text-align: center;
+    padding: 100px 20px;
+    color: #aaa;
+}
+
+.chat-explore-btn {
+    margin-top: 20px;
+    padding: 10px 25px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.chat-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #333;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

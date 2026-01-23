@@ -23,6 +23,11 @@ public class MeetingResponse {
     private Long meetingId;
 
     /**
+     * ✅ 추가: 모임과 연결된 채팅방 ID
+     */
+    private Long chatRoomId;
+
+    /**
      * 주최자 ID
      */
     private Long organizerId;

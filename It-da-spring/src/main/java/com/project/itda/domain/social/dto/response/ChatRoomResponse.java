@@ -18,4 +18,6 @@ public class ChatRoomResponse {
     private String category;       // [추가] 카테고리 (스포츠, 맛집 등 - 배지 표시용)
     private String imageUrl;       // [추가] 채팅방 대표 이미지 URL
     private String locationName;   // [추가] 장소명 (예: "강남역 스터디룸")
+
+
 }

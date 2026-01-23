@@ -5,9 +5,12 @@ import MeetingManageModal from "@/pages/meeting/MeetingManageModal";
 import axios from "axios";
 import "./MeetingDetailPage.css";
 import ChatPreviewModal from "./ChatPreviewModal";
+import api from "@/api/axios.config";
+import { toast } from "react-hot-toast";
 
 interface MeetingDetail {
   meetingId: number;
+  chatRoomId?: number;
   organizerId: number;
   organizerUsername: string;
   organizerProfileImage: string;
@@ -84,12 +87,18 @@ const MeetingDetailPage = () => {
   const API_ORIGIN = "http://localhost:8080";
 
   useEffect(() => {
-    fetchMeetingDetail();
-    if (user) {
-      fetchSatisfactionPrediction();
-      checkSvdRecommendation();
-      checkParticipationStatus();
-    }
+      if (!meetingId || meetingId === "undefined") {
+          console.warn("유효하지 않은 meetingId입니다.");
+          setLoading(false);
+          return;
+      }
+
+      fetchMeetingDetail();
+      if (user) {
+          fetchSatisfactionPrediction();
+          checkSvdRecommendation();
+          checkParticipationStatus();
+      }
   }, [meetingId, user]);
 
   useEffect(() => {
@@ -107,13 +116,12 @@ const MeetingDetailPage = () => {
 
   const fetchMeetingDetail = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:8080/api/meetings/${meetingId}`,
+      const response = await api.get(`/meetings/${meetingId}`,
         { withCredentials: true },
       );
       console.log("✅ 모임 정보:", response.data);
 
-      let meetingData = response.data;
+        const meetingData = response.data;
 
       if (!meetingData.participants || meetingData.participants.length === 0) {
         try {
@@ -334,55 +342,49 @@ const MeetingDetailPage = () => {
     }
 
     // 주최자 체크
-    if (user.userId === meeting?.organizerId) {
-      alert("모임 주최자는 참여 신청을 할 수 없습니다.");
-      return;
-    }
-
-    try {
-      await axios.post(
-        "http://localhost:8080/api/participations",
-        {
-          meetingId: meeting?.meetingId,
-          userId: user.userId, // ✅ 여기 추가!
-        },
-        { withCredentials: true },
-      );
-
-      setIsParticipating(true);
-      setParticipationStatus("PENDING");
-      await fetchMeetingDetail();
-      setIsPreviewModalOpen(true);
-    } catch (err: any) {
-      console.error("참여 신청 실패:", err);
-
-      // 에러 메시지 안전하게 추출
-      const errorMessage =
-        typeof err.response?.data === "string"
-          ? err.response.data
-          : err.response?.data?.message || err.response?.data?.error || "";
-
-      // 주최자 에러
-      if (err.response?.status === 500 && errorMessage.includes("주최자")) {
-        alert("모임 주최자는 참여 신청을 할 수 없습니다.");
-        return;
+      if (user.userId === meeting?.organizerId) {
+          alert("모임 주최자는 참여 신청을 할 수 없습니다.");
+          return;
       }
 
-      // 중복 신청 에러
-      if (err.response?.status === 500 && errorMessage.includes("이미")) {
-        alert("이미 참여 신청한 모임입니다.");
-        checkParticipationStatus();
-        return;
-      }
+      try {
+          // 💡 1. axios.config.ts의 'api' 인스턴스를 사용하세요.
+          await api.post("/participations", {
+              meetingId: meeting?.meetingId,
+              userId: user.userId,
+          });
 
-      if (err.response?.status === 409) {
-        alert("이미 참여 신청한 모임입니다.");
-        checkParticipationStatus();
-        return;
-      }
+          // 💡 2. 로컬 상태 업데이트
+          setIsParticipating(true);
+          setParticipationStatus("PENDING");
 
-      alert("참여 신청에 실패했습니다.");
-    }
+          // 💡 3. 서버 데이터 다시 불러오기
+          await fetchMeetingDetail();
+
+          // 💡 4. 승인 대기 안내를 위한 미리보기 모달 오픈
+          // 이 모달은 'participationStatus'가 "PENDING"일 때 승인 대기 메시지를 보여줍니다.
+          setIsPreviewModalOpen(true);
+
+          toast.success("참여 신청이 완료되었습니다! 🎉");
+      } catch (err: any) {
+          console.error("참여 신청 실패:", err);
+
+          // 💡 5. 로그의 500 에러 원인별 상세 대응
+          const errorMessage = err.response?.data?.message || err.response?.data || "";
+
+          if (err.response?.status === 409 || errorMessage.includes("이미")) {
+              alert("이미 참여 신청한 모임입니다.");
+              checkParticipationStatus();
+              return;
+          }
+
+          if (errorMessage.includes("주최자")) {
+              alert("모임 주최자는 참여 신청을 할 수 없습니다.");
+              return;
+          }
+
+          alert("참여 신청에 실패했습니다. 관리자에게 문의하세요.");
+      }
   };
 
   const getParticipationButtonText = () => {
@@ -412,11 +414,16 @@ const MeetingDetailPage = () => {
   };
 
   const handleChatPreview = () => {
-    if (isParticipating && participationStatus === "APPROVED") {
-      navigate(`/chat/${meetingId}`);
-    } else {
-      alert("참여 승인 후 톡방에 입장할 수 있습니다.");
-    }
+      const actualChatRoomId = meeting?.chatRoomId;
+      if (isParticipating && participationStatus === "APPROVED") {
+          if (actualChatRoomId) {
+              navigate(`/chat/${actualChatRoomId}`);
+          } else {
+              toast.error("채팅방 정보를 찾을 수 없습니다.");
+          }
+      } else {
+          setIsPreviewModalOpen(true);
+      }
   };
 
   const formatDate = (dateString: string) => {
@@ -736,34 +743,55 @@ const MeetingDetailPage = () => {
       </div>
 
       {/* 하단 액션 버튼 */}
-      <div className="action-buttons">
-        {isOrganizer ? (
-          <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => navigate(`/chat/${meetingId}`)}
-            >
-              💬 톡방 입장
-            </button>
-            <button className="btn btn-primary" onClick={handleOrganizerAction}>
-              ⚙️ 모임 관리
-            </button>
-          </>
-        ) : (
-          <>
-            <button className="btn btn-secondary" onClick={handleChatPreview}>
-              💬 톡방 {participationStatus === "APPROVED" ? "입장" : "미리보기"}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleParticipate}
-              disabled={isButtonDisabled()}
-            >
-              {getParticipationButtonText()}
-            </button>
-          </>
-        )}
-      </div>
+        <div className="action-buttons">
+            {isOrganizer ? (
+                <>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            // ✅ meetingId(101)가 아니라 meeting.chatRoomId(7)를 사용해야 합니다!
+                            if (meeting?.chatRoomId) {
+                                navigate(`/chat/${meeting.chatRoomId}`);
+                            } else {
+                                toast.error("채팅방 정보를 찾을 수 없습니다.");
+                            }
+                        }}
+                    >
+                        💬 톡방 입장
+                    </button>
+                    <button className="btn btn-primary" onClick={handleOrganizerAction}>
+                        ⚙️ 모임 관리
+                    </button>
+                </>
+            ) : (
+                <>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            if (participationStatus === "APPROVED") {
+                                // ✅ 여기도 마찬가지로 진짜 채팅방 ID(7)로 이동하게 수정
+                                if (meeting?.chatRoomId) {
+                                    navigate(`/chat/${meeting.chatRoomId}`);
+                                } else {
+                                    toast.error("채팅방 정보를 불러오는 중입니다.");
+                                }
+                            } else {
+                                handleChatPreview();
+                            }
+                        }}
+                    >
+                        💬 톡방 {participationStatus === "APPROVED" ? "입장" : "미리보기"}
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={handleParticipate}
+                        disabled={isButtonDisabled()}
+                    >
+                        {getParticipationButtonText()}
+                    </button>
+                </>
+            )}
+        </div>
 
       {/* 모임 관리 모달 */}
       <MeetingManageModal
@@ -782,7 +810,11 @@ const MeetingDetailPage = () => {
         participationStatus={participationStatus}
         onEnterChat={() => {
           setIsPreviewModalOpen(false);
-          navigate(`/chat/${meetingId}`);
+            if (meeting?.chatRoomId) {
+                navigate(`/chat/${meeting.chatRoomId}`);
+            } else {
+                toast.error("채팅방 정보를 불러올 수 없습니다.");
+            }
         }}
       />
     </div>

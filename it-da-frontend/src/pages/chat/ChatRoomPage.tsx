@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useRef } from "react";
-import { useParams } from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 import { useChatStore,ChatMessage } from "@/stores/useChatStore.ts";
 import { chatApi } from "@/api/chat.api.ts"; // ChatMessage 타입 활용
 import ChatMessageItem from "../../components/chat/ChatMessage";
@@ -66,6 +66,7 @@ const ChatRoomPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [roomMembers, setRoomMembers] = useState<{ userId: number; nickname: string }[]>([]);
     const [inputValue, setInputValue] = useState<string>("");
+    const navigate=useNavigate();
 
     // AI 추천 알림창 (HTML 기능 반영)
     const showAIRecommendation = () => {
@@ -191,48 +192,70 @@ const ChatRoomPage: React.FC = () => {
         const initChat = async () => {
             if (!roomId || !currentUser) return;
 
+            // 🚀 디버깅: 현재 진입한 ID가 모임 ID인지 채팅방 ID인지 확인
+            console.log("🔍 [ChatRoom] Initializing with RoomID:", roomId);
+
             try {
-                // 초기 메시지 로드
-                const history = await chatApi.getChatMessages(Number(roomId), 0, 50);
-                const validatedHistory = history.map(msg => ({
-                    ...msg,
-                    senderNickname: msg.senderNickname || "사용자",
-                    unreadCount: 0
-                }));
-                setMessages(validatedHistory);
+                // 1. 초기 메시지 로드 (독립적)
+                try {
+                    const history = await chatApi.getChatMessages(Number(roomId), 0, 50);
+                    const validatedHistory = history.map(msg => ({
+                        ...msg,
+                        senderNickname: msg.senderNickname || "사용자",
+                        unreadCount: 0
+                    }));
+                    setMessages(validatedHistory);
+                } catch (e) {
+                    console.error("❌ 메시지 로드 실패:", e);
+                }
 
-                await chatApi.markAsRead(Number(roomId), currentUser.email);
-                chatApi.sendReadEvent(Number(roomId), currentUser.email);
-                markAllAsRead();
+                // 2. 읽음 처리 (실패해도 무방하므로 catch 처리)
+                try {
+                    await chatApi.markAsRead(Number(roomId), currentUser.email);
+                    chatApi.sendReadEvent(Number(roomId), currentUser.email);
+                    markAllAsRead();
+                } catch (e) {
+                    console.warn("⚠️ 읽음 처리 실패 (API 확인 필요):", e);
+                }
 
-                const rooms = await chatApi.getRooms();
-                const currentRoom = rooms.find((r: any) => r.chatRoomId === Number(roomId));
-                if (currentRoom) setRoomTitle(currentRoom.roomName);
+                // 3. 방 제목 설정
+                try {
+                    const rooms = await chatApi.getRooms();
+                    const currentRoom = rooms.find((r: any) => r.chatRoomId === Number(roomId));
+                    if (currentRoom) setRoomTitle(currentRoom.roomName);
+                } catch (e) {
+                    console.warn("⚠️ 방 제목 로드 실패");
+                }
 
-                const rawMembers: RawMemberResponse[] = await chatApi.getRoomMembers(Number(roomId));
-                const formattedMembers: User[] = rawMembers.map((m: RawMemberResponse) => ({
-                    id: m.userId,
-                    userId: m.userId,
-                    name: m.nickname && m.nickname.trim() !== "" ? m.nickname : m.username,
-                    username: m.username,
-                    nickname: m.nickname,
-                    email: m.email,
-                    status: (m.status || "ACTIVE")  as User['status'],
-                    createdAt: m.createdAt || new Date().toISOString(),
-                    updatedAt: m.updatedAt || new Date().toISOString(),
-                    profileImageUrl: m.profileImageUrl || "",
-                    role: m.userId === currentUser.userId ? "ME" : m.role === "ORGANIZER" ? "LEADER" : "MEMBER"
-                }));
-                setMembers(formattedMembers);
-
-                const simpleMembers = rawMembers.map(m => ({
-                    userId: m.userId,
-                    nickname: m.nickname && m.nickname.trim() !== "" ? m.nickname : m.username
-                }));
-                setRoomMembers(simpleMembers);
+                // 4. 멤버 목록 로드 (500 에러 발생 지점 방어)
+                try {
+                    const rawMembers: RawMemberResponse[] = await chatApi.getRoomMembers(Number(roomId));
+                    const formattedMembers: User[] = rawMembers.map((m: RawMemberResponse) => ({
+                        id: m.userId,
+                        userId: m.userId,
+                        name: m.nickname?.trim() ? m.nickname : m.username,
+                        username: m.username,
+                        nickname: m.nickname,
+                        email: m.email,
+                        status: (m.status || "ACTIVE") as User['status'],
+                        createdAt: m.createdAt || new Date().toISOString(),
+                        updatedAt: m.updatedAt || new Date().toISOString(),
+                        profileImageUrl: m.profileImageUrl || "",
+                        role: m.userId === currentUser.userId ? "ME" : m.role === "ORGANIZER" ? "LEADER" : "MEMBER"
+                    }));
+                    setMembers(formattedMembers);
+                    setRoomMembers(rawMembers.map(m => ({
+                        userId: m.userId,
+                        nickname: m.nickname?.trim() ? m.nickname : m.username
+                    })));
+                } catch (e) {
+                    console.error("❌ 멤버 로드 실패 (ID 101이 chat_rooms 테이블에 있나요?):", e);
+                    toast.error("멤버 정보를 불러올 수 없습니다.");
+                    setMembers([]); // 에러 시 빈 배열로 초기화하여 렌더링 에러 방지
+                }
 
             } catch (e) {
-                console.error("데이터 로드 실패:", e);
+                console.error("🚨 예상치 못한 치명적 오류:", e);
             }
         };
 
@@ -403,7 +426,7 @@ const ChatRoomPage: React.FC = () => {
         <div className="chat-room-container">
             <header className="header">
                 <div className="header-content">
-                    <button className="back-btn" onClick={() => window.history.back()}>
+                    <button className="back-btn" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
                         ←
                     </button>
                     <div className="header-info">

@@ -13,4 +13,5 @@ public class MyMeetingResponse {
     private String statusText;
     private Double averageRating;
     private Boolean hasMyReview;
+    private Long chatRoomId;
 }
