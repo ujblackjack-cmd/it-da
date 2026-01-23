@@ -1,6 +1,6 @@
 /* ========================================
    내 모임 / 마이페이지 모임 섹션 CSS
-   큰 화면에서도 상세 정보 보임!
+   ✅ 이미지 비율 수정됨!
 ======================================== */
 
 .my-meetings {
@@ -51,12 +51,43 @@
 }
 
 /* ========================================
-   카드 이미지 영역
+   ✅✅✅ 카드 이미지 영역 - 비율 수정!
 ======================================== */
 .card-image {
     position: relative;
-    height: 100px;
+    /* ✅ 고정 높이 대신 비율 사용! */
+    aspect-ratio: 16 / 10;
+    min-height: 160px;
+    max-height: 200px;
+    /* ✅ 기본 그라데이션 배경 (이미지 없을 때) */
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* ✅ 이미지가 잘리지도, 비어있지도 않게! */
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+/* ✅ 진행 중인 모임 카드 스타일 */
+.ongoing-card {
+    border: 2px solid transparent;
+    background: linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, #ff6b6b, #ff8e53) border-box;
+}
+
+.ongoing-card:hover {
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+}
+
+.ongoing-image {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 50%, #ffa502 100%);
+}
+
+.dday-badge.ongoing {
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: white;
+    font-weight: 700;
     flex-shrink: 0;
 }
 
@@ -108,7 +139,6 @@
 
 /* ========================================
    카드 바디 - 상세 정보 영역
-   ✅ 항상 보이게!
 ======================================== */
 .card-body {
     padding: 16px;
@@ -304,10 +334,17 @@
    반응형 디자인
 ======================================== */
 
-/* 태블릿 */
+/* 모바일 */
 @media (max-width: 768px) {
     .meeting-list {
         grid-template-columns: 1fr;
+    }
+
+    /* ✅ 모바일에서는 16:9 비율 */
+    .card-image {
+        aspect-ratio: 16 / 9;
+        min-height: 140px;
+        max-height: 180px;
     }
 
     .card-footer {
@@ -347,4 +384,25 @@
     .mymeetings-content {
         max-width: 1600px;
     }
+}
+
+/* ========================================
+   클릭 가능한 카드 & 비활성화 버튼
+======================================== */
+
+/* 클릭 가능한 카드 */
+.meeting-card.clickable {
+    cursor: pointer;
+}
+
+/* 비활성화 버튼 (승인 대기중) */
+.card-btn.disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.card-btn.disabled:hover {
+    background: #e5e7eb;
+    transform: none;
 }

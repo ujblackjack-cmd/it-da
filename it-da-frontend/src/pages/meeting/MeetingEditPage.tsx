@@ -360,6 +360,8 @@ const MeetingEditPage = () => {
       return;
     }
 
+      console.log("🖼️ uploadedImage 상태:", uploadedImage);
+      console.log("🖼️ imagePreview:", imagePreview);
     setLoading(true);
 
     try {

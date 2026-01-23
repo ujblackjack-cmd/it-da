@@ -31,6 +31,8 @@ interface RecentItem {
     title: string;
     time: string;
     type: "chat" | "meeting";
+    imageUrl?: string;  // ✅ 이미지 URL 추가
+    category?: string;  // ✅ 카테고리 추가
 }
 
 interface MeetingStore {
@@ -44,7 +46,7 @@ interface MeetingStore {
     error: string | null;
 
     fetchMeetings: () => Promise<void>;
-    fetchRecentItems: (userId?: number) => Promise<void>;  // ✅ userId 파라미터 추가
+    fetchRecentItems: (userId?: number) => Promise<void>;
     fetchAIRecommendation: (userId: number) => Promise<void>;
     setCategory: (category: string) => void;
     setSearchQuery: (query: string) => void;
@@ -84,6 +86,23 @@ const normalizeMeeting = (m: any): Meeting => {
     };
 };
 
+// ✅ 시간 차이 계산 함수
+const getTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return "방금 전";
+    if (diffMins < 60) return `${diffMins}분 전`;
+    if (diffHours < 24) return `${diffHours}시간 전`;
+    if (diffDays === 1) return "어제";
+    if (diffDays < 7) return `${diffDays}일 전`;
+    return `${Math.floor(diffDays / 7)}주 전`;
+};
+
 export const useMeetingStore = create<MeetingStore>()(
     persist(
         (set, get) => ({
@@ -120,39 +139,38 @@ export const useMeetingStore = create<MeetingStore>()(
                 }
             },
 
-            // ✅ 실데이터로 변경! 내가 참여 중인 모임 목록 조회
+            // ✅ 최근 조회 모임 로드 (localStorage 기반)
             fetchRecentItems: async (userId?: number) => {
-                // userId가 없으면 빈 배열
-                if (!userId) {
-                    set({ recentItems: [] });
-                    return;
-                }
-
                 try {
-                    console.log("📂 최근 참여 모임 조회 시작 - userId:", userId);
+                    console.log("📂 최근 조회 모임 로드 시작");
 
-                    const response = await axios.get(
-                        `${API_BASE_URL}/participations/my-recent`,
-                        {
-                            params: { limit: 4 },
-                            withCredentials: true,
-                        }
-                    );
+                    const STORAGE_KEY = "recentViewedMeetings";
+                    const stored = localStorage.getItem(STORAGE_KEY);
 
-                    console.log("✅ 최근 참여 모임 응답:", response.data);
+                    if (!stored) {
+                        console.log("📂 저장된 조회 기록 없음");
+                        set({ recentItems: [] });
+                        return;
+                    }
 
-                    // API 응답을 RecentItem 형태로 변환
-                    const recentData: RecentItem[] = response.data.map((item: any) => ({
-                        id: item.meetingId,
+                    const recentList = JSON.parse(stored);
+                    console.log("📂 localStorage에서 로드:", recentList.length, "개");
+
+                    // RecentItem 형태로 변환
+                    const recentData: RecentItem[] = recentList.slice(0, 4).map((item: any) => ({
+                        id: item.meetingId || item.id,
                         icon: item.icon || "📅",
                         title: item.title,
-                        time: item.timeAgo || "",
-                        type: "chat" as const,
+                        time: getTimeAgo(item.time),
+                        type: "meeting" as const,
+                        imageUrl: item.imageUrl,
+                        category: item.category,
                     }));
 
                     set({ recentItems: recentData });
+                    console.log("✅ 최근 조회 모임 로드 완료:", recentData.length, "개");
                 } catch (error) {
-                    console.error("❌ 최근 참여 모임 조회 실패:", error);
+                    console.error("❌ 최근 조회 모임 로드 실패:", error);
                     set({ recentItems: [] });
                 }
             },

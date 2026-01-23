@@ -46,6 +46,7 @@ const MyPage: React.FC = () => {
     const [isPreferenceModalOpen, setIsPreferenceModalOpen] = useState(false);
     const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
     const [myReviews, setMyReviews] = useState<MyReview[]>([]);
+    const [ongoingMeetings, setOngoingMeetings] = useState<MyMeeting[]>([]);  // ✅ 진행 중인 모임 추가
     const [upcomingMeetings, setUpcomingMeetings] = useState<MyMeeting[]>([]);
     const [completedMeetings, setCompletedMeetings] = useState<MyMeeting[]>([]);
     const [organizedMeetings, setOrganizedMeetings] = useState<OrganizedMeeting[]>([]);
@@ -92,7 +93,7 @@ const MyPage: React.FC = () => {
     const stats = useMemo(() => {
         const totalMeetings = participationCount > 0
             ? participationCount
-            : completedMeetings.length + upcomingMeetings.length;
+            : completedMeetings.length + upcomingMeetings.length + ongoingMeetings.length;  // ✅ ongoing 추가
 
         const avgRating = averageRating > 0
             ? averageRating.toFixed(1)
@@ -104,7 +105,7 @@ const MyPage: React.FC = () => {
             { icon: "📅", value: totalMeetings, label: "총 참여 모임" },
             { icon: "⭐", value: avgRating, label: "평균 평점" },
         ];
-    }, [completedMeetings.length, upcomingMeetings.length, myReviews, participationCount, averageRating]);
+    }, [completedMeetings.length, upcomingMeetings.length, ongoingMeetings.length, myReviews, participationCount, averageRating]);
 
     const fetchAll = useCallback(async () => {
         if (!currentUserId) return;
@@ -112,20 +113,23 @@ const MyPage: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const [pending, reviews, upcoming, completed, organized] = await Promise.all([
+            // ✅ getOngoingMeetings 추가
+            const [pending, reviews, ongoing, upcoming, completed, organized] = await Promise.all([
                 mypageApi.getPendingReviews(currentUserId, currentUserId),
                 mypageApi.getMyReviews(currentUserId, currentUserId),
+                mypageApi.getOngoingMeetings(currentUserId, currentUserId),  // ✅ 진행 중인 모임
                 mypageApi.getUpcomingMeetings(currentUserId, currentUserId),
                 mypageApi.getCompletedMeetings(currentUserId, currentUserId),
                 mypageApi.getOrganizedMeetings(currentUserId),
             ]);
             setPendingReviews(pending);
             setMyReviews(reviews);
+            setOngoingMeetings(ongoing);  // ✅ 추가
             setUpcomingMeetings(upcoming);
             setCompletedMeetings(completed);
             setOrganizedMeetings(organized);
 
-            setParticipationCount(upcoming.length + completed.length);
+            setParticipationCount(ongoing.length + upcoming.length + completed.length);  // ✅ ongoing 추가
 
             if (reviews.length > 0) {
                 const avg = reviews.reduce((sum: number, r: MyReview) => sum + (r.rating || 0), 0) / reviews.length;
@@ -138,7 +142,6 @@ const MyPage: React.FC = () => {
             setLoading(false);
         }
     }, [currentUserId]);
-
     const handleProfileUpdate = useCallback(
         (update: ProfileUpdate) => {
             console.log("📊 마이페이지 프로필 업데이트 수신:", update);
@@ -159,7 +162,26 @@ const MyPage: React.FC = () => {
                 setFollowingCount(update.newFollowerCount);
             }
 
+            // ✅ [NEW] 참여 승인 시 실시간 카드 이동!
+            // 모임장이 승인하면 → "진행 예정" → "진행 중인 모임"으로 즉시 이동
+            if (update.type === "PARTICIPATION_APPROVED") {
+                console.log("🎉 참여 승인됨! 모임 리스트 새로고침:", update);
+                if (update.participationCount !== undefined) {
+                    setParticipationCount(update.participationCount as number);
+                }
+                void fetchAll();
+            }
+
+            // ✅ 모임 마감 시 실시간 카드 이동!
+            // 모임장이 마감하면 → "진행 중인 모임" → "완료된 모임"으로 즉시 이동
             if (update.type === "MEETING_COMPLETED") {
+                console.log("🏁 모임 완료됨! 모임 리스트 새로고침:", update);
+                void fetchAll();
+            }
+
+            // ✅ [NEW] 모임 정보 변경 시 (이미지, 제목 등) → 즉시 새로고침
+            if (update.type === "MEETING_UPDATED") {
+                console.log("🖼️ 모임 정보 변경됨! 모임 리스트 새로고침:", update);
                 void fetchAll();
             }
 
@@ -235,6 +257,17 @@ const MyPage: React.FC = () => {
             void fetchUserProfile();
         }
     }, [currentUserId, fetchAll, fetchFollowCounts, fetchSettings, fetchUserProfile]);
+
+    // ✅ 30초마다 자동 새로고침
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (currentUserId) {
+                console.log("🔄 마이페이지 자동 새로고침");
+                fetchAll();
+            }
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [currentUserId, fetchAll]);
 
     const handleToggleFollow = async () => {};
 
@@ -376,7 +409,7 @@ const MyPage: React.FC = () => {
 
         const meetingCount = participationCount > 0
             ? participationCount
-            : upcomingMeetings.length + completedMeetings.length;
+            : upcomingMeetings.length + completedMeetings.length + ongoingMeetings.length;  // ✅ ongoing 추가
 
         return {
             username: user?.username || "사용자",
@@ -395,7 +428,7 @@ const MyPage: React.FC = () => {
                 averageRating: average || 0,
             },
         };
-    }, [user, myReviews, upcomingMeetings.length, completedMeetings.length, followingCount, followerCount, participationCount, averageRating]);
+    }, [user, myReviews, upcomingMeetings.length, completedMeetings.length, ongoingMeetings.length, followingCount, followerCount, participationCount, averageRating]);
 
     if (!currentUserId) {
         return (
@@ -488,7 +521,9 @@ const MyPage: React.FC = () => {
                                     }}
                                 />
                                 <MyReviews data={myReviews} onOpenModal={handleOpenMyReviews} />
+                                {/* ✅ ongoing 추가! */}
                                 <MyMeetingsPage
+                                    ongoing={ongoingMeetings}
                                     upcoming={upcomingMeetings}
                                     completed={completedMeetings}
                                     organized={organizedMeetings}
@@ -511,8 +546,7 @@ const MyPage: React.FC = () => {
                                 isPublic={isPublic}
                                 onTogglePublic={handleTogglePublic}
                                 onDeleteAccount={handleDeleteAccount}
-                                onPreferenceEdit={() => setIsPreferenceModalOpen(true)}  // ✅ 추가
-
+                                onPreferenceEdit={() => setIsPreferenceModalOpen(true)}
                             />
                         )}
                     </>

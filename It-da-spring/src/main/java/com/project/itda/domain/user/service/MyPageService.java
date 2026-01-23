@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 public class MyPageService {
 
     private final UserRepository userRepository;
-    private final ParticipationRepository participationRepository;  // ✅ 변경!
+    private final ParticipationRepository participationRepository;
     private final UserReviewRepository userReviewRepository;
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -44,7 +44,6 @@ public class MyPageService {
     public List<PendingReviewResponse> getPendingReviews(Long userId, Long currentUserId) {
         validateUserExists(userId);
 
-        // ✅ COMPLETED 상태 참여 조회
         List<Participation> completedParticipations =
                 participationRepository.findByUserIdAndStatus(userId, ParticipationStatus.COMPLETED);
 
@@ -91,15 +90,17 @@ public class MyPageService {
                 .toList();
     }
 
-    // ✅ APPROVED 상태 참여 조회로 변경!
-    public List<MyMeetingResponse> getUpcomingMeetings(Long userId, Long currentUserId) {
+    /**
+     * ✅ 진행 중인 모임 (승인된 모임) - 톡방 입장 가능!
+     * APPROVED 상태
+     */
+    public List<MyMeetingResponse> getOngoingMeetings(Long userId, Long currentUserId) {
         validateUserExists(userId);
 
-        // ✅ APPROVED 상태 = 승인된 참여 (예정 모임)
         List<Participation> approvedParticipations =
                 participationRepository.findByUserIdAndStatus(userId, ParticipationStatus.APPROVED);
 
-        log.info("📋 예정 모임 조회: userId={}, count={}", userId, approvedParticipations.size());
+        log.info("📋 진행 중인 모임 조회: userId={}, APPROVED count={}", userId, approvedParticipations.size());
 
         return approvedParticipations.stream()
                 .map(p -> {
@@ -111,15 +112,48 @@ public class MyPageService {
                                     ? m.getMeetingTime().format(DATETIME_FORMAT)
                                     : "미정")
                             .location(m.getLocationName())
-                            .statusText("예정")
+                            .statusText("참여중")
                             .averageRating(m.getAvgRating())
                             .hasMyReview(false)
                             .build();
                 })
-                .toList();
+                .collect(Collectors.toList());
     }
 
-    // ✅ COMPLETED 상태 참여 조회
+    /**
+     * ✅ 진행 예정 모임 (승인 대기 중) - 톡방 입장 불가!
+     * PENDING 상태
+     */
+    public List<MyMeetingResponse> getUpcomingMeetings(Long userId, Long currentUserId) {
+        validateUserExists(userId);
+
+        List<Participation> pendingParticipations =
+                participationRepository.findByUserIdAndStatus(userId, ParticipationStatus.PENDING);
+
+        log.info("📋 진행 예정 모임 조회: userId={}, PENDING count={}", userId, pendingParticipations.size());
+
+        return pendingParticipations.stream()
+                .map(p -> {
+                    Meeting m = p.getMeeting();
+                    return MyMeetingResponse.builder()
+                            .meetingId(m.getMeetingId())
+                            .meetingTitle(m.getTitle())
+                            .dateTime(m.getMeetingTime() != null
+                                    ? m.getMeetingTime().format(DATETIME_FORMAT)
+                                    : "미정")
+                            .location(m.getLocationName())
+                            .statusText("대기중")
+                            .averageRating(m.getAvgRating())
+                            .hasMyReview(false)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * ✅ 완료 모임 조회
+     * COMPLETED 상태
+     */
     public List<MyMeetingResponse> getCompletedMeetings(Long userId, Long currentUserId) {
         validateUserExists(userId);
 
@@ -161,6 +195,6 @@ public class MyPageService {
                             .hasMyReview(reviewedMeetingIds.contains(m.getMeetingId()))
                             .build();
                 })
-                .toList();
+                .collect(Collectors.toList());
     }
 }

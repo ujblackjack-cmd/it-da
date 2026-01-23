@@ -43,10 +43,8 @@ const HomePage = () => {
             try {
                 await fetchMeetings();
 
-                // ✅ userId 전달하여 실데이터 로드
-                if (user?.userId) {
-                    await fetchRecentItems(user.userId);
-                }
+                // ✅ 최근 조회 모임 로드 (localStorage 기반)
+                await fetchRecentItems(user?.userId);
 
                 await fetchNotifications();
 
@@ -83,7 +81,7 @@ const HomePage = () => {
 
     // 디버깅용 로그
     console.log("🏠 HomePage 렌더링 - AI 추천:", aiRecommendation);
-    console.log("📂 최근 참여 모임:", recentItems);
+    console.log("📂 최근 본 모임:", recentItems);
 
     return (
         <div className="home-page">
@@ -91,15 +89,15 @@ const HomePage = () => {
             <div className="main-container">
                 <SearchSection onSearch={handleAISearch} />
 
-                {/* ✅ 로그인한 사용자만 최근 접속 표시 */}
-                {user?.userId && recentItems.length > 0 && (
+                {/* ✅ 최근 본 모임이 있으면 표시 */}
+                {recentItems.length > 0 && (
                     <RecentItems items={recentItems} />
                 )}
 
-                {/* ✅ 로그인했는데 참여 모임이 없는 경우 - UI 개선! */}
-                {user?.userId && recentItems.length === 0 && (
+                {/* ✅ 최근 본 모임이 없는 경우 */}
+                {recentItems.length === 0 && (
                     <div className="empty-recent-section">
-                        <p>🎯 아직 참여 중인 모임이 없습니다</p>
+                        <p>🎯 아직 둘러본 모임이 없습니다</p>
                         <button
                             className="find-meeting-btn"
                             onClick={() => navigate("/meetings")}
