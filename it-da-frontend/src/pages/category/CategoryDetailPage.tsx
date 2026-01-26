@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMeetingStore } from "@/stores/useMeetingStore";
 import { Category, CategoryType } from "@/types/category.types";
+import Header from "@/components/common/Header";
 import "./CategoryDetailPage.css";
 
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? "http://localhost:8080";
@@ -421,7 +422,7 @@ const CategoryDetailPage = () => {
 
   const handleSubcategoryClick = (subcategoryName: string) => {
     navigate(
-      `/meetings?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`
+      `/meetings?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`,
     );
   };
 
@@ -437,24 +438,7 @@ const CategoryDetailPage = () => {
 
   return (
     <div className="category-detail-page">
-      <header className="header">
-        <div className="header-content">
-          <div className="logo" onClick={() => navigate("/")}>
-            IT-DA
-          </div>
-          <nav className="nav-menu">
-            <a href="/meetings" className="nav-item">
-              모임 찾기
-            </a>
-            <a href="/chat" className="nav-item">
-              모임톡
-            </a>
-            <a href="/mypage" className="nav-item">
-              마이페이지
-            </a>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <div className="main-container">
         <div className="category-header">
