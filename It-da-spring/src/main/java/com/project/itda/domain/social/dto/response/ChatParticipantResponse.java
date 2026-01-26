@@ -1,5 +1,6 @@
 package com.project.itda.domain.social.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,4 +13,9 @@ public class ChatParticipantResponse {
     private String email;
     private String profileImageUrl;
     private String role; // MEMBER, HOST 등
+    private boolean isFollowing;
+    @JsonProperty("isFollowing")
+    public boolean isFollowing() {
+        return isFollowing;
+    }
 }

@@ -19,6 +19,7 @@ export interface User {
     // chatMemeberList 호환성 별칭
     id: number;        // userId의 별칭
     name: string;      // username의 별칭
+    isFollowing?: boolean;
 }
 
 // 회원가입 요청

@@ -31,4 +31,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 전화번호 존재 여부 확인
     boolean existsByPhone(String phone);
+
+    List<User> findByNicknameContainingOrEmailContaining(String nickname, String email);
 }

@@ -148,7 +148,21 @@ class ChatApi {
             { withCredentials: true }
         );
     }
+    async searchUsers(keyword: string) {
+        const response = await axios.get(`${API_BASE_URL}/api/social/chat/users/search`, {
+            params: { keyword },
+            withCredentials: true
+        });
+        return response.data;
+    }
 
+    // ✅ [추가] 유저 초대
+    async inviteUser(roomId: number, userId: number) {
+        await axios.post(`${API_BASE_URL}/api/social/chat/rooms/${roomId}/invite`,
+            { userId },
+            { withCredentials: true }
+        );
+    }
 }
 
 export const chatApi = new ChatApi();

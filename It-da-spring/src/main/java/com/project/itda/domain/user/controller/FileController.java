@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.MalformedURLException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -50,9 +52,12 @@ public class FileController {
                     contentType = "image/gif";
                 }
 
+                String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                        .replace("+", "%20");
+
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + encodedFileName + "\"")
                         .body(resource);
             } else {
                 log.error("❌ 파일 없음: {}", filePath);

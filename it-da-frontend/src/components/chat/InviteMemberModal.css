@@ -1,0 +1,70 @@
+/* src/components/chat/InviteMemberModal.css */
+
+/* ✅ 1. 검색창 디자인 (ChatRoomPage.css에서 이동됨) */
+.modal-search-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    width: 100%; /* 컨테이너 꽉 채우기 */
+}
+
+.modal-search-input {
+    flex: 1; /* 남은 공간 모두 차지 */
+    padding: 10px 16px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    height: 42px; /* 버튼 높이와 통일 */
+}
+
+.modal-search-input:focus {
+    border-color: #667eea;
+}
+
+.modal-search-btn {
+    padding: 0 20px;
+    height: 42px; /* 인풋 높이와 통일 */
+    background-color: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.modal-search-btn:hover {
+    background-color: #5a6fd6;
+}
+
+/* ✅ 2. 모달 내 멤버 리스트 디자인 보강 */
+/* (ChatMemberList.css의 스타일을 모달 전용으로 미세 조정) */
+
+.search-results {
+    /* 스크롤바 디자인 (선택사항) */
+    scrollbar-width: thin;
+    scrollbar-color: #e0e0e0 transparent;
+}
+
+.search-results::-webkit-scrollbar {
+    width: 6px;
+}
+.search-results::-webkit-scrollbar-thumb {
+    background-color: #e0e0e0;
+    border-radius: 3px;
+}
+
+/* 멤버 아이템이 모달 안에서 너무 딱 붙지 않게 */
+.search-results .member-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+.search-results .member-item:hover {
+    background-color: #f8f9fa;
+}

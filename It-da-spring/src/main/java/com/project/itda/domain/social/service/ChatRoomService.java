@@ -1,5 +1,10 @@
 package com.project.itda.domain.social.service;
 
+import com.project.itda.domain.meeting.entity.Meeting;
+import com.project.itda.domain.meeting.repository.MeetingRepository;
+import com.project.itda.domain.participation.entity.Participation;
+import com.project.itda.domain.participation.enums.ParticipationStatus;
+import com.project.itda.domain.participation.repository.ParticipationRepository;
 import com.project.itda.domain.social.dto.response.ChatParticipantResponse;
 import com.project.itda.domain.social.dto.response.ChatRoomResponse; // ✅ 추가
 import com.project.itda.domain.social.entity.ChatMessage;
@@ -9,6 +14,7 @@ import com.project.itda.domain.social.enums.ChatRole;
 import com.project.itda.domain.social.repository.ChatParticipantRepository;
 import com.project.itda.domain.social.repository.ChatRoomRepository;
 import com.project.itda.domain.user.entity.User;
+import com.project.itda.domain.user.repository.UserFollowRepository;
 import com.project.itda.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +34,10 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final UserRepository userRepository;
+
+    private final MeetingRepository meetingRepository;
+    private final ParticipationRepository participationRepository;
+    private final UserFollowRepository userFollowRepository;
 
     // ✅ [추가] 실시간 접속자 관리: Map<방ID, Set<접속중인 유저이메일>>
     // ConcurrentHashMap을 사용하여 멀티스레드 환경에서도 안전하게 관리합니다.
@@ -125,24 +135,37 @@ public class ChatRoomService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatParticipantResponse> getParticipantList(Long roomId) {
+    public List<ChatParticipantResponse> getParticipantList(Long roomId, Long currentUserId) { // ✅ 파라미터 추가
+
+        System.out.println(">>> 멤버 조회 요청: RoomID=" + roomId + ", 내 ID=" + currentUserId);
+
         // 1. 방 조회
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("채팅방을 찾을 수 없습니다."));
 
-        System.out.println("참여자 수: " + room.getParticipants().size());
-
-        // 2. 참여자 엔티티 리스트를 DTO 리스트로 변환 (순환 참조 방지)
+        // 2. 참여자 리스트 변환 + 팔로우 여부 체크
         return room.getParticipants().stream()
-                .map(participant -> ChatParticipantResponse.builder()
-                        .userId(participant.getUser().getUserId())
-                        .username(participant.getUser().getUsername())
-                        .nickname(participant.getUser().getNickname())
-                        .email(participant.getUser().getEmail())
-                        .profileImageUrl(participant.getUser().getProfileImageUrl())
-                        .role(participant.getRole().name())
-                        .build())
-                .toList();
+                .map(participant -> {
+                    User member = participant.getUser();
+
+                    // ⚡ [핵심] 내가 이 사람을 팔로우 중인지 확인
+                    boolean isFollowing = false;
+                    if (currentUserId != null && !currentUserId.equals(member.getUserId())) {
+                        // 로그인 상태이고, 본인이 아닐 때만 DB 조회
+                        isFollowing = userFollowRepository.existsByFollowerIdAndFollowingId(currentUserId, member.getUserId());
+                    }
+
+                    return ChatParticipantResponse.builder()
+                            .userId(member.getUserId())
+                            .username(member.getUsername())
+                            .nickname(member.getNickname())
+                            .email(member.getEmail())
+                            .profileImageUrl(member.getProfileImageUrl())
+                            .role(participant.getRole().name())
+                            .isFollowing(isFollowing) // ✅ 확인한 값을 DTO에 넣기
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -238,5 +261,87 @@ public class ChatRoomService {
 
         // (선택사항) 여기서 "공지가 등록되었습니다"라는 시스템 메시지를 보내거나
         // 소켓으로 실시간 업데이트 신호를 보낼 수도 있습니다.
+    }
+    public List<ChatParticipantResponse> searchUsers(String keyword,Long currentUserId) {
+        List<User> users;
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            // 키워드가 없으면 전체 유저 중 최근 20명만 조회 (페이징 사용 권장하지만 임시로 이렇게 처리)
+            // UserRepository에 findAllByOrderByCreatedAtDesc(Pageable pageable) 메서드가 필요할 수 있음
+            // 없는 경우 아래처럼 stream limit으로 대체 가능하지만, 실제 운영 환경에서는 페이징 쿼리를 작성해야 함.
+            users = userRepository.findAll().stream()
+                    // createdAt(가입일) 기준 내림차순(최신순) 정렬
+                    .sorted(Comparator.comparing(User::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    // .limit(100) // (선택사항) 너무 많으면 100명 등으로 끊어줄 수 있습니다.
+                    .collect(Collectors.toList());
+        } else {
+            // 검색어가 있을 때도 최신순으로 보여주려면 여기서도 정렬 가능
+            users = userRepository.findByNicknameContainingOrEmailContaining(keyword, keyword).stream()
+                    .sorted(Comparator.comparing(User::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .collect(Collectors.toList());
+        }
+
+        return users.stream()
+                .map(user ->{
+                    boolean isFollowing = false;
+                    if (currentUserId != null && !currentUserId.equals(user.getUserId())) {
+                        isFollowing = userFollowRepository.existsByFollowerIdAndFollowingId(currentUserId, user.getUserId());
+                    }
+
+                    return ChatParticipantResponse.builder()
+                        .userId(user.getUserId())
+                        .username(user.getUsername())
+                        .nickname(user.getNickname())
+                        .email(user.getEmail())
+                        .profileImageUrl(user.getProfileImageUrl())
+                        .isFollowing(isFollowing)
+                        .build();
+                })
+                .collect(Collectors.toList());
+    }
+    @Transactional
+    public void inviteMember(Long roomId, Long targetUserId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("유저가 없습니다."));
+
+        // 1. 이미 참여 중인지 확인
+        boolean isJoined = chatParticipantRepository.findByChatRoomIdAndUserEmail(roomId, targetUser.getEmail()).isPresent();
+        if (isJoined) {
+            throw new IllegalStateException("이미 참여 중인 멤버입니다.");
+        }
+
+        // 2. 채팅방 참여자 추가
+        ChatParticipant chatParticipant = ChatParticipant.builder()
+                .chatRoom(room)
+                .user(targetUser)
+                .role(ChatRole.MEMBER)
+                .joinedAt(LocalDateTime.now())
+                .lastReadAt(LocalDateTime.now())
+                .build();
+        chatParticipantRepository.save(chatParticipant);
+
+        // 3. 모임(Meeting)이 연결된 방이라면, 모임 참여자 목록에도 추가 (중요!)
+        if (room.getMeetingId() != null) {
+            Meeting meeting = meetingRepository.findById(room.getMeetingId())
+                    .orElse(null);
+
+            if (meeting != null) {
+                // 모임 참여 정보 저장
+                Participation participation = Participation.builder()
+                        .user(targetUser)
+                        .meeting(meeting)
+                        .status(ParticipationStatus.APPROVED) // 즉시 승인 상태로 추가
+                        .appliedAt(LocalDateTime.now())
+                        .approvedAt(LocalDateTime.now())
+                        .build();
+                participationRepository.save(participation);
+
+                // (선택) 모임 현재 인원 수 증가 로직이 Meeting 엔티티에 있다면 호출
+                // meeting.increaseParticipantCount();
+            }
+        }
     }
 }

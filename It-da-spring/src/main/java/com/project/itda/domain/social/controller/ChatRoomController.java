@@ -3,7 +3,6 @@ package com.project.itda.domain.social.controller;
 import com.project.itda.domain.auth.dto.SessionUser;
 import com.project.itda.domain.social.dto.response.ChatParticipantResponse;
 import com.project.itda.domain.social.dto.response.ChatRoomResponse; // ✅ 추가
-import com.project.itda.domain.social.entity.ChatRoom;
 import com.project.itda.domain.social.service.ChatRoomService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -61,8 +60,17 @@ public class ChatRoomController {
         return ResponseEntity.status(401).build();
     }
     @GetMapping("/rooms/{roomId}/members")
-    public ResponseEntity<List<ChatParticipantResponse>> getRoomMembers(@PathVariable Long roomId) {
-        List<ChatParticipantResponse> members = chatRoomService.getParticipantList(roomId);
+    public ResponseEntity<List<ChatParticipantResponse>> getRoomMembers(
+            @PathVariable Long roomId,
+            HttpSession httpSession // ✅ 세션 사용을 위해 추가
+    ) {
+        // 1. 현재 로그인한 유저 정보 가져오기
+        SessionUser user = (SessionUser) httpSession.getAttribute("user");
+        Long currentUserId = (user != null) ? user.getUserId() : null;
+
+        // 2. 서비스에 roomId와 내 ID를 같이 전달
+        List<ChatParticipantResponse> members = chatRoomService.getParticipantList(roomId, currentUserId);
+
         return ResponseEntity.ok(members);
     }
     @GetMapping("/my-rooms")
@@ -81,6 +89,29 @@ public class ChatRoomController {
     ) {
         String notice = request.get("notice");
         chatRoomService.updateNotice(roomId, notice);
+        return ResponseEntity.ok().build();
+    }
+    @GetMapping("/users/search")
+    public ResponseEntity<List<ChatParticipantResponse>> searchUsers(
+            @RequestParam(value = "keyword", required = false) String keyword
+    ) {
+        // ✅ 1. 내 ID 가져오기 (팔로우 여부 확인용)
+        SessionUser user = (SessionUser) httpSession.getAttribute("user");
+        Long currentUserId = (user != null) ? user.getUserId() : null;
+
+        // ✅ 2. 서비스 호출 시 인자 2개 전달 (keyword, currentUserId)
+        // 기존: chatRoomService.searchUsers(keyword);  <-- 에러 원인 (인자 1개)
+        return ResponseEntity.ok(chatRoomService.searchUsers(keyword, currentUserId));
+    }
+
+    // ✅ [추가] 멤버 초대 API
+    @PostMapping("/rooms/{roomId}/invite")
+    public ResponseEntity<Void> inviteUser(
+            @PathVariable Long roomId,
+            @RequestBody Map<String, Long> request // { "userId": 123 }
+    ) {
+        Long targetUserId = request.get("userId");
+        chatRoomService.inviteMember(roomId, targetUserId);
         return ResponseEntity.ok().build();
     }
 }

@@ -12,6 +12,7 @@ import "./ChatRoomPage.css";
 import BillInputModal from "../../components/chat/BillInputModal";
 import PollInputModal from "../../components/chat/PollInputModal";
 import api from '@/api/axios.config';
+import InviteMemberModal from "@/components/chat/InviteMemberModal.tsx";
 
 
 interface BillData {
@@ -37,6 +38,7 @@ interface RawMemberResponse {
     updatedAt?: string;
     profileImageUrl?: string;
     role?: string;
+    isFollowing: boolean;
 }
 
 // const api = axios.create({
@@ -72,6 +74,7 @@ const ChatRoomPage: React.FC = () => {
     // ✨ [추가] 현재 사용자가 모임장인지 확인
     const isLeader = members.find(m => m.userId === currentUser?.userId)?.role === "LEADER";
     const [notice, setNotice] = useState<string>("");
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
     // AI 추천 알림창 (HTML 기능 반영)
     const showAIRecommendation = () => {
@@ -269,7 +272,8 @@ const ChatRoomPage: React.FC = () => {
                         createdAt: m.createdAt || new Date().toISOString(),
                         updatedAt: m.updatedAt || new Date().toISOString(),
                         profileImageUrl: m.profileImageUrl || "",
-                        role: m.role === "ORGANIZER" ? "LEADER" : "MEMBER"
+                        role: m.role === "ORGANIZER" ? "LEADER" : "MEMBER",
+                        isFollowing: m.isFollowing
                     }));
                     setMembers(formattedMembers);
                     setRoomMembers(rawMembers.map(m => ({
@@ -419,7 +423,17 @@ const ChatRoomPage: React.FC = () => {
         try {
             await chatApi.followUser(targetUserId);
             toast.success("팔로우가 완료되었습니다!");
-        } catch {
+
+            // ✅ [수정] 성공 시 화면 데이터를 즉시 업데이트 (새로고침 없이 반영)
+            setMembers(prevMembers =>
+                prevMembers.map(member =>
+                    member.userId === targetUserId
+                        ? { ...member, isFollowing: true } // 해당 유저의 팔로우 상태를 true로 변경
+                        : member
+                )
+            );
+        } catch (error) {
+            console.error("팔로우 실패:", error);
             toast.error("팔로우 처리 중 오류가 발생했습니다.");
         }
     };
@@ -627,7 +641,19 @@ const ChatRoomPage: React.FC = () => {
                                 <span className="icon">📄</span> 모임 상세보기
                             </button>
 
-                            <button className="menu-btn"><span className="icon">➕</span> 멤버 초대</button>
+                            <button className="menu-btn" onClick={() => setIsInviteModalOpen(true)}>
+                                <span className="icon">➕</span> 멤버 초대
+                            </button>
+                            {isInviteModalOpen && (
+                                <InviteMemberModal
+                                    roomId={Number(roomId)}
+                                    onClose={() => setIsInviteModalOpen(false)}
+                                    onInviteCompleted={() => {
+                                        // 멤버 목록 새로고침 (간단히 페이지 리로드 또는 멤버 fetch 함수 재호출)
+                                        window.location.reload();
+                                    }}
+                                />
+                            )}
                         </div>
 
                         <div className="menu-section">

@@ -1,12 +1,12 @@
 /* src/pages/chat/ChatRoomPage.css */
 
 .chat-room-container {
-    position: fixed;  /* 화면에 고정시켜서 부모 레이아웃 탈출 */
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;     /* 화면 전체 너비 */
-    height: 100vh;    /* 화면 전체 높이 */
-    z-index: 9999;    /* 가장 위에 표시 (노란색 헤더 덮기) */
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
 
     display: flex;
     flex-direction: column;
@@ -14,9 +14,8 @@
     color: #212529;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* 이중 스크롤 방지 */
+    overflow: hidden;
 }
-
 /* 헤더 */
 .header {
     background: white;

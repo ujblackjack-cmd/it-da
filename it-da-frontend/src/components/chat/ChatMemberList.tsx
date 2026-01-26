@@ -1,5 +1,5 @@
 import React from "react";
-import { User } from "../../types/user.types";
+import { User } from "@/types/user.types.ts";
 import {useAuthStore} from "@/stores/useAuthStore.ts";
 
 interface Props {
@@ -42,12 +42,29 @@ const ChatMemberList: React.FC<Props> = ({ members, onFollow, onReport }) => {
                         {/* 버튼 영역 (나는 버튼 안 보임) */}
                         {!isMe && (
                             <div className="member-actions">
-                                <button
-                                    onClick={() => onFollow(member.userId)}
-                                    className="btn-mini btn-follow"
-                                >
-                                    팔로우
-                                </button>
+                                {/* ✅ [수정] 팔로우 상태에 따라 버튼 분기 처리 */}
+                                {member.isFollowing ? (
+                                    <button
+                                        className="btn-mini"
+                                        style={{
+                                            backgroundColor: '#e9ecef',
+                                            color: '#868e96',
+                                            borderColor: '#dee2e6',
+                                            cursor: 'default'
+                                        }}
+                                        disabled
+                                    >
+                                        팔로우 중
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => onFollow(member.userId)}
+                                        className="btn-mini btn-follow"
+                                    >
+                                        팔로우
+                                    </button>
+                                )}
+
                                 <button
                                     onClick={() => onReport(member.userId, member.name || member.nickname || member.username)}
                                     className="btn-mini btn-report"
