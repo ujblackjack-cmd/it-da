@@ -1,4 +1,4 @@
-// src/hooks/badge/useBadgeWebSocket.ts
+// src/hooks/badge/UseBadgeWebSocket.ts
 import { useEffect, useRef, useCallback, useState } from "react";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";

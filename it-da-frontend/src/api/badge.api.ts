@@ -62,7 +62,7 @@ export async function getUserBadges(): Promise<UserBadgeDto[]> {
 /**
  * ✅ 획득한 배지만 조회
  */
-export async function getUnlockedBadges(userId?: number): Promise<UserBadgeDto[]> {
+export async function getUnlockedBadges(_userId?: number): Promise<UserBadgeDto[]> {
     const res = await http.get<UserBadgeDto[]>("/api/badges/unlocked");
     return res.data;
 }

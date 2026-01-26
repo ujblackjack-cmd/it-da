@@ -11,6 +11,7 @@ import mypageApi, {
 } from "../../api/mypage.api";
 import followApi from "../../api/follow.api";
 import userSettingApi from "../../api/userSetting.api";
+import activityApi, { Activity } from "../../api/activity.api";  // ⭐ 추가!
 import type { FollowUser } from "../../types/follow.types";
 import ProfileSection from "./components/ProfileSection";
 import PendingReviews from "./components/PendingReviews";
@@ -107,16 +108,23 @@ const MyPage: React.FC = () => {
     // ✅ 배지 카운트
     const badgeCount = unlockedBadges.length;
 
-    // ✅ 활동 데이터 (임시)
-    const activities = [
-        {
-            id: 1,
-            date: "2026.01.02",
-            title: "새해 첫 모임 신청!",
-            description: "한강 선셋 피크닉 모임에 참여했어요",
-            icon: "🎉",
-        },
-    ];
+    // ⭐ 활동 기록 실데이터
+    const [activities, setActivities] = useState<Activity[]>([]);
+    const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+    // ⭐ 활동 기록 조회
+    const fetchActivities = useCallback(async () => {
+        if (!currentUserId) return;
+        setActivitiesLoading(true);
+        try {
+            const data = await activityApi.getActivities(currentUserId, 20);
+            setActivities(data);
+        } catch (err) {
+            console.error("활동 기록 조회 실패:", err);
+        } finally {
+            setActivitiesLoading(false);
+        }
+    }, [currentUserId]);
 
     const stats = useMemo(() => {
         const totalMeetings =
@@ -220,11 +228,13 @@ const MyPage: React.FC = () => {
                     setParticipationCount(update.participationCount as number);
                 }
                 void fetchAll();
+                void fetchActivities();  // ⭐ 활동 기록도 새로고침
             }
 
             if (update.type === "MEETING_COMPLETED") {
                 console.log("🏁 모임 완료됨! 모임 리스트 새로고침:", update);
                 void fetchAll();
+                void fetchActivities();  // ⭐ 활동 기록도 새로고침
             }
 
             if (update.type === "MEETING_UPDATED") {
@@ -234,6 +244,7 @@ const MyPage: React.FC = () => {
 
             if (update.type === "REVIEW_CREATED") {
                 void fetchAll();
+                void fetchActivities();  // ⭐ 활동 기록도 새로고침
             }
 
             if (
@@ -257,7 +268,7 @@ const MyPage: React.FC = () => {
                 }
             }
         },
-        [currentUserId, fetchAll]
+        [currentUserId, fetchAll, fetchActivities]
     );
 
     useProfileWebSocket({
@@ -310,6 +321,7 @@ const MyPage: React.FC = () => {
             void fetchFollowCounts();
             void fetchSettings();
             void fetchUserProfile();
+            void fetchActivities();  // ⭐ 활동 기록 조회
         }
     }, [
         currentUserId,
@@ -317,6 +329,7 @@ const MyPage: React.FC = () => {
         fetchFollowCounts,
         fetchSettings,
         fetchUserProfile,
+        fetchActivities,
     ]);
 
     useEffect(() => {
@@ -511,7 +524,7 @@ const MyPage: React.FC = () => {
                 followingCount,
                 followerCount,
                 meetingCount,
-                badgeCount, // ✅ 실제 획득 배지 수
+                badgeCount,
                 averageRating: average || 0,
             },
         };
@@ -731,17 +744,21 @@ const MyPage: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* 📝 활동 기록 섹션 */}
+                                {/* 📝 활동 기록 섹션 - ⭐ 실데이터 연동 */}
                                 <section className="archive-section">
                                     <h3 className="archive-section-title">📝 활동 기록</h3>
                                     <div className="activity-list">
-                                        {activities.length === 0 ? (
+                                        {activitiesLoading ? (
+                                            <div className="activity-empty">
+                                                <span>활동 기록 불러오는 중...</span>
+                                            </div>
+                                        ) : activities.length === 0 ? (
                                             <div className="activity-empty">
                                                 <span>아직 활동 내역이 없어요</span>
                                             </div>
                                         ) : (
                                             activities.map((activity) => (
-                                                <div key={activity.id} className="activity-item">
+                                                <div key={`${activity.type}-${activity.id}`} className="activity-item">
                                                     <div className="activity-icon">{activity.icon}</div>
                                                     <div className="activity-content">
                                                         <div className="activity-title">{activity.title}</div>
@@ -786,6 +803,7 @@ const MyPage: React.FC = () => {
                 onSubmitted={() => {
                     void fetchAll();
                     void fetchFollowCounts();
+                    void fetchActivities();  // ⭐ 리뷰 작성 후 활동 기록 새로고침
                 }}
             />
             <PreferenceEditModal
