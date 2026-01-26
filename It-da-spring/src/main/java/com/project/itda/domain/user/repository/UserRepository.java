@@ -39,6 +39,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Long countByCreatedAtBefore(LocalDateTime date);
 
     Page<User> findByUsernameContainingOrEmailContaining(String username, String email, Pageable pageable);
-    
+
     List<User> findByNicknameContainingOrEmailContaining(String nickname, String email);
 }
