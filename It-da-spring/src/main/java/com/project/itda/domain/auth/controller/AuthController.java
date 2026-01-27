@@ -6,6 +6,7 @@ import com.project.itda.domain.auth.dto.request.LoginRequest;
 import com.project.itda.domain.auth.dto.request.UserSignupRequest;
 import com.project.itda.domain.auth.dto.response.LoginResponse;
 import com.project.itda.domain.auth.dto.response.SessionInfoResponse;
+import com.project.itda.domain.auth.dto.SessionUser;
 import com.project.itda.domain.auth.service.AuthService;
 import com.project.itda.domain.user.entity.User;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +47,9 @@ public class AuthController {
             session.setAttribute("email", user.getEmail());
             session.setAttribute("username", user.getUsername());
             session.setAttribute("nickname", user.getNickname());
+
+            SessionUser sessionUser = new SessionUser(user.getUserId(), user.getEmail(), user.getUsername(), user.getNickname());
+            session.setAttribute("user", sessionUser);  // ✅ 이거 추가!
 
             log.info("✅ 일반 사용자 로그인 성공 - User: {}, SessionId: {}", user.getEmail(), session.getId());
 

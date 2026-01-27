@@ -458,6 +458,93 @@ public class MeetingService {
         return Map.of("meetings", meetingList);
     }
 
+    // ========================================
+// MeetingService.java에 아래 메서드 추가!
+// ========================================
+
+    /**
+     * ✅ 카테고리별 모임 개수 조회
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Long> getCategoryStats() {
+        log.info("📊 카테고리별 모임 통계 조회");
+
+        List<Object[]> results = meetingRepository.countByCategory();
+
+        Map<String, Long> stats = new HashMap<>();
+        long total = 0;
+
+        for (Object[] row : results) {
+            String category = (String) row[0];
+            Long count = (Long) row[1];
+
+            if (category != null) {
+                stats.put(category, count);
+                total += count;
+            }
+        }
+
+        stats.put("total", total);
+
+        log.info("✅ 카테고리 통계: {}", stats);
+
+        return stats;
+    }
+
+    /**
+     * ✅ 카테고리별 상세 통계 (모임 수, 참여 멤버, 평균 평점)
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCategoryDetailStats() {
+        log.info("📊 카테고리별 상세 통계 조회");
+
+        List<Object[]> results = meetingRepository.getCategoryDetailStats();
+
+        Map<String, Object> response = new HashMap<>();
+        long totalMeetings = 0;
+        long totalMembers = 0;
+        double totalRatingSum = 0;
+        int ratingCount = 0;
+
+        for (Object[] row : results) {
+            String category = (String) row[0];
+            Long meetingCount = (Long) row[1];
+            Long memberCount = ((Number) row[2]).longValue();
+            Double avgRating = ((Number) row[3]).doubleValue();
+
+            if (category != null) {
+                Map<String, Object> categoryStats = new HashMap<>();
+                categoryStats.put("meetings", meetingCount);
+                categoryStats.put("members", memberCount);
+                categoryStats.put("rating", Math.round(avgRating * 10.0) / 10.0);  // 소수점 1자리
+
+                response.put(category, categoryStats);
+
+                totalMeetings += meetingCount;
+                totalMembers += memberCount;
+                if (avgRating > 0) {
+                    totalRatingSum += avgRating * meetingCount;
+                    ratingCount += meetingCount;
+                }
+            }
+        }
+
+        // 전체 통계
+        Map<String, Object> totalStats = new HashMap<>();
+        totalStats.put("meetings", totalMeetings);
+        totalStats.put("members", totalMembers);
+        totalStats.put("rating", ratingCount > 0 ? Math.round((totalRatingSum / ratingCount) * 10.0) / 10.0 : 0.0);
+        response.put("total", totalStats);
+
+        log.info("✅ 카테고리 상세 통계 조회 완료");
+
+        return response;
+    }
+// ========================================
+// MeetingService.java에 아래 메서드 추가!
+// ========================================
+
+
     private Map<String, Object> convertToMap(Meeting meeting) {
         Map<String, Object> map = new HashMap<>();
 

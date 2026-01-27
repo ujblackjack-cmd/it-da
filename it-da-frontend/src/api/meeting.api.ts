@@ -10,17 +10,39 @@ const axiosInstance = axios.create({
     withCredentials: true,
 });
 
+// ✅ 페이징 응답 타입
+export interface PaginatedMeetingResponse {
+    meetings: Meeting[];
+    totalElements: number;
+    totalPages: number;
+    currentPage: number;
+    hasNext: boolean;
+    size: number;
+}
+
 export const meetingAPI = {
     /**
-     * 전체 모임 조회 (팀원 코드와 동일)
+     * ✅ 전체 모임 조회 (페이징 지원)
      */
-    getAllMeetings: async (): Promise<MeetingListResponse> => {
-        const response = await axiosInstance.get('/meetings');
-        return response.data;
+    getAllMeetings: async (page: number = 0, size: number = 20): Promise<PaginatedMeetingResponse> => {
+        const response = await axiosInstance.get('/meetings', {
+            params: { page, size },
+        });
+
+        // 백엔드 응답 구조에 맞게 변환
+        const data = response.data;
+        return {
+            meetings: data.meetings || data.content || [],
+            totalElements: data.totalElements || 0,
+            totalPages: data.totalPages || 0,
+            currentPage: data.currentPage ?? page,
+            hasNext: data.hasNext ?? (page < (data.totalPages || 1) - 1),
+            size: data.size || size,
+        };
     },
 
     /**
-     * 모임 상세 조회 (새로 추가)
+     * 모임 상세 조회
      */
     getMeetingById: async (id: number): Promise<MeetingDetail> => {
         const response = await axiosInstance.get(`/meetings/${id}`);
@@ -28,35 +50,72 @@ export const meetingAPI = {
     },
 
     /**
-     * 카테고리별 조회 (새로 추가)
+     * ✅ 카테고리별 조회 (페이징 지원)
      */
-    getMeetingsByCategory: async (category: string): Promise<MeetingListResponse> => {
-        const response = await axiosInstance.get('/meetings/search', {
-            params: { category },
+    getMeetingsByCategory: async (
+        category: string,
+        page: number = 0,
+        size: number = 20
+    ): Promise<PaginatedMeetingResponse> => {
+        const response = await axiosInstance.get('/meetings', {
+            params: { category, page, size },
         });
-        return response.data;
+
+        const data = response.data;
+        return {
+            meetings: data.meetings || data.content || [],
+            totalElements: data.totalElements || 0,
+            totalPages: data.totalPages || 0,
+            currentPage: data.currentPage ?? page,
+            hasNext: data.hasNext ?? (page < (data.totalPages || 1) - 1),
+            size: data.size || size,
+        };
     },
 
     /**
-     * 카테고리 + 서브카테고리 조회 (새로 추가)
+     * ✅ 카테고리 + 서브카테고리 조회 (페이징 지원)
      */
     getMeetingsByCategoryAndSubcategory: async (
         category: string,
-        subcategory: string
-    ): Promise<MeetingListResponse> => {
+        subcategory: string,
+        page: number = 0,
+        size: number = 20
+    ): Promise<PaginatedMeetingResponse> => {
         const response = await axiosInstance.get('/meetings/search', {
-            params: { category, subcategory },
+            params: { category, subcategory, page, size },
         });
-        return response.data;
+
+        const data = response.data;
+        return {
+            meetings: data.meetings || data.content || [],
+            totalElements: data.totalElements || 0,
+            totalPages: data.totalPages || 0,
+            currentPage: data.currentPage ?? page,
+            hasNext: data.hasNext ?? (page < (data.totalPages || 1) - 1),
+            size: data.size || size,
+        };
     },
 
     /**
-     * 키워드 검색 (팀원 코드와 동일)
+     * 키워드 검색 (페이징 지원)
      */
-    searchMeetings: async (keyword: string): Promise<MeetingListResponse> => {
+    searchMeetings: async (
+        keyword: string,
+        page: number = 0,
+        size: number = 20
+    ): Promise<PaginatedMeetingResponse> => {
         const response = await axiosInstance.get('/meetings/search', {
-            params: { keyword },
+            params: { keyword, page, size },
         });
-        return response.data;
+
+        const data = response.data;
+        return {
+            meetings: data.meetings || data.content || [],
+            totalElements: data.totalElements || 0,
+            totalPages: data.totalPages || 0,
+            currentPage: data.currentPage ?? page,
+            hasNext: data.hasNext ?? (page < (data.totalPages || 1) - 1),
+            size: data.size || size,
+        };
     },
 };

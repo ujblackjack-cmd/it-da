@@ -369,5 +369,70 @@ Page<Meeting> findByTitleContainingAndCategoryAndStatusWithOrganizer(
         @Param("status") MeetingStatus status,
         Pageable pageable
 );
+// ========================================
+// MeetingRepository.java에 아래 메서드 추가!
+// ========================================
 
+
+
+    /**
+     * ✅ 카테고리별 모임 개수 조회 (모집 중인 것만)
+     */
+    @Query("""
+            SELECT m.category, COUNT(m)
+            FROM Meeting m
+            WHERE m.status = 'RECRUITING'
+              AND m.deletedAt IS NULL
+            GROUP BY m.category
+           """)
+    List<Object[]> countByCategoryRecruiting();
+
+
+    // ========================================
+// MeetingRepository.java에 아래 메서드 추가!
+// (기존 countByCategory() 아래에)
+// ========================================
+
+    /**
+     * ✅ 카테고리별 모임 개수 조회 (삭제되지 않은 것만)
+     */
+    @Query("""
+            SELECT m.category, COUNT(m)
+            FROM Meeting m
+            WHERE m.deletedAt IS NULL
+            GROUP BY m.category
+           """)
+    List<Object[]> countByCategory();
+
+    /**
+     * ✅ 카테고리별 상세 통계 (모임 수, 총 참여자 수, 평균 평점)
+     */
+    @Query("""
+            SELECT m.category, 
+                   COUNT(m), 
+                   COALESCE(SUM(m.currentParticipants), 0),
+                   COALESCE(AVG(m.avgRating), 0.0)
+            FROM Meeting m
+            WHERE m.deletedAt IS NULL
+            GROUP BY m.category
+           """)
+    List<Object[]> getCategoryDetailStats();
+
+    /**
+     * ✅ 전체 모임 개수
+     */
+    @Query("SELECT COUNT(m) FROM Meeting m WHERE m.deletedAt IS NULL")
+    Long countAllActive();
+
+    /**
+     * ✅ 전체 참여자 수
+     */
+    @Query("SELECT COALESCE(SUM(m.currentParticipants), 0) FROM Meeting m WHERE m.deletedAt IS NULL")
+    Long sumAllParticipants();
+
+    /**
+     * ✅ 전체 평균 평점
+     */
+    @Query("SELECT COALESCE(AVG(m.avgRating), 0.0) FROM Meeting m WHERE m.deletedAt IS NULL AND m.avgRating IS NOT NULL")
+    Double avgAllRating();
 }

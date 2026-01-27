@@ -39,4 +39,11 @@ public class SessionUser implements Serializable {
         this.nickname = nickname;
         this.picture = picture;
     }
+
+    public SessionUser(Long userId, String email, String username, String nickname) {
+        this.userId = userId;
+        this.email = email;
+        this.username = username;
+        this.nickname = nickname;
+    }
 }
