@@ -34,7 +34,7 @@ public class ChatMessage {
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    @Column(name = "message_type",nullable=false) // [cite: 270, 271]
+    @Column(name = "message_type",nullable=false, length = 20) // [cite: 270, 271]
     private MessageType type = MessageType.TEXT;
 
     @Column(nullable = false, columnDefinition = "TEXT") // [cite: 273, 274]

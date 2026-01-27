@@ -11,9 +11,23 @@ import toast from "react-hot-toast";
 interface Props {
     message: ChatMessageType;
     isMine: boolean;
+    onLocationClick?: (metadata: any) => void;
 }
-
-const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
+interface RecommendedPlace {
+    placeName: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    isAiRecommendation?: boolean | string; // 타입 보강
+    lat?: number; // 메타데이터 필드 호환성
+    lng?: number;
+}
+interface BillMetadata {
+    totalAmount?: number;
+    participants?: Array<{ userId: number; name: string; isPaid: boolean }>;
+    account?: string;
+}
+const ChatMessage: React.FC<Props> = ({ message, isMine, onLocationClick }) => {
     const { user: currentUser } = useAuthStore();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -37,22 +51,124 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
             toast.error("다운로드에 실패했습니다.");
         }
     };
-    // 1. metadata 파싱 (새로고침 시 문자열 대응)
+        // 1. metadata 파싱 (새로고침 시 문자열 대응)
     const parsedData = React.useMemo(() => {
         try {
             if (!message.metadata) return null;
-            const data = typeof message.metadata === 'string'
+
+            // ✅ 1. 문자열인 경우 객체로 변환, 객체인 경우 그대로 사용
+            let data = typeof message.metadata === 'string'
                 ? JSON.parse(message.metadata)
                 : message.metadata;
 
-            return data;
+            // ✅ 2. (방어 코드) 만약 파싱 결과가 여전히 문자열이라면 한 번 더 파싱
+            // 일부 DB 설정에 따라 JSON이 이중 문자열로 저장되는 경우를 대비합니다.
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
+
+            // ✅ 3. 최종 데이터를 'any' 또는 'RecommendedPlace'로 형변환하여 속성 접근 허용
+            return data as RecommendedPlace & BillMetadata;
         } catch (e) {
             console.error("Metadata 파싱 에러:", e);
-            return null; }
-    }, [message.metadata, message.sentAt]);
+            return null;
+        }
+    }, [message.metadata]);
+
+    const isAiReco = parsedData && (
+        parsedData.isAiRecommendation === true ||
+        parsedData.isAiRecommendation === 'true'
+    );
 
     // 2. 특수 타입 렌더링 (parsedData 기반)
     const renderSpecialContent = () => {
+        if (isAiReco) {
+            const aiBubbleGradient = isMine
+                ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                : 'linear-gradient(135deg, #4b6cb7 0%, #182848 100%)';
+            return (
+                <div className="ai-reco-bubble"
+                     onClick={() => {
+                         // ✅ 좌표가 있다면 클릭 시 모달 오픈
+                         const lat = parsedData?.latitude || parsedData?.lat;
+                         const lng = parsedData?.longitude || parsedData?.lng;
+                         if (lat && lng) {
+                             onLocationClick?.(parsedData);
+                         }
+                     }}
+                     style={{
+                    background: aiBubbleGradient,
+                    color: 'white',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    whiteSpace: 'pre-wrap',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    boxShadow: '0 4px 15px rgba(118, 75, 162, 0.3)'
+                }}>
+                    {message.content}
+                    {(parsedData?.latitude || parsedData?.lat) && (
+                        <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.8, textAlign: 'right' }}>
+                            검색된 위치 확인하기 🔍
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        if (message.type === "LOCATION") {
+            if (!parsedData) return <div>{message.content}</div>;
+
+            const titleColor = isMine ? "#ffffff" : "#333333";
+            const addressColor = isMine ? "rgba(255, 255, 255, 0.85)" : "#666666";
+            const footerColor = isMine ? "#ffffff" : "#6366f1";
+            const borderColor = isMine ? "rgba(255, 255, 255, 0.3)" : "#eeeeee";
+
+            return (
+                <div
+                    className="location-bubble"
+                    onClick={() => onLocationClick?.(parsedData)}
+                    style={{
+                        cursor: 'pointer',
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        minWidth: '220px'
+                    }}
+                >
+                    <div style={{
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        color: titleColor,
+                        textShadow: isMine ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+                    }}>
+                        📍 {parsedData.placeName}
+                    </div>
+
+                    <div style={{
+                        fontSize: '0.85rem',
+                        color: addressColor,
+                        marginBottom: '10px',
+                        lineHeight: '1.4'
+                    }}>
+                        {parsedData.address}
+                    </div>
+
+                    <div style={{
+                        fontSize: '0.8rem',
+                        color: footerColor,
+                        fontWeight: '700',
+                        borderTop: `1px solid ${borderColor}`,
+                        paddingTop: '10px',
+                        textAlign: 'center',
+                        letterSpacing: '-0.3px'
+                    }}>
+                        지도로 위치 확인하기
+                    </div>
+                </div>
+            );
+        }
         if (message.type === 'BILL') {
             if (!parsedData) return <div className="loading-placeholder">정산 정보를 불러오는 중...</div>;
 
@@ -178,7 +294,7 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
                     <a
                         href={downloadUrl}
                         download
-                        onClick={(e) => e.stopPropagation()} // 이미지 확대 방지
+                        onClick={(e) => handleDownload(e, imageUrl)} // 이미지 확대 방지
                         title="저장하기"
                         style={{
                             position: 'absolute',
@@ -272,7 +388,9 @@ const ChatMessage: React.FC<Props> = ({ message, isMine }) => {
                          style={{
                              width: (message.type === 'POLL' || message.type === 'BILL') ? '100%' : 'auto',
                              maxWidth: (message.type === 'POLL' || message.type === 'BILL') ? '400px' : '70%',
-                             background: (message.type === 'IMAGE') ? 'transparent' : (message.type === 'POLL' || message.type === 'BILL') ? '#ffffff' : undefined,
+                             background: isAiReco ? 'transparent' :
+                                 (message.type === 'IMAGE') ? 'transparent' :
+                                     (message.type === 'POLL' || message.type === 'BILL') ? '#ffffff' : undefined,
                              border: (message.type === 'IMAGE') ? 'none' : (message.type === 'POLL' || message.type === 'BILL') ? '1px solid #e9ecef' : undefined,
                              boxShadow: (message.type === 'IMAGE') ? 'none' : (message.type === 'POLL' || message.type === 'BILL') ? '0 4px 12px rgba(0,0,0,0.08)' : undefined,
                              padding: (message.type === 'IMAGE') ? '0' : (message.type === 'POLL' || message.type === 'BILL') ? '0' : '12px',

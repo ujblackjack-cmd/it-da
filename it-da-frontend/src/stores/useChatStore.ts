@@ -23,7 +23,7 @@ export interface ChatMessage { // ✅ 이 부분이 Page의 인터페이스와 �
     senderId: number;
     senderNickname: string;
     content: string;
-    type: 'TALK' | 'BILL' | 'POLL' | 'IMAGE' | 'LOCATION'| 'NOTICE' | 'VOTE_UPDATE' | 'BILL_UPDATE';
+    type: 'TALK' | 'BILL' | 'POLL' | 'IMAGE' | 'LOCATION'| 'NOTICE' | 'VOTE_UPDATE' | 'BILL_UPDATE' | "AI_RECOMMENDATION";
     sentAt: string;
     unreadCount: number;
     email?:string;

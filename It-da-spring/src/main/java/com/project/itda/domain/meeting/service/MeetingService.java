@@ -2,6 +2,7 @@
 package com.project.itda.domain.meeting.service;
 
 import com.project.itda.domain.badge.event.MeetingCreatedEvent;
+import com.project.itda.domain.meeting.dto.request.LocationUpdateRequest;
 import com.project.itda.domain.meeting.dto.request.MeetingCreateRequest;
 import com.project.itda.domain.meeting.dto.request.MeetingUpdateRequest;
 import com.project.itda.domain.meeting.dto.response.MeetingDetailResponse;
@@ -488,5 +489,21 @@ public class MeetingService {
 
     private Integer getParticipantCount(Meeting meeting) {
         return meeting.getCurrentParticipants();
+    }
+
+    @Transactional
+    public void updateLocation(Long meetingId, LocationUpdateRequest request) {
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 모임을 찾을 수 없습니다. ID: " + meetingId));
+
+        // ✅ 개별 Setter 대신 통합 업데이트 메서드 호출
+        meeting.updateLocation(
+                request.getLocationName(),
+                request.getLocationAddress(),
+                request.getLatitude(),
+                request.getLongitude()
+        );
+
+        log.info("✅ 모임 장소 업데이트 완료: meetingId={}, location={}", meetingId, request.getLocationName());
     }
 }

@@ -435,4 +435,11 @@ public class Meeting {
     public String updateImageUrl(String imageUrl) {
         return this.imageUrl = imageUrl;
     }
+
+    public void updateLocation(String locationName, String locationAddress, Double latitude, Double longitude) {
+        this.locationName = locationName;
+        this.locationAddress = locationAddress;
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
 }
