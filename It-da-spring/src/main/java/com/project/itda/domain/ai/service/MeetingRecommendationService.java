@@ -132,9 +132,9 @@ public class MeetingRecommendationService {
                     Optional.ofNullable(centroidData.getRecommendations())
                             .orElse(Collections.emptyList());
 
-            if (aiRecs.isEmpty()) {
-                throw new RuntimeException("추천 장소가 없습니다.");
-            }
+//            if (aiRecs.isEmpty()) {
+//                throw new RuntimeException("추천 장소가 없습니다.");
+//            }
 
             List<PlaceRecommendationDTO.PlaceInfo> recommendations = new ArrayList<>();
 
@@ -170,7 +170,7 @@ public class MeetingRecommendationService {
 
             return PlaceRecommendationDTO.builder()
                     .success(true)
-                    .message("장소 추천이 완료되었습니다.")
+                    .message(aiRecs.isEmpty() ? "반경 내에 추천할 만한 장소가 없습니다." : "장소 추천이 완료되었습니다.")
                     .meetingId(meetingId)
                     .centroid(PlaceRecommendationDTO.CentroidInfo.builder()
                             .latitude(centroid.getLatitude())

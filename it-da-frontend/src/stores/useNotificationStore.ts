@@ -19,7 +19,8 @@ export interface Notification {
     | "review"
     | "review_request"
     | "badge"
-    | "system"; // ✅ 새 타입 추가
+    | "system" // ✅ 새 타입 추가
+    | "chat_invite";
   title: string;
   text: string;
   time: string;
@@ -130,7 +131,9 @@ const convertBackendNotification = (
     senderProfileImage: dto.senderProfileImage,
     linkUrl: dto.linkUrl,
     relatedId: dto.relatedId,
-    roomId: dto.notificationType === "MESSAGE" ? dto.relatedId : undefined,
+    roomId: (dto.notificationType === "MESSAGE" || dto.notificationType === "CHAT_INVITE")
+          ? dto.relatedId
+          : undefined,
   };
 };
 

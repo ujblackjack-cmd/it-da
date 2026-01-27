@@ -5,6 +5,7 @@ import com.project.itda.domain.notification.dto.response.NotificationResponse;
 import com.project.itda.domain.notification.entity.Notification;
 import com.project.itda.domain.notification.enums.NotificationType;
 import com.project.itda.domain.notification.repository.NotificationRepository;
+import com.project.itda.domain.social.service.ChatRoomService;
 import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserFollow;
 import com.project.itda.domain.user.entity.UserSetting;
@@ -13,19 +14,23 @@ import com.project.itda.domain.user.repository.UserRepository;
 import com.project.itda.domain.user.repository.UserSettingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NotificationService {
 
@@ -34,6 +39,25 @@ public class NotificationService {
     private final PushNotificationService pushNotificationService;
     private final UserFollowRepository userFollowRepository;      // ✅ 추가
     private final UserSettingRepository userSettingRepository;    // ✅ 추가
+    private final SimpMessageSendingOperations messagingTemplate;
+
+    private ChatRoomService chatRoomService;
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            UserRepository userRepository,
+            PushNotificationService pushNotificationService,
+            UserFollowRepository userFollowRepository,
+            UserSettingRepository userSettingRepository,
+            SimpMessageSendingOperations messagingTemplate,
+            @Lazy ChatRoomService chatRoomService) { // 👈 여기에 @Lazy 추가
+        this.notificationRepository = notificationRepository;
+        this.userRepository = userRepository;
+        this.pushNotificationService = pushNotificationService;
+        this.userFollowRepository = userFollowRepository;
+        this.userSettingRepository = userSettingRepository;
+        this.messagingTemplate = messagingTemplate;
+        this.chatRoomService = chatRoomService;
+    }
 
     // ========================================
     // 알림 조회 API
@@ -158,8 +182,18 @@ public class NotificationService {
         notification = notificationRepository.save(notification);
         log.info("🔔 알림 생성: type={}, receiver={}, sender={}", type, receiver.getUserId(), senderId);
 
-        // 웹소켓으로 실시간 푸시
-        pushNotificationService.pushNotification(receiver.getUserId(), NotificationResponse.from(notification));
+        // 2. 웹소켓 실시간 전송 (여기가 에러 포인트!)
+        try {
+            // pushNotificationService가 null이 아닌지 체크
+            if (pushNotificationService != null) {
+                pushNotificationService.pushNotification(receiver.getUserId(), NotificationResponse.from(notification));
+            } else {
+                log.warn("⚠️ PushNotificationService가 주입되지 않았습니다.");
+            }
+        } catch (Exception e) {
+            // 웹소켓 전송 실패해도 로직은 계속 진행되어야 함 (로그만 남김)
+            log.error("❌ 실시간 알림 전송 실패 (DB 저장은 성공): {}", e.getMessage());
+        }
 
         return notification;
     }
@@ -247,7 +281,7 @@ public class NotificationService {
                 NotificationType.MESSAGE,
                 sender.getUsername() + "님의 새 메시지",
                 "💬 " + preview,
-                "/user-chat/" + roomId,
+                "/chat/" + roomId,
                 roomId,
                 sender.getUserId(),
                 sender.getUsername(),
@@ -522,5 +556,64 @@ public class NotificationService {
         int deleted = notificationRepository.deleteOldNotifications(thirtyDaysAgo);
         log.info("🗑️ 오래된 알림 삭제: {}개", deleted);
         return deleted;
+    }
+    @Transactional
+    public void notifyChatInvite(User receiver, User inviter, Long roomId, String roomName) {
+        createNotification(
+                receiver,
+                NotificationType.CHAT_INVITE,
+                inviter.getUsername() + "님이 모임에 초대했습니다",
+                "💌 '" + roomName + "' 모임 초대장이 도착했습니다. 수락하시겠습니까?",
+                "/chat/" + roomId, // 알림 클릭 시 이동할 경로
+                roomId,           // relatedId로 roomId 저장
+                inviter.getUserId(),
+                inviter.getUsername(),
+                inviter.getProfileImageUrl()
+        );
+    }
+    @Transactional
+    public void processInviteAccept(Long notificationId) {
+        // 1. 알림 정보 조회
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + notificationId));
+
+        // 2. 초대 알림인지 확인 (보안 체크)
+        if (notification.getNotificationType() != NotificationType.CHAT_INVITE) {
+            throw new IllegalStateException("초대 수락이 가능한 알림 타입이 아닙니다.");
+        }
+
+        // 3. 관련 데이터 추출
+        Long roomId = notification.getRelatedId();
+        User receiver = notification.getUser();
+
+        log.info("📢 초대 수락 프로세스 시작: roomId={}, userId={}", roomId, receiver.getUserId());
+
+        // 4. ChatRoomService를 통해 가입 처리 진행
+        // (chatRoomService.joinChatRoomWithNotification 로직은 아래에서 따로 제안해 드립니다)
+        chatRoomService.acceptInvitation(roomId, receiver.getUserId());
+
+        // 5. 알림 읽음 처리 및 가입 완료 메시지로 업데이트 (선택 사항)
+        notification.markAsRead();
+
+        sendWelcomeMessage(roomId, receiver);
+
+        log.info("✅ 초대 수락 및 가입 완료: roomId={}, userId={}", roomId, receiver.getUserId());
+    }
+    private void sendWelcomeMessage(Long roomId, User user) {
+        try {
+            // 프론트엔드 ChatMessage 인터페이스와 포맷을 맞춰야 합니다.
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", "NOTICE"); // 시스템 공지 타입
+            message.put("roomId", roomId);
+            message.put("senderId", user.getUserId());
+            message.put("senderNickname", user.getNickname() != null ? user.getNickname() : user.getUsername());
+            message.put("content", user.getUsername() + "님이 초대를 수락하고 입장하셨습니다! 🎉");
+            message.put("sentAt", LocalDateTime.now().toString());
+
+            // /topic/room/{roomId} 를 구독 중인 모든 사용자에게 메시지 발송
+            messagingTemplate.convertAndSend("/topic/room/" + roomId, message);
+        } catch (Exception e) {
+            log.error("입장 메시지 전송 실패: ", e);
+        }
     }
 }

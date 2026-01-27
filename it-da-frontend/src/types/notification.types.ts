@@ -13,7 +13,8 @@ export type NotificationTypeBackend =
     | 'REVIEW'
     | 'REVIEW_REQUEST'
     | 'BADGE'
-    | 'SYSTEM';
+    | 'SYSTEM'
+    | 'CHAT_INVITE';
 
 /** 프론트엔드 알림 타입 */
 export type NotificationTypeFrontend =
@@ -28,7 +29,8 @@ export type NotificationTypeFrontend =
     | 'review'
     | 'review_request'
     | 'badge'
-    | 'system';
+    | 'system'
+    | 'chat_invite';
 
 /** 백엔드에서 받아오는 알림 응답 DTO */
 export interface NotificationResponseDTO {
@@ -73,6 +75,7 @@ export const convertNotificationType = (backendType: NotificationTypeBackend): N
         'REVIEW_REQUEST': 'review_request',
         'BADGE': 'badge',
         'SYSTEM': 'system',
+        'CHAT_INVITE': 'chat_invite',
     };
     return typeMap[backendType] || 'system';
 };

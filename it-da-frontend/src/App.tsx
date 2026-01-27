@@ -20,6 +20,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 
 import "./App.css";
 
+import { useNotificationWebSocket } from "./hooks/notification/useNotificationWebSocket";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -128,6 +129,7 @@ function WebSocketProvider({ children }: { children: React.ReactNode }) {
   useUserChatWebSocket({
     userId: user?.userId,
   });
+  useNotificationWebSocket();
 
   return (
     <>

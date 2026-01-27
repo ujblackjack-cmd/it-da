@@ -53,11 +53,27 @@ const NotificationBell: React.FC = () => {
     const handleNotificationClick = (notification: Notification) => {
         markAsRead(notification.id);
 
-        if (notification.type === 'message' && notification.roomId) {
-            // 메시지 알림 → 채팅방으로 이동
-            window.location.href = `/user-chat/${notification.roomId}`;
-        } else if (notification.fromUserId) {
-            // 팔로우 알림 → 해당 유저 프로필로 이동
+        // 1. 메시지나 초대장이면 무조건 [모임톡 /chat/]으로 이동 (강제 납치!)
+        if ((notification.type === 'message' || notification.type === 'chat_invite') && notification.roomId) {
+            const targetPath = `/chat/${notification.roomId}`;
+
+            // 현재 페이지와 같으면 새로고침, 다르면 이동
+            if (window.location.pathname === targetPath) {
+                window.location.reload();
+            } else {
+                window.location.href = targetPath;
+            }
+
+            closeDropdown();
+            return; // 여기서 함수 종료
+        }
+
+        // 2. 그 외 링크가 있는 경우 (팔로우 등)
+        if (notification.linkUrl) {
+            window.location.href = notification.linkUrl;
+        }
+        // 3. 링크도 없고 roomId도 없으면 프로필로 (기존 로직)
+        else if (notification.fromUserId) {
             window.location.href = `/users/${notification.fromUserId}`;
         }
 

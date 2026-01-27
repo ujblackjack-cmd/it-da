@@ -112,12 +112,26 @@ public class ChatRoomController {
 
     // ✅ [추가] 멤버 초대 API
     @PostMapping("/rooms/{roomId}/invite")
-    public ResponseEntity<Void> inviteUser(
+    public ResponseEntity<Void> inviteMember(
             @PathVariable Long roomId,
-            @RequestBody Map<String, Long> request // { "userId": 123 }
+            @RequestBody Map<String, Long> request,
+            @SessionAttribute(name = "user", required = false) SessionUser sessionUser // ✅ 세션 유저 가져오기
     ) {
-        Long targetUserId = request.get("userId");
-        chatRoomService.inviteMember(roomId, targetUserId);
+        if (sessionUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long targetUserId = request.get("targetUserId");
+
+        if (targetUserId == null) {
+            // 로그를 남겨 디버깅을 돕습니다.
+            System.out.println("❌ 초대 실패: targetUserId가 null입니다. 요청 데이터: " + request);
+            return ResponseEntity.badRequest().build();
+        }
+
+        // ✅ 서비스 호출 시 세션 유저의 이메일(inviterEmail) 전달
+        chatRoomService.inviteMember(roomId, targetUserId, sessionUser.getEmail());
+
         return ResponseEntity.ok().build();
     }
 }

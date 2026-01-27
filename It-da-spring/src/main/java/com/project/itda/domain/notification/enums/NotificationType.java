@@ -21,5 +21,8 @@ public enum NotificationType {
 
     // 배지/시스템
     BADGE,               // 배지 획득
-    SYSTEM               // 시스템 공지
+    SYSTEM,               // 시스템 공지
+
+    // ✅ 채팅방 초대 타입 추가
+    CHAT_INVITE
 }

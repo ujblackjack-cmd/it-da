@@ -521,5 +521,43 @@ public class ParticipationService {
                 .completedAt(participation.getCompletedAt())
                 .build();
     }
+    /**
+     * ✅ 초대 수락으로 인한 모임 참여 처리 (즉시 승인)
+     */
+    @Transactional
+    public void approveParticipationFromInvite(Long meetingId, User user) {
+        log.info("📩 초대 수락으로 인한 모임 참여 처리 - userId: {}, meetingId: {}",
+                user.getUserId(), meetingId);
+
+        // 1. 모임 조회
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new IllegalArgumentException("모임을 찾을 수 없습니다"));
+
+        // 2. 이미 신청/참여 정보가 있는지 확인
+        // (findByUserIdAndMeetingId 메서드가 Repository에 없다면 Optional<Participation> 반환형으로 추가 필요)
+        boolean alreadyParticipated = participationRepository.existsByUserIdAndMeetingId(user.getUserId(), meetingId);
+
+        if (alreadyParticipated) {
+            log.info("ℹ️ 이미 참여 정보가 존재합니다. userId={}, meetingId={}", user.getUserId(), meetingId);
+            return;
+        }
+
+        // 3. 참여 엔티티 생성 및 즉시 승인(APPROVED) 상태 설정
+        Participation participation = Participation.builder()
+                .user(user)
+                .meeting(meeting)
+                .status(ParticipationStatus.APPROVED) // 초대 수락이므로 즉시 승인
+                .appliedAt(LocalDateTime.now())
+                .approvedAt(LocalDateTime.now())
+                .build();
+
+        participationRepository.save(participation);
+
+        // 4. 모임 엔티티의 참여 인원수 증가
+        meeting.addParticipant();
+
+        log.info("✅ 초대 수락 참여 처리 완료 - userId: {}, meetingId: {}",
+                user.getUserId(), meetingId);
+    }
 
 }

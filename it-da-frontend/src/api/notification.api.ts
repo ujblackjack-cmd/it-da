@@ -66,6 +66,19 @@ const notificationApi = {
             params: { userId },
         });
     },
+    /**
+     * ✅ 채팅방 초대 수락
+     */
+    acceptChatInvite: async (notificationId: number): Promise<void> => {
+        await apiClient.post(`/api/notifications/${notificationId}/accept`);
+    },
+
+    /**
+     * ✅ 채팅방 초대 거절
+     */
+    rejectChatInvite: async (notificationId: number): Promise<void> => {
+        await apiClient.post(`/api/notifications/${notificationId}/reject`);
+    },
 };
 
 export default notificationApi;

@@ -159,7 +159,7 @@ class ChatApi {
     // ✅ [추가] 유저 초대
     async inviteUser(roomId: number, userId: number) {
         await axios.post(`${API_BASE_URL}/api/social/chat/rooms/${roomId}/invite`,
-            { userId },
+            { targetUserId: userId }, // ✅ 수정됨: userId -> targetUserId
             { withCredentials: true }
         );
     }

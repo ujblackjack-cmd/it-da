@@ -8,6 +8,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { getNotificationIcon } from "@/types/notification.types";
 import apiClient from "@/api/client";
 import "./NotificationDropdown.css";
+import notificationApi from "@/api/notification.api.ts";
+import toast from "react-hot-toast";
 
 interface NotificationDropdownProps {
   isOpen?: boolean;
@@ -105,6 +107,18 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
     markAsRead(notification.id);
     onClose();
+      // ✅ 메시지 알림 클릭 시 채팅방으로 이동
+      if ((notification.type === "message" || notification.type === "chat_invite") && notification.roomId) {
+          const targetPath = `/chat/${notification.roomId}`;
+
+          // 현재 이미 그 방에 있다면 새로고침 (데이터 갱신용)
+          if (location.pathname === targetPath) {
+              window.location.reload();
+          } else {
+              navigate(targetPath);
+          }
+          return; // 🚨 중요: 함수를 여기서 끝내서 아래쪽 코드가 실행되지 않게 해야 합니다.
+      }
 
     // ✅ linkUrl이 있으면 해당 경로로 이동
     if (notification.linkUrl) {
@@ -117,15 +131,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       return;
     }
 
-    // ✅ 메시지 알림 클릭 시 채팅방으로 이동
-    if (notification.type === "message" && notification.roomId) {
-      const targetPath = `/user-chat/${notification.roomId}`;
-      if (location.pathname === targetPath) {
-        window.location.reload();
-      } else {
-        navigate(targetPath);
-      }
-    }
+
+
     // ✅ 모임 관련 알림
     else if (
       [
@@ -174,7 +181,39 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   const getIcon = (notification: Notification) => {
     return getNotificationIcon(notification.type);
   };
+    const handleAcceptInvite = async (e: React.MouseEvent, notification: Notification) => {
+        e.stopPropagation();
+        if (!notification.notificationId) return;
 
+        setLoadingId(notification.id);
+        try {
+            await notificationApi.acceptChatInvite(notification.notificationId);
+            removeNotification(notification.id);
+            alert("초대를 수락했습니다! 채팅방에 참여되었습니다.");
+            // 필요 시 해당 채팅방으로 바로 이동
+            if (notification.relatedId) navigate(`/chat/${notification.relatedId}`);
+        } catch (error) {
+            console.error("초대 수락 중 에러 발생:", error);
+            alert("초대 수락에 실패했습니다.");
+        } finally {
+            setLoadingId(null);
+        }
+    };
+    const handleRejectInvite = async (e: React.MouseEvent, notification: Notification) => {
+        e.stopPropagation();
+        if (!notification.notificationId) return;
+
+        setLoadingId(notification.id);
+        try {
+            await apiClient.post(`/api/notifications/${notification.notificationId}/reject`);
+            removeNotification(notification.id);
+            toast.success("초대를 거절했습니다.");
+        } catch (error) {
+            console.error("초대 거절 실패:", error);
+        } finally {
+            setLoadingId(null);
+        }
+    };
   return (
     <>
       <div className="notification-overlay" onClick={onClose} />
@@ -252,6 +291,24 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                         </button>
                       </div>
                     )}
+                      {notification.type === "chat_invite" && (
+                          <div className="notif-actions">
+                              <button
+                                  className="notif-accept-btn"
+                                  onClick={(e) => handleAcceptInvite(e, notification)}
+                                  disabled={loadingId === notification.id}
+                              >
+                                  {loadingId === notification.id ? "..." : "수락"}
+                              </button>
+                              <button
+                                  className="notif-reject-btn"
+                                  onClick={(e) => handleRejectInvite(e, notification)} // 거절 로직도 비슷하게 추가
+                                  disabled={loadingId === notification.id}
+                              >
+                                  거절
+                              </button>
+                          </div>
+                      )}
 
                     <div className="notification-time">{notification.time}</div>
                   </div>

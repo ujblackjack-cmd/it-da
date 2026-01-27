@@ -132,11 +132,13 @@ const ChatRoomPage: React.FC = () => {
         icon: "🤖",
       });
     } catch (error: any) {
-      console.error("AI 추천 실패:", error);
-      toast.error(
-        error.response?.data?.message || "장소 추천을 불러올 수 없습니다",
-      );
-      toast.dismiss("ai-loading");
+        console.error("AI 추천 실패:", error);
+        // 🚨 [수정] 500 에러 발생 시 데이터 부족 가능성 안내
+        const errorMsg = error.response?.status === 500
+            ? "주변에 적절한 장소가 없거나 위치 정보가 부족합니다."
+            : "장소 추천을 불러올 수 없습니다.";
+        toast.error(errorMsg);
+        toast.dismiss("ai-loading");
     }
   };
 
@@ -348,6 +350,7 @@ const ChatRoomPage: React.FC = () => {
       } catch (e) {
         console.error("🚨 예상치 못한 치명적 오류:", e);
       }
+        await fetchRoomMembers();
     };
 
     initChat();
@@ -378,7 +381,9 @@ const ChatRoomPage: React.FC = () => {
             });
             return;
           }
-
+          if (newMsg.type === "NOTICE") {
+              fetchRoomMembers();
+          }
           const serverCount = Number(newMsg.unreadCount ?? 0);
 
           const validatedMsg: ChatMessage = {
@@ -409,6 +414,29 @@ const ChatRoomPage: React.FC = () => {
       chatApi.disconnect();
     };
   }, [roomId, currentUser, setMessages, markAllAsRead, decrementUnreadCount]);
+
+    const fetchRoomMembers = async () => {
+        if (!roomId) return;
+        try {
+            const rawMembers = await chatApi.getRoomMembers(Number(roomId));
+            const formattedMembers: User[] = rawMembers.map((m: any) => ({
+                id: m.userId,
+                userId: m.userId,
+                name: m.nickname?.trim() ? m.nickname : m.username,
+                username: m.username,
+                nickname: m.nickname,
+                email: m.email,
+                status: m.status || "ACTIVE",
+                profileImageUrl: m.profileImageUrl || "",
+                role: m.role === "ORGANIZER" ? "LEADER" : "MEMBER",
+                isFollowing: m.isFollowing,
+            }));
+            setMembers(formattedMembers);
+            console.log("🔄 멤버 목록 갱신 완료:", formattedMembers.length, "명");
+        } catch (e) {
+            console.error("멤버 목록 갱신 실패:", e);
+        }
+    };
 
   const handleEditMeeting = () => {
     if (!linkedMeetingId) {
@@ -603,15 +631,12 @@ const ChatRoomPage: React.FC = () => {
       <div
         className="ai-recommendation-banner"
         style={{
-          background: "linear-gradient(90deg, #6a11cb 0%, #2575fc 100%)",
-          padding: "12px 16px",
-          margin: "10px 10px 0 10px",
-          borderRadius: "12px",
-          color: "white",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            background: "linear-gradient(90deg, #6a11cb 0%, #2575fc 100%)",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

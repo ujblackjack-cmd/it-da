@@ -212,4 +212,27 @@ public class NotificationController {
                 .senderProfileImage(senderProfileImage)
                 .build();
     }
+    /**
+     * ✅ 채팅방 초대 수락 처리
+     */
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<Void> acceptInvite(@PathVariable Long id) {
+        log.info("✅ 초대 수락 처리: notificationId={}", id);
+        // 1. 알림 정보를 조회하여 roomId(relatedId)와 수신자 정보를 확인
+        // 2. ChatRoomService를 통해 사용자를 채팅방 멤버로 추가
+        // 3. 해당 알림을 읽음 처리하거나 삭제
+        notificationService.processInviteAccept(id);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * ✅ 채팅방 초대 거절 처리
+     */
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<Void> rejectInvite(@PathVariable Long id) {
+        log.info("❌ 초대 거절 처리: notificationId={}", id);
+        // 1. 해당 알림을 읽음 처리하거나 삭제하여 목록에서 제거
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok().build();
+    }
 }
