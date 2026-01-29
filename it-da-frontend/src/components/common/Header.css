@@ -1,69 +1,79 @@
-/* 공통 헤더 */
+/* Header.css */
+
 .common-header {
-  background: white;
-  border-bottom: 1px solid #eee;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  background: white !important;
+  border-bottom: 1px solid #eee !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  width: 100% !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
 }
 
 .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 64px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  padding: 20px 32px !important; /* ✅ 이게 핵심! */
+  height: auto !important;
+  min-height: 70px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 24px !important;
 }
 
 .logo {
-  font-size: 1.5rem;
-  font-weight: 800;
-  cursor: pointer;
-  color: #000;
-  transition: color 0.2s;
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  color: #000 !important;
+  transition: color 0.2s !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .logo:hover {
-  color: #667eea;
+  color: #667eea !important;
 }
 
 .nav-menu {
-  display: flex;
-  gap: 32px;
-  align-items: center;
+  display: flex !important;
+  gap: 32px !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
 .nav-item {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #666;
-  cursor: pointer;
-  transition: color 0.2s;
-  user-select: none;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+  cursor: pointer !important;
+  transition: color 0.2s !important;
+  user-select: none !important;
+  white-space: nowrap !important;
+  line-height: 1.5 !important;
 }
 
 .nav-item:hover {
-  color: #000;
+  color: #000 !important;
 }
 
-/* 반응형 */
 @media (max-width: 768px) {
   .header-content {
-    padding: 0 16px;
-    height: 56px;
+    padding: 16px 16px !important;
+    min-height: 60px !important;
   }
 
   .logo {
-    font-size: 1.3rem;
+    font-size: 1.3rem !important;
   }
 
   .nav-menu {
-    gap: 20px;
+    gap: 20px !important;
   }
 
   .nav-item {
-    font-size: 0.9rem;
+    font-size: 0.9rem !important;
   }
 }
