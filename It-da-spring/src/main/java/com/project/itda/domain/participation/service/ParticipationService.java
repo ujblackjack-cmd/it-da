@@ -14,19 +14,29 @@ import com.project.itda.domain.participation.dto.response.MyRecentMeetingRespons
 import com.project.itda.domain.participation.entity.Participation;
 import com.project.itda.domain.participation.enums.ParticipationStatus;
 import com.project.itda.domain.participation.repository.ParticipationRepository;
+import com.project.itda.domain.social.entity.ChatParticipant;
+import com.project.itda.domain.social.enums.ChatRole;
+import com.project.itda.domain.social.repository.ChatParticipantRepository;
+import com.project.itda.domain.social.repository.ChatRoomRepository;
+import com.project.itda.domain.social.service.ChatRoomService;
 import com.project.itda.domain.user.entity.User;
 import com.project.itda.domain.user.entity.UserFollow;
 import com.project.itda.domain.user.repository.UserFollowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +52,9 @@ public class ParticipationService {
     private final NotificationService notificationService;
     private final UserFollowRepository userFollowRepository;
     private final ApplicationEventPublisher eventPublisher;  // ⭐ 추가!
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
+    private final SimpMessageSendingOperations messagingTemplate;
 
     /**
      * 모임 참여 신청
@@ -149,12 +162,56 @@ public class ParticipationService {
             throw new IllegalStateException("주최자만 승인할 수 있습니다");
         }
 
+        // 1. 모임 참여 상태 변경 및 인원 증가 (원본 로직)
         participation.approve();
         meeting.addParticipant();
 
         log.info("✅ 참여 승인 완료 - participationId: {}", participationId);
 
-        // ✅ 참여자에게 승인 알림 + 참여 모임 카운트 업데이트
+        // =================================================================
+        // ✅ [추가됨] 승인된 유저를 채팅방 멤버(ChatParticipant)로 자동 추가
+        // =================================================================
+        try {
+            User applicant = participation.getUser();
+
+            // 모임 ID로 채팅방 찾기
+            chatRoomRepository.findByMeetingId(meeting.getMeetingId()).ifPresent(chatRoom -> {
+
+                // 이미 채팅방에 있는지 중복 체크
+                boolean isAlreadyInChat = chatParticipantRepository.existsByChatRoomIdAndUserId(
+                        chatRoom.getId(), applicant.getUserId());
+
+                if (!isAlreadyInChat) {
+                    ChatParticipant newMember = ChatParticipant.builder()
+                            .chatRoom(chatRoom)
+                            .user(applicant)
+                            .role(ChatRole.MEMBER)
+                            .joinedAt(LocalDateTime.now())
+                            .build();
+
+                    chatParticipantRepository.save(newMember);
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            Map<String, Object> joinMessage = new HashMap<>();
+                            joinMessage.put("type", "NOTICE");
+                            joinMessage.put("content", applicant.getUsername() + "님이 참여하셨습니다.");
+                            joinMessage.put("roomId", chatRoom.getId());
+
+                            messagingTemplate.convertAndSend("/topic/room/" + chatRoom.getId(), joinMessage);
+                            log.info("🚀 DB 커밋 완료 후 입장 알림 전송: userId={}", applicant.getUserId());
+                        }
+                    });
+                }
+            });
+        } catch (Exception e) {
+            // 채팅방 추가 실패가 전체 트랜잭션(승인 취소)에 영향을 주지 않도록 로그만 남김 (선택 사항)
+            log.error("❌ 채팅방 멤버 추가 중 오류 발생: {}", e.getMessage());
+        }
+        // =================================================================
+
+
+        // ✅ 참여자에게 승인 알림 + 참여 모임 카운트 업데이트 (원본 로직)
         try {
             User participant = participation.getUser();
 

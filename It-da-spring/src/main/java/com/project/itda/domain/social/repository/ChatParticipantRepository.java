@@ -25,4 +25,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
 
     @Query("SELECT cp.lastReadAt FROM ChatParticipant cp WHERE cp.chatRoom.id = :roomId")
     List<LocalDateTime> findAllLastReadAtByRoomId(@Param("roomId") Long roomId);
+
+    @Query("SELECT COUNT(cp) > 0 FROM ChatParticipant cp WHERE cp.chatRoom.id = :chatRoomId AND cp.user.userId = :userId")
+    boolean existsByChatRoomIdAndUserId(@Param("chatRoomId") Long chatRoomId, @Param("userId") Long userId);
 }
