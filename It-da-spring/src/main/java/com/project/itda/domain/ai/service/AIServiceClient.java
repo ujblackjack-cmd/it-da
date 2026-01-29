@@ -192,7 +192,7 @@ public class AIServiceClient {
     // ========================================================================
 
     /**
-     * LightGBM Ranker 기반 만족도 예측
+     * LightGBM Regressor 기반 만족도 예측
      *
      * @param request 사용자 + 모임 피처 (25개)
      * @return 예측 만족도 (1~5)

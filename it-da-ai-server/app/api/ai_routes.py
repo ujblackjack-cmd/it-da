@@ -116,6 +116,8 @@ class PlaceRecommendRequest(BaseModel):
     category: Optional[str] = "카페"
     max_distance: Optional[float] = 3.0
 
+spring_boot_url = os.getenv("SPRING_BOOT_URL", "http://localhost:8080")
+
 # ========================================
 # Utility Functions
 # ========================================
@@ -1022,7 +1024,7 @@ async def get_user_info_from_db(user_id: int) -> dict:
     """Spring Boot에서 사용자 정보 가져오기"""
     try:
         resp = requests.get(
-            f"http://localhost:8080/api/users/{user_id}/preferences2",
+            f"{spring_boot_url}/api/users/{user_id}/preferences2",
             timeout=5
         )
 
@@ -1061,7 +1063,7 @@ async def get_meetings_info_from_db(meeting_ids: list) -> dict:
     """Spring Boot에서 모임 정보 배치 조회"""
     try:
         resp = requests.post(
-            "http://localhost:8080/api/meetings/batch",
+            f"{spring_boot_url}/api/meetings/batch",
             json={"meetingIds": meeting_ids},
             timeout=10
         )

@@ -143,6 +143,25 @@ const MeetingListPage = () => {
         }
     }, [category, subcategory]);
 
+    // 페이지 포커스시 자동 갱신
+    useEffect(() => {
+        const handleFocus = () => {
+            console.log('📱 페이지 포커스 - 데이터 자동 갱신');
+            resetPagination();
+            if (category) {
+                fetchMeetingsByCategory(category, subcategory ?? undefined);
+            } else {
+                fetchMeetings();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [category, subcategory, resetPagination, fetchMeetings, fetchMeetingsByCategory]);
+
     // Intersection Observer로 무한스크롤 구현
     const handleLoadMore = useCallback(() => {
         if (isLoadingMore || !hasMore) return;

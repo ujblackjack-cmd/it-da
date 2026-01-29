@@ -8,6 +8,8 @@ import {
 } from "@/api/category.api";
 import { CategoryType } from "@/types/category.types.ts";
 import "./CategoryListPage.css";
+import { useUIStore } from "@/stores/useUIStore";
+import ChatRoomListModal from "@/pages/chat/ChatRoomListModal";
 
 // ✅ 멤버 수 포맷팅 (1000 이상이면 K로 표시)
 const formatMemberCount = (count: number): string => {
@@ -111,6 +113,9 @@ const CATEGORY_BASE_DATA: Record<
 const CategoryListPage = () => {
   const navigate = useNavigate();
 
+  const { isChatListModalOpen, openChatListModal, closeChatListModal } =
+    useUIStore();
+
   // ✅ API에서 가져온 통계 데이터
   const [categoryStats, setCategoryStats] = useState<CategoryDetailStats>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -181,9 +186,9 @@ const CategoryListPage = () => {
             <a href="/meetings" className="nav-item">
               모임 찾기
             </a>
-            <a href="/chat" className="nav-item">
+            <div className="nav-item" onClick={openChatListModal}>
               모임톡
-            </a>
+            </div>
             <a href="/mypage" className="nav-item">
               마이페이지
             </a>
@@ -289,6 +294,10 @@ const CategoryListPage = () => {
           </div>
         </div>
       </div>
+      <ChatRoomListModal
+        isOpen={isChatListModalOpen}
+        onClose={closeChatListModal}
+      />
     </div>
   );
 };

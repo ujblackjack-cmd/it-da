@@ -3,6 +3,7 @@ package com.project.itda.domain.participation.service;
 
 import com.project.itda.domain.badge.event.ParticipationCompletedEvent;
 import com.project.itda.domain.meeting.entity.Meeting;
+import com.project.itda.domain.meeting.enums.MeetingStatus;
 import com.project.itda.domain.meeting.repository.MeetingRepository;
 import com.project.itda.domain.notification.service.NotificationService;
 import com.project.itda.domain.participation.dto.request.ParticipationRequest;
@@ -466,6 +467,9 @@ public class ParticipationService {
         if (!meeting.isOrganizer(organizer.getUserId())) {
             throw new IllegalStateException("주최자만 모임을 마감할 수 있습니다");
         }
+
+        meeting.updateStatus(MeetingStatus.COMPLETED);
+        meetingRepository.save(meeting);
 
         // APPROVED 상태인 모든 참여자 조회
         List<Participation> approvedParticipations = participationRepository

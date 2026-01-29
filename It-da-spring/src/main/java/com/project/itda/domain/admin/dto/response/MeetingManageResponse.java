@@ -34,7 +34,7 @@ public class MeetingManageResponse {
     public static MeetingManageResponse from(Meeting meeting) {
         return MeetingManageResponse.builder()
                 .meetingId(meeting.getMeetingId())
-                .chatRoomId(meeting.getChatRoom().getId())
+                .chatRoomId(meeting.getChatRoom() != null ? meeting.getChatRoom().getId() : null)
                 .title(meeting.getTitle())
                 .categoryName(meeting.getCategory())
                 .subcategoryName(meeting.getSubcategory())

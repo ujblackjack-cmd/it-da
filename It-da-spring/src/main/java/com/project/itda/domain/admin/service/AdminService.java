@@ -280,6 +280,7 @@ public class AdminService {
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new EntityNotFoundException("모임을 찾을 수 없습니다"));
         meeting.updateStatus(request.getStatus());
+        meetingRepository.save(meeting);
     }
 
     // ========== 문의 관리 메서드 추가 ==========

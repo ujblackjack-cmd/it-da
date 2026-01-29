@@ -502,25 +502,34 @@ const MeetingDetailPage = () => {
   };
 
   const getParticipationButtonText = () => {
-    if (meeting?.isFull) return "모집 마감";
-    if (!isParticipating) return "✨ 참여 신청하기";
+      if (meeting?.status === 'COMPLETED') return "🏁 완료된 모임";
 
-    switch (participationStatus) {
-      case "PENDING":
-        return "⏳ 승인 대기 중";
-      case "APPROVED":
-        return "✅ 참여 중";
-      case "REJECTED":
-        return "❌ 참여 거절됨";
-      default:
-        return "✨ 참여 신청하기";
-    }
+      if (meeting?.isFull) return "모집 마감";
+      if (!isParticipating) return "✨ 참여 신청하기";
+
+      switch (participationStatus) {
+          case "PENDING":
+              return "⏳ 승인 대기 중";
+          case "APPROVED":
+              return "✅ 참여 중";
+          case "REJECTED":
+              return "❌ 참여 거절됨";
+          case "COMPLETED":
+              return "🏁 참여 완료";
+          default:
+              return "✨ 참여 신청하기";
+      }
   };
 
   const isOrganizer = user?.userId === meeting?.organizerId;
 
   const isButtonDisabled = () => {
-    return isOrganizer || meeting?.isFull || isParticipating;
+      return (
+          isOrganizer ||
+          meeting?.isFull ||
+          isParticipating ||
+          meeting?.status === 'COMPLETED'
+      );
   };
 
   const handleOrganizerAction = () => {
