@@ -72,6 +72,10 @@ public class ParticipationController {
     ) {
         log.info("📍 PATCH /api/participations/{}/approve - userId: {}", participationId, userId);
 
+        if (userId == null) {
+            throw new IllegalArgumentException("인증 정보가 없습니다. 다시 로그인해주세요.");
+        }
+
         User organizer = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 

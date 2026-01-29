@@ -592,10 +592,15 @@ const MeetingDetailPage = () => {
       <div className="hero">
         {meeting.imageUrl && (
           <img
-            src={`${API_ORIGIN}${meeting.imageUrl}`}
+              src={
+                  meeting.imageUrl.startsWith("http")
+                      ? meeting.imageUrl // 절대 경로인 경우 그대로 사용
+                      : `${API_ORIGIN}${meeting.imageUrl}` // 상대 경로인 경우에만 도메인 결합
+              }
             alt={meeting.title}
             className="hero-image"
             onError={(e) => {
+              e.currentTarget.src = "/icons/icon-192x192.png";
               e.currentTarget.style.display = "none";
               console.error("이미지 로드 실패:", meeting.imageUrl);
             }}
