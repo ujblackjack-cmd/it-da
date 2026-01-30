@@ -163,80 +163,93 @@ const MeetingDetailPage = () => {
     }
   }, [meeting]);
 
-  const fetchMeetingDetail = async () => {
-    try {
-      const response = await axios.get(
-        `http://localhost:8080/api/meetings/${meetingId}`,
-        { withCredentials: true },
-      );
-      console.log("✅ 모임 정보:", response.data);
-
-      let meetingData = response.data;
-
-        if (meetingData.participants && user?.userId) {
-            const myInfo = meetingData.participants.find((p: any) => p.userId === user.userId);
-
-            if (myInfo && myInfo.status === "APPROVED") {
-                setIsParticipating(true);
-                setParticipationStatus("APPROVED");
-                console.log("✅ 상세 정보 내에서 내 참여 확인됨:", myInfo);
-            } else if (myInfo && myInfo.status === "PENDING") {
-                setIsParticipating(true);
-                setParticipationStatus("PENDING");
-            }
-        }
-
-      // ✅ 최근 조회 모임 localStorage에 저장
-      saveToRecentViewed(meetingData);
-
-      if (!meetingData.participants || meetingData.participants.length === 0) {
+    const fetchMeetingDetail = async () => {
         try {
-          const participantsRes = await axios.get(
-            `http://localhost:8080/api/participations/meeting/${meetingId}`,
-            { withCredentials: true },
-          );
+            const response = await axios.get(
+                `http://localhost:8080/api/meetings/${meetingId}`,
+                { withCredentials: true },
+            );
+            console.log("✅ 모임 정보:", response.data);
 
-          console.log("✅ 참여자 API 응답:", participantsRes.data);
+            let meetingData = response.data;
 
-          let participantsList = [];
-          if (Array.isArray(participantsRes.data)) {
-            participantsList = participantsRes.data;
-          } else if (participantsRes.data.participants) {
-            participantsList = participantsRes.data.participants;
-          }
+            // [수정 1] 참여자 정보가 없으면 먼저 가져옵니다. (순서를 위로 올림)
+            if (!meetingData.participants || meetingData.participants.length === 0) {
+                try {
+                    const participantsRes = await axios.get(
+                        `http://localhost:8080/api/participations/meeting/${meetingId}`,
+                        { withCredentials: true },
+                    );
 
-          meetingData.participants = participantsList
-            .filter((p: any) => p.status === "APPROVED")
-            .map((p: any) => ({
-              userId: p.userId,
-              username: p.username,
-              profileImage: p.profileImage,
-              status: p.status,
-              joinedAt: p.createdAt || p.joinedAt,
-            }));
+                    console.log("✅ 참여자 API 응답:", participantsRes.data);
 
-          console.log("✅ 변환된 참여자:", meetingData.participants);
-        } catch (participantsErr) {
-          console.error("❌ 참여자 조회 실패:", participantsErr);
-          meetingData.participants = [];
+                    let participantsList = [];
+                    if (Array.isArray(participantsRes.data)) {
+                        participantsList = participantsRes.data;
+                    } else if (participantsRes.data.participants) {
+                        participantsList = participantsRes.data.participants;
+                    }
+
+                    // 주의: 여기서 APPROVED만 필터링하면 PENDING 상태인 본인을 찾지 못할 수 있습니다.
+                    // UI 표시용으로는 APPROVED만 필요할 수 있으나, 본인 확인용으로는 전체가 필요할 수 있습니다.
+                    // 일단 기존 로직(APPROVED만 필터)을 유지합니다.
+                    meetingData.participants = participantsList
+                        .filter((p: any) => p.status === "APPROVED")
+                        .map((p: any) => ({
+                            userId: p.userId,
+                            username: p.username,
+                            profileImage: p.profileImage,
+                            status: p.status,
+                            joinedAt: p.createdAt || p.joinedAt,
+                        }));
+
+                    console.log("✅ 변환된 참여자:", meetingData.participants);
+                } catch (participantsErr) {
+                    console.error("❌ 참여자 조회 실패:", participantsErr);
+                    meetingData.participants = [];
+                }
+            }
+
+            // [수정 2] 데이터가 준비된 후 내 참여 상태를 확인합니다. (순서를 아래로 내림)
+            if (meetingData.participants && user?.userId) {
+                const myInfo = meetingData.participants.find((p: any) => p.userId === user.userId);
+
+                if (myInfo) {
+                    // 내 정보가 발견되면 상태 업데이트
+                    if (myInfo.status === "APPROVED") {
+                        setIsParticipating(true);
+                        setParticipationStatus("APPROVED");
+                        console.log("✅ 상세 정보 내에서 내 참여 확인됨 (APPROVED):", myInfo);
+                    } else if (myInfo.status === "PENDING") {
+                        setIsParticipating(true);
+                        setParticipationStatus("PENDING");
+                        console.log("✅ 상세 정보 내에서 내 참여 확인됨 (PENDING):", myInfo);
+                    }
+                } else {
+                    // [수정 3] 참여자가 아니거나 목록에 없으면 상태 초기화 (중요)
+                    setIsParticipating(false);
+                    setParticipationStatus(null);
+                }
+            }
+
+            // ✅ 최근 조회 모임 localStorage에 저장
+            saveToRecentViewed(meetingData);
+
+            setMeeting(meetingData);
+        } catch (err) {
+            console.error("❌ 모임 조회 실패:", err);
+            setError("모임을 불러올 수 없습니다.");
+        } finally {
+            setLoading(false);
         }
-      }
-
-      setMeeting(meetingData);
-    } catch (err) {
-      console.error("❌ 모임 조회 실패:", err);
-      setError("모임을 불러올 수 없습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   const checkParticipationStatus = async () => {
     if (!user || !meetingId) return;
 
     try {
       const response = await axios.get(
-        `http://localhost:8080/api/participations/my`,
+          `/api/meetings/${meetingId}`,
         { withCredentials: true },
       );
 

@@ -48,7 +48,14 @@ public class AuthController {
             session.setAttribute("username", user.getUsername());
             session.setAttribute("nickname", user.getNickname());
 
-            SessionUser sessionUser = new SessionUser(user.getUserId(), user.getEmail(), user.getUsername(), user.getNickname());
+
+            SessionUser sessionUser = SessionUser.builder()
+                    .userId(user.getUserId())
+                    .email(user.getEmail())
+                    .username(user.getUsername())
+                    .nickname(user.getNickname())
+                    .picture(user.getProfileImageUrl()) // 프로필 이미지도 추가
+                    .build();
             session.setAttribute("user", sessionUser);  // ✅ 이거 추가!
 
             log.info("✅ 일반 사용자 로그인 성공 - User: {}, SessionId: {}", user.getEmail(), session.getId());
