@@ -13,6 +13,7 @@ import BillInputModal from "../../components/chat/BillInputModal";
 import PollInputModal from "../../components/chat/PollInputModal";
 import api from "@/api/axios.config";
 import InviteMemberModal from "@/components/chat/InviteMemberModal.tsx";
+import NotificationBell from "@/components/chat/NotificationBell.tsx";
 
 // ... (Interface 정의는 동일하게 유지)
 interface BillData {
@@ -502,7 +503,9 @@ const ChatRoomPage: React.FC = () => {
             return;
           }
           if (newMsg.type === "NOTICE") {
-              fetchRoomMembers();
+              setTimeout(() => {
+                  fetchRoomMembers();
+              }, 500);
           }
 
           if (newMsg.type === "TALK" || newMsg.type === "IMAGE" || newMsg.type === "LOCATION" || newMsg.type === "VOTE") {
@@ -773,7 +776,9 @@ const ChatRoomPage: React.FC = () => {
             <div className="room-meta">{members.length}명 참여중</div>
           </div>
           <div className="header-actions">
-            <button className="icon-btn">🔔</button>
+              <div className="chat-notification-wrapper">
+                  <NotificationBell />
+              </div>
             <button className="icon-btn" onClick={() => setIsMenuOpen(true)}>
               ☰
             </button>

@@ -610,6 +610,10 @@ const MyPage: React.FC = () => {
               >
                 ⚙️
               </button>
+                <NotificationDropdown
+                    isOpen={isNotificationOpen}
+                    onClose={() => setIsNotificationOpen(false)}
+                />
             </div>
           </div>
         </div>
@@ -831,10 +835,6 @@ const MyPage: React.FC = () => {
         reviews={myReviews}
       />
 
-      <NotificationDropdown
-        isOpen={isNotificationOpen}
-        onClose={() => setIsNotificationOpen(false)}
-      />
 
       <ProfileEditModal
         isOpen={isProfileEditOpen}

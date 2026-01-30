@@ -134,3 +134,12 @@
     top: 1rem;
   }
 }
+.voice-btn.listening {
+    animation: pulse 1s infinite;
+    background-color: #ff4444;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}

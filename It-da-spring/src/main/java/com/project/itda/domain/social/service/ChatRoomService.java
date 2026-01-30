@@ -1,10 +1,7 @@
 package com.project.itda.domain.social.service;
 
-import com.project.itda.domain.meeting.entity.Meeting;
 import com.project.itda.domain.meeting.repository.MeetingRepository;
 import com.project.itda.domain.notification.service.NotificationService; // ✅ 알림 서비스 임포트 확인
-import com.project.itda.domain.participation.entity.Participation;
-import com.project.itda.domain.participation.enums.ParticipationStatus;
 import com.project.itda.domain.participation.repository.ParticipationRepository;
 import com.project.itda.domain.participation.service.ParticipationService;
 import com.project.itda.domain.social.dto.response.ChatParticipantResponse;
@@ -311,22 +308,28 @@ public class ChatRoomService {
     }
     @Transactional
     public void updateLastReadAt(Long roomId, String email) {
-        // 1. 기존 DB 업데이트 로직 (유지)
-        ChatParticipant participant =
-                chatParticipantRepository.findByChatRoomIdAndUserEmail(roomId, email)
-                        .orElseThrow(() -> new RuntimeException("참여자가 아닙니다."));
+        // findByChatRoomIdAndUserEmail 반환값(Optional)을 이용하여 처리
+        chatParticipantRepository.findByChatRoomIdAndUserEmail(roomId, email)
+                .ifPresentOrElse(
+                        participant -> {
+                            // 1. DB 업데이트
+                            participant.updateLastReadAt(java.time.LocalDateTime.now());
 
-        participant.updateLastReadAt(java.time.LocalDateTime.now());
+                            // 2. 실시간 읽음 처리 신호(READ) 전송
+                            Map<String, Object> readSignal = new HashMap<>();
+                            readSignal.put("type", "READ");
+                            readSignal.put("roomId", roomId);
+                            readSignal.put("senderId", participant.getUser().getUserId());
+                            readSignal.put("email", email); // 프론트에서 내 메시지인지 구분하기 위해 추가하면 좋음
 
-        // =================================================================
-        // ✅ [추가 2] 실시간 읽음 처리 신호(READ) 보내기
-        // =================================================================
-        Map<String, Object> readSignal = new HashMap<>();
-        readSignal.put("type", "READ");           // 프론트엔드가 식별할 타입
-        readSignal.put("roomId", roomId);         // 방 번호
-        readSignal.put("senderId", participant.getUser().getUserId()); // 읽은 사람 ID
-
-        // /topic/chat/room/{roomId} 를 구독 중인 모든 사람에게 쏴줍니다.
-        messagingTemplate.convertAndSend("/topic/room/" + roomId, readSignal);
+                            messagingTemplate.convertAndSend("/topic/room/" + roomId, readSignal);
+                        },
+                        () -> {
+                            // 3. 참여자가 아닐 경우 에러 대신 로그 출력 (서버 중단 방지)
+                            // 모임에서 나갔거나, 데이터가 비동기화된 경우일 수 있음
+                            // log.warn("⚠️ 읽음 처리 무시: 참여자 정보 없음 (roomId={}, email={})", roomId, email);
+                            System.out.println("⚠️ 읽음 처리 무시: 참여자 정보 없음. roomId=" + roomId + ", email=" + email);
+                        }
+                );
     }
 }
