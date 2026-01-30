@@ -173,6 +173,19 @@ const MeetingDetailPage = () => {
 
       let meetingData = response.data;
 
+        if (meetingData.participants && user?.userId) {
+            const myInfo = meetingData.participants.find((p: any) => p.userId === user.userId);
+
+            if (myInfo && myInfo.status === "APPROVED") {
+                setIsParticipating(true);
+                setParticipationStatus("APPROVED");
+                console.log("✅ 상세 정보 내에서 내 참여 확인됨:", myInfo);
+            } else if (myInfo && myInfo.status === "PENDING") {
+                setIsParticipating(true);
+                setParticipationStatus("PENDING");
+            }
+        }
+
       // ✅ 최근 조회 모임 localStorage에 저장
       saveToRecentViewed(meetingData);
 
