@@ -1,6 +1,7 @@
 package com.project.itda.domain.social.controller;
 
 import com.project.itda.domain.auth.dto.SessionUser;
+import com.project.itda.domain.social.entity.ChatMessage;
 import com.project.itda.domain.social.enums.MessageType;
 import com.project.itda.domain.social.repository.ChatParticipantRepository;
 import com.project.itda.domain.social.service.ChatMessageService;
@@ -28,7 +29,7 @@ public class ChatImageController {
     private final ChatMessageService chatMessageService;
     private final FileStorageService fileStorageService;
     private final HttpSession httpSession;
-    private final ChatParticipantRepository  chatParticipantRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
     private final SimpMessageSendingOperations messagingTemplate;
 
     @PostMapping("/{roomId}")
@@ -54,23 +55,46 @@ public class ChatImageController {
             long total = chatParticipantRepository.countByChatRoomId(roomId);
             int unreadCount = (int) Math.max(0, total - 1);
 
-            // DB에 IMAGE 타입으로 메시지 저장 (content 필드에 이미지 URL 저장)
-            chatMessageService.saveMessage(user.getEmail(), roomId, imageUrl, MessageType.IMAGE,unreadCount);
+            // ✅ DB에 IMAGE 타입으로 메시지 저장하고 저장된 엔티티 받기
+            ChatMessage savedMsg = chatMessageService.saveMessage(
+                    user.getEmail(),
+                    roomId,
+                    imageUrl,
+                    MessageType.IMAGE,
+                    unreadCount
+            );
 
+            // ✅ null 체크
+            if (savedMsg == null || savedMsg.getId() == null) {
+                log.error("❌ 이미지 메시지 저장 실패!");
+                return ResponseEntity.internalServerError().body("메시지 저장 실패");
+            }
+
+            log.info("✅ 이미지 메시지 저장 완료 - ID: {}", savedMsg.getId());
+
+            // ✅ messageId 포함한 응답 객체 생성
             Map<String, Object> imageMsg = new HashMap<>();
+            imageMsg.put("messageId", savedMsg.getId()); // ✅ 필수!
             imageMsg.put("type", "IMAGE");
             imageMsg.put("content", imageUrl);
             imageMsg.put("senderEmail", user.getEmail());
             imageMsg.put("senderId", user.getUserId());
-            imageMsg.put("senderNickname", user.getNickname());
+            imageMsg.put("senderNickname", user.getNickname() != null && !user.getNickname().trim().isEmpty()
+                    ? user.getNickname()
+                    : user.getUsername());
             imageMsg.put("unreadCount", unreadCount);
-            imageMsg.put("sentAt", LocalDateTime.now());
+            imageMsg.put("sentAt", savedMsg.getCreatedAt() != null
+                    ? savedMsg.getCreatedAt().toString()
+                    : LocalDateTime.now().toString());
 
+            // WebSocket 전송
             messagingTemplate.convertAndSend("/topic/room/" + roomId, imageMsg);
+
+            log.info("✅ 이미지 메시지 전송 완료 - messageId: {}", savedMsg.getId());
 
             return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
         } catch (Exception e) {
-            log.error("이미지 업로드 오류: ", e);
+            log.error("❌ 이미지 업로드 오류: ", e);
             return ResponseEntity.internalServerError().body("이미지 전송 실패");
         }
     }

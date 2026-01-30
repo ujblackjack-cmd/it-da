@@ -47,7 +47,6 @@ public class ChatRoomController {
     public ResponseEntity<List<ChatRoomResponse>> getRooms() {
         // chatRoomService에서 findAllRooms() 결과를 DTO 리스트로 변환해주는 메서드를 호출합니다.
         List<ChatRoomResponse> rooms = chatRoomService.findAllRoomsAsResponse();
-        System.out.println("ROOMS MEETING ID: " + rooms.get(6).getMeetingId());
         return ResponseEntity.ok(rooms);
     }
     @PostMapping("/rooms/{roomId}/read")

@@ -21,20 +21,22 @@ if (!self.define) {
 
   const singleRequire = (uri, parentUri) => {
     uri = new URL(uri + ".js", parentUri).href;
-    return (
-      registry[uri] ||
-      new Promise((resolve) => {
-        if ("document" in self) {
-          const script = document.createElement("script");
-          script.src = uri;
-          script.onload = resolve;
-          document.head.appendChild(script);
-        } else {
-          nextDefineUri = uri;
-          importScripts(uri);
-          resolve();
-        }
-      }).then(() => {
+    return registry[uri] || (
+      
+        new Promise(resolve => {
+          if ("document" in self) {
+            const script = document.createElement("script");
+            script.src = uri;
+            script.onload = resolve;
+            document.head.appendChild(script);
+          } else {
+            nextDefineUri = uri;
+            importScripts(uri);
+            resolve();
+          }
+        })
+      
+      .then(() => {
         let promise = registry[uri];
         if (!promise) {
           throw new Error(`Module ${uri} didn’t register its module`);
@@ -45,31 +47,27 @@ if (!self.define) {
   };
 
   self.define = (depsNames, factory) => {
-    const uri =
-      nextDefineUri ||
-      ("document" in self ? document.currentScript.src : "") ||
-      location.href;
+    const uri = nextDefineUri || ("document" in self ? document.currentScript.src : "") || location.href;
     if (registry[uri]) {
       // Module is already loading or loaded.
       return;
     }
     let exports = {};
-    const require = (depUri) => singleRequire(depUri, uri);
+    const require = depUri => singleRequire(depUri, uri);
     const specialDeps = {
       module: { uri },
       exports,
-      require,
+      require
     };
-    registry[uri] = Promise.all(
-      depsNames.map((depName) => specialDeps[depName] || require(depName)),
-    ).then((deps) => {
+    registry[uri] = Promise.all(depsNames.map(
+      depName => specialDeps[depName] || require(depName)
+    )).then(deps => {
       factory(...deps);
       return exports;
     });
   };
 }
-define(["./workbox-237f2c1f"], function (workbox) {
-  "use strict";
+define(['./workbox-237f2c1f'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -79,83 +77,48 @@ define(["./workbox-237f2c1f"], function (workbox) {
    * requests for URLs in the manifest.
    * See https://goo.gl/S9QRab
    */
-  workbox.precacheAndRoute(
-    [
-      {
-        url: "suppress-warnings.js",
-        revision: "d41d8cd98f00b204e9800998ecf8427e",
-      },
-      {
-        url: "/index.html",
-        revision: "0.eb00tdfpsuo",
-      },
-    ],
-    {},
-  );
+  workbox.precacheAndRoute([{
+    "url": "suppress-warnings.js",
+    "revision": "d41d8cd98f00b204e9800998ecf8427e"
+  }, {
+    "url": "/index.html",
+    "revision": "0.dmovvj03e3o"
+  }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(
-    new workbox.NavigationRoute(
-      workbox.createHandlerBoundToURL("/index.html"),
-      {
-        allowlist: [/^\/$/],
-        denylist: [/^\/api/],
-      },
-    ),
-  );
-  workbox.registerRoute(
-    /^http:\/\/localhost:8080\/api\/.*/i,
-    new workbox.NetworkFirst({
-      cacheName: "api-cache",
-      networkTimeoutSeconds: 10,
-      plugins: [
-        new workbox.ExpirationPlugin({
-          maxEntries: 50,
-          maxAgeSeconds: 300,
-        }),
-        new workbox.CacheableResponsePlugin({
-          statuses: [0, 200],
-        }),
-      ],
-    }),
-    "GET",
-  );
-  workbox.registerRoute(
-    /\.(?:png|jpg|jpeg|svg|gif|webp|avif)$/i,
-    new workbox.CacheFirst({
-      cacheName: "image-cache",
-      plugins: [
-        new workbox.ExpirationPlugin({
-          maxEntries: 100,
-          maxAgeSeconds: 2592000,
-        }),
-      ],
-    }),
-    "GET",
-  );
-  workbox.registerRoute(
-    /\.(?:woff|woff2|ttf|eot)$/i,
-    new workbox.CacheFirst({
-      cacheName: "font-cache",
-      plugins: [
-        new workbox.ExpirationPlugin({
-          maxEntries: 20,
-          maxAgeSeconds: 31536000,
-        }),
-      ],
-    }),
-    "GET",
-  );
-  workbox.registerRoute(
-    /^https:\/\/(dapi\.kakao\.com|t1\.daumcdn\.net)\/.*/i,
-    new workbox.StaleWhileRevalidate({
-      cacheName: "external-api-cache",
-      plugins: [
-        new workbox.ExpirationPlugin({
-          maxEntries: 30,
-          maxAgeSeconds: 86400,
-        }),
-      ],
-    }),
-    "GET",
-  );
-});
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
+    allowlist: [/^\/$/],
+    denylist: [/^\/api/]
+  }));
+  workbox.registerRoute(/^http:\/\/localhost:8080\/api\/.*/i, new workbox.NetworkFirst({
+    "cacheName": "api-cache",
+    "networkTimeoutSeconds": 10,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 50,
+      maxAgeSeconds: 300
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\.(?:png|jpg|jpeg|svg|gif|webp|avif)$/i, new workbox.CacheFirst({
+    "cacheName": "image-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 100,
+      maxAgeSeconds: 2592000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\.(?:woff|woff2|ttf|eot)$/i, new workbox.CacheFirst({
+    "cacheName": "font-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 20,
+      maxAgeSeconds: 31536000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/(dapi\.kakao\.com|t1\.daumcdn\.net)\/.*/i, new workbox.StaleWhileRevalidate({
+    "cacheName": "external-api-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 30,
+      maxAgeSeconds: 86400
+    })]
+  }), 'GET');
+
+}));
