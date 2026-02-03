@@ -113,6 +113,15 @@ class AIRecommendationService:
             # ==========================================
             parsed_query = await self.gpt_service.parse_search_query(user_prompt)
 
+            # ✅ 감정 전용 검색어 후처리
+            emotion_keywords = ["힐링", "짜증", "신난", "여유", "편안", "피곤", "우울"]
+            is_emotion_only = any(kw in user_prompt for kw in emotion_keywords)
+
+            if is_emotion_only and parsed_query.get("vibe") and parsed_query.get("category"):
+                logger.info(f"[POST_FIX] 감정 전용 검색 감지: '{user_prompt}' → category '{parsed_query['category']}' 제거")
+                parsed_query["category"] = None
+                parsed_query["emotion_only_search"] = True
+
             # Taxonomy 교정
             parsed_query = self.normalizer.normalize_taxonomy(parsed_query)
 
@@ -199,6 +208,23 @@ class AIRecommendationService:
             # ==========================================
             enriched_query = await self.gpt_service.enrich_with_user_context(parsed_query, user_context)
 
+            # ✅ 🔥 검색 전에 최종 체크!
+            emotion_keywords = ["힐링", "짜증", "신난", "여유", "편안", "피곤", "우울"]
+            is_emotion_only = any(kw in user_prompt for kw in emotion_keywords)
+
+            if is_emotion_only and enriched_query.get("vibe"):
+                activity_keywords = [
+                    "카페", "맛집", "축구", "러닝", "전시", "공연",
+                    "스터디", "공부", "요가", "명상", "볼링", "방탈출"
+                ]
+                has_activity = any(kw in user_prompt for kw in activity_keywords)
+
+                if not has_activity:
+                    logger.info(f"[FINAL_FIX] 감정 전용 재확정: category 강제 제거!")
+                    enriched_query["category"] = None
+                    enriched_query["subcategory"] = None
+                    enriched_query["emotion_only_search"] = True
+
             # ==========================================
             # Step 4: 검색 (Relaxation)
             # ==========================================
@@ -246,6 +272,7 @@ class AIRecommendationService:
             # ==========================================
             query_terms = self.query_term_extractor.extract(user_prompt, parsed_query)
 
+
             # ==========================================
             # Step 6: AI 점수 계산
             # ==========================================
@@ -254,7 +281,11 @@ class AIRecommendationService:
             intent = self.intent_detector.detect(user_prompt, enriched_query)
 
             scored_meetings = await self.scorer.score_meetings(
-                user_id, user_context, candidate_meetings, enriched_query, intent,
+                user_id,
+                user_context,
+                candidate_meetings,
+                enriched_query,
+                intent,
                 user_prompt=user_prompt,
                 query_terms=query_terms
             )

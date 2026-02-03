@@ -11,6 +11,35 @@ from app.core.logging import logger
 class QueryPostProcessor:
     """GPT 파싱 후 휴리스틱 보정"""
 
+    # 감정 전용 키워드 (활동 의도 없음)
+    EMOTION_ONLY_KEYWORDS = {
+        "positive": ["신날", "신나", "즐거", "기분좋", "기분 좋", "행복", "설레"],
+        "negative": ["우울", "슬플", "지칠", "힘들"],
+        "tired": ["피곤", "졸려", "나른"],
+        "stress": ["스트레스", "화나", "짜증"],
+    }
+
+    # 구체적 활동 키워드
+    ACTIVITY_KEYWORDS = [
+        # 스포츠
+        "축구", "풋살", "농구", "배드민턴", "러닝", "등산",
+        "클라이밍", "테니스", "헬스", "운동",
+
+        # 문화예술
+        "전시", "전시회", "공연", "뮤지컬", "영화", "박물관",
+        "미술관", "갤러리", "콘서트",
+
+        # 소셜
+        "카페", "맛집", "술", "보드게임", "방탈출", "볼링",
+        "당구", "노래방", "파티",
+
+        # 스터디
+        "스터디", "공부", "독서", "영어", "코딩",
+
+        # 취미
+        "요리", "베이킹", "공방", "DIY", "춤", "댄스",
+    ]
+
     # 스터디 증거 키워드
     STUDY_EVIDENCE = [
         "스터디", "공부", "독서", "토익", "오픽", "영어", "자격증",
@@ -101,9 +130,9 @@ class QueryPostProcessor:
         # ✅ 힐링/번아웃 → 카페
         "healing": {
             "keywords": ["힐링", "번아웃", "휴식", "쉬고싶", "쉬고", "쉬어"],
-            "category": "카페",
+            "category": None,  # ✅ 카페 → None
             "vibe": "힐링",
-            "confidence": 0.75,
+            "confidence": 0.5,  # ✅ 0.75 → 0.5로 낮춤
             "message": "힐링/휴식 감지"
         },
     }
@@ -112,36 +141,85 @@ class QueryPostProcessor:
         self.normalizer = normalizer
 
     def post_fix(self, user_prompt: str, parsed: dict) -> dict:
-        """GPT 파싱 후 보정 (우선순위 룰 적용)"""
+        """GPT 파싱 후 보정 (개선)"""
         text = (user_prompt or "").lower().strip()
         q = dict(parsed or {})
 
-        # 0) location_type 명시 키워드 먼저 확정
+        # 2순위: location_type
         q = self._fix_location_type(text, q)
 
-        # 0.5) 실내 + 즐거움 = 소셜(보드게임/방탈출)
+        # 3순위: 실내 + 즐거움
         q = self._fix_indoor_fun(text, q)
 
-        # ✅ 감정/상태 처리 (최우선 순위로 이동)
+        # 4순위: 감정/상태 처리
         q = self._fix_emotion_state(text, q)
 
-        # 우선순위 룰 적용
-        q = self._fix_hunger(text, q)  # 배고파
-        q = self._fix_exclusion(text, q)  # 먹는거말고
-        q = self._fix_photo(text, q)  # 사진/촬영
-        q = self._fix_brain(text, q)  # 머리/추리
-        q = self._fix_ball_sports(text, q)  # 공놀이
-        q = self._fix_dance(text, q)  # 춤/댄스
-        q = self._fix_hands_on(text, q)  # 공방/DIY
-        q = self._fix_culture(text, q)  # 문화생활
-        q = self._fix_go_out(text, q)  # 나가고싶다
-        q = self._fix_play_vs_meal(text, q)  # 놀다 vs 먹다
-        q = self._fix_location_only(text, q)  # 위치 전용
-        q = self._fix_study(text, q)  # 공부/스터디
-        q = self._fix_gender_hint(text, q)  # 성별 힌트
-        q = self._fix_temperature(text, q)  # 온도
+        # 5순위: 기타 우선순위 룰들
+        q = self._fix_hunger(text, q)
+        q = self._fix_exclusion(text, q)
+        q = self._fix_photo(text, q)
+        q = self._fix_brain(text, q)
+        q = self._fix_ball_sports(text, q)
+        q = self._fix_dance(text, q)
+        q = self._fix_hands_on(text, q)
+        q = self._fix_culture(text, q)
+        q = self._fix_go_out(text, q)
+        q = self._fix_play_vs_meal(text, q)
+        q = self._fix_location_only(text, q)
+        q = self._fix_study(text, q)
+        q = self._fix_gender_hint(text, q)
+        q = self._fix_temperature(text, q)
+
+        # ✅ 최종: 감정 전용 체크 (모든 로직 이후에!)
+        q = self._fix_emotion_only_category(user_prompt, q)
 
         return q
+
+    def _fix_emotion_only_category(self, prompt: str, parsed: dict) -> dict:
+        """감정만 있고 활동 없으면 category 제거 (개선)"""
+
+        text = prompt.lower()
+
+        # 1) 감정 키워드 체크
+        has_emotion = False
+        detected_vibe = None
+
+        for emotion_type, keywords in self.EMOTION_ONLY_KEYWORDS.items():
+            if any(kw in text for kw in keywords):
+                has_emotion = True
+
+                if emotion_type == "positive":
+                    detected_vibe = "즐거운"
+                elif emotion_type == "negative":
+                    detected_vibe = "힐링"
+                elif emotion_type == "tired":
+                    detected_vibe = "여유로운"
+                elif emotion_type == "stress":
+                    detected_vibe = "격렬한"
+                break
+
+        # 2) 구체적 활동 키워드 체크
+        has_activity = any(kw in text for kw in self.ACTIVITY_KEYWORDS)
+
+        # 3) 감정만 있고 활동 없으면 category 제거
+        if has_emotion and not has_activity:
+            current_cat = parsed.get("category")
+
+            logger.info(
+                f"[POST_FIX] 감정 전용 검색어 감지: '{prompt}' "
+                f"→ category '{current_cat}' 제거, vibe='{detected_vibe}' 유지"
+            )
+
+            return {
+                **parsed,
+                "category": None,
+                "subcategory": None,
+                "vibe": detected_vibe or parsed.get("vibe"),
+                "confidence": min(0.55, float(parsed.get("confidence", 0.5))),
+                "emotion_only_search": True,  # ✅ 플래그 추가!
+            }
+
+        return parsed
 
     def _fix_temperature(self, text: str, q: dict) -> dict:
         """온도 키워드 처리"""
@@ -413,6 +491,11 @@ class QueryPostProcessor:
 
     def _fix_emotion_state(self, text: str, q: dict) -> dict:
         """✅ 감정/신체상태 키워드 처리 (통합 버전)"""
+
+        # ✅ 감정 전용 검색이면 스킵
+        if q.get("emotion_only_search"):
+            logger.info("[POST_FIX] 감정 전용 검색 → _fix_emotion_state 스킵")
+            return q
 
         # 이미 category가 확실하면 스킵 (GPT가 잘 파싱한 경우)
         current_conf = float(q.get("confidence", 0) or 0)

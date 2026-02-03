@@ -85,33 +85,42 @@ class SearchStrategy:
                     ("L4 category 제거", ("category",)),
                 ]
 
-    def pre_relax_query_by_conf(self, q: dict) -> dict:
-        """
-        L0 자체를 confidence 기반으로 완화
+    # app/services/search/strategy.py
 
-        Args:
-            q: 원본 쿼리
+    def pre_relax_query_by_conf(self, query: dict) -> dict:
+        """Confidence 기반 전처리"""
 
-        Returns:
-            완화된 쿼리
-        """
-        conf = float(q.get("confidence", 0) or 0)
-        qq = dict(q)
+        conf = float(query.get("confidence", 0) or 0)
+        cat = query.get("category")
+        vibe = query.get("vibe")
+        emotion_only = query.get("emotion_only_search", False)
 
-        # category는 0.5 이상이면 유지
-        if conf < 0.5:
-            qq.pop("category", None)
+        # ✅ 감정 전용 검색이면 category 강제 제거
+        if emotion_only or (not cat and vibe):
+            logger.info(
+                f"[STRATEGY] 감정 전용 검색 모드: "
+                f"vibe='{vibe}', category 제거, 전체 카테고리 검색"
+            )
 
-        # subcategory는 0.7 미만이면 제거
-        if conf < 0.7:
-            qq.pop("subcategory", None)
+            return {
+                **query,
+                "category": None,  # ✅ 명시적으로 None
+                "subcategory": None,
+                "search_mode": "vibe_only",
+            }
 
-        # vibe-only 검색에서는 vibe 유지
-        if conf < 0.65:
-            if qq.get("category") or (qq.get("keywords") and len(qq.get("keywords")) > 0):
-                qq.pop("vibe", None)
+        # confidence 낮으면 조건 완화
+        if conf < 0.6:
+            relaxed = query.copy()
+            relaxed.pop("subcategory", None)
 
-        return qq
+            if conf < 0.5:
+                relaxed.pop("category", None)
+
+            logger.info(f"[STRATEGY] Low conf={conf:.2f} → 조건 완화")
+            return relaxed
+
+        return query
 
     def _has_explicit_location(self, user_prompt: str, q: dict | None = None) -> bool:
         """명시적 지명 표현 감지"""

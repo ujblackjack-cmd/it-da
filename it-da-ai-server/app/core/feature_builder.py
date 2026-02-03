@@ -6,15 +6,13 @@ import re
 
 
 class FeatureBuilder:
-    """LightGBM 모델을 위한 특징 추출기"""
+    """LightGBM 모델을 위한 특징 추출기 (44 features with user vibe)"""
 
     def __init__(self):
         self.categories = ["스포츠", "맛집", "카페", "문화예술", "스터디", "취미활동", "소셜"]
-
-        # ✅ 성별 카테고리 (3개)
         self.genders = ["M", "F", "N"]
 
-        # ✅ 모델 학습 시 사용된 8개 vibe (27 features)
+        # ✅ 모델 학습 시 사용된 8개 vibe
         self.vibes = [
             "활기찬", "여유로운", "힐링", "진지한",
             "즐거운", "감성적인", "건강한", "배움"
@@ -36,22 +34,35 @@ class FeatureBuilder:
             "배움": "배움",
             "즐거운": "즐거운",
             "자유로운": "즐거운",
+            # ✅ 추가 매핑
+            "격렬한": "활기찬",
+            "신나는": "즐거운",
+            "평온한": "힐링",
+            "편안한": "여유로운",
+            "차분한": "진지한",
         }
 
         self.time_slots = ["MORNING", "AFTERNOON", "EVENING", "NIGHT"]
         self.location_types = ["INDOOR", "OUTDOOR"]
 
-        # ✅ 총 피처: 12 + 7(cat) + 8(vibe) + 3(gender) + 5(sentiment) = 35
+        # ✅ 총 피처: 12 + 7(cat) + 8(meeting_vibe) + 8(user_vibe) + 3(gender) + 5(sentiment) + 1(vibe_match) = 44
         base = 12
-        self.n_features = (base + len(self.categories) + len(self.vibes) +
-                           len(self.genders) + 5)  # 35
+        self.n_features = (
+                base +
+                len(self.categories) +  # 7
+                len(self.vibes) +  # 8 (meeting vibe)
+                len(self.vibes) +  # 8 (user vibe)
+                len(self.genders) +  # 3
+                5 +  # sentiment
+                1  # vibe_match
+        )  # 44
 
         # ✅ 카테고리(상위 관심사) → 서브카테고리(구체 활동) 확장
         self.expand_interest = {
             "문화예술": {"전시회", "공연", "갤러리", "공방체험"},
             "스터디": {"코딩", "영어회화", "독서토론", "재테크"},
             "취미활동": {"그림", "베이킹", "쿠킹", "플라워"},
-            "소셜": {"보드게임", "방탈출", "볼링", "당구"},
+            "소셜": {"보드게임", "방탈출", "볼링", "당구", "노래방"},
             "스포츠": {"러닝", "축구", "배드민턴", "요가", "사이클링", "등산", "클라이밍"},
             "맛집": {"한식", "중식", "일식", "양식", "이자카야"},
             "카페": {"브런치", "디저트", "카페투어", "베이커리"},
@@ -207,9 +218,19 @@ class FeatureBuilder:
 
         category_onehot = self.one_hot_encode(meeting.get("category", ""), self.categories)
 
-        raw_vibe = meeting.get("vibe", "")
-        normalized_vibe = self._normalize_vibe(raw_vibe)
-        vibe_onehot = self.one_hot_encode(normalized_vibe, self.vibes)
+        # ✅ Meeting vibe (기존)
+        raw_meeting_vibe = meeting.get("vibe", "")
+        normalized_meeting_vibe = self._normalize_vibe(raw_meeting_vibe)
+        meeting_vibe_onehot = self.one_hot_encode(normalized_meeting_vibe, self.vibes)
+
+        # ✅ User vibe (NEW!)
+        raw_user_vibe = user.get("vibe", "") or user.get("requested_vibe", "")
+        normalized_user_vibe = self._normalize_vibe(raw_user_vibe)
+        user_vibe_onehot = self.one_hot_encode(normalized_user_vibe, self.vibes)
+
+        # ✅ Vibe match (NEW!)
+        vibe_match = 1.0 if (normalized_user_vibe and
+                             normalized_user_vibe == normalized_meeting_vibe) else 0.0
 
         # ✅ 성별 원-핫 인코딩
         user_gender = user.get("gender", "N") or "N"
@@ -242,22 +263,28 @@ class FeatureBuilder:
             # 카테고리 7개
             *category_onehot,
 
-            # vibe 8개
-            *vibe_onehot,
+            # ✅ Meeting vibe 8개
+            *meeting_vibe_onehot,
 
-            # ✅ 성별 3개
+            # ✅ User vibe 8개 (NEW!)
+            *user_vibe_onehot,
+
+            # 성별 3개
             *gender_onehot,
 
-            # ✅ 감성 5개
+            # 감성 5개
             avg_sentiment,
             positive_ratio,
             negative_ratio,
             sentiment_variance,
             user_sentiment_match,
+
+            # ✅ Vibe match 1개 (NEW!)
+            vibe_match,
         ]
 
         if len(feature_vector) != self.n_features:
-            raise ValueError(f"Feature mismatch: {len(feature_vector)} != 35")
+            raise ValueError(f"Feature mismatch: {len(feature_vector)} != {self.n_features}")
 
         features = {
             "distance_km": distance_km,
@@ -265,6 +292,7 @@ class FeatureBuilder:
             "location_type_match": location_type_match,
             "interest_match_score": interest_match_score,
             "cost_match_score": cost_match_score,
+            "vibe_match": vibe_match,  # ✅ 추가
         }
 
         return features, feature_vector
@@ -296,9 +324,8 @@ class FeatureBuilder:
             "meeting_participant_count", "meeting_max_participants",
         ]
         category_features = [f"category_{cat}" for cat in self.categories]
-        vibe_features = [f"vibe_{v}" for v in self.vibes]
-
-        # ✅ NEW
+        meeting_vibe_features = [f"meeting_vibe_{v}" for v in self.vibes]
+        user_vibe_features = [f"user_vibe_{v}" for v in self.vibes]  # ✅ NEW
         gender_features = [f"gender_{g}" for g in self.genders]
         sentiment_features = [
             "avg_sentiment_score",
@@ -308,5 +335,12 @@ class FeatureBuilder:
             "user_sentiment_match"
         ]
 
-        return (base_features + category_features + vibe_features +
-                gender_features + sentiment_features)
+        return (
+                base_features +
+                category_features +
+                meeting_vibe_features +  # 8
+                user_vibe_features +  # 8 ✅ NEW
+                gender_features +
+                sentiment_features +
+                ["vibe_match"]  # 1 ✅ NEW
+        )

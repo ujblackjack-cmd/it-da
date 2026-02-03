@@ -50,22 +50,28 @@ class IntentAdjuster:
                     adjustment += 18.0
                     logger.info(f"[VIBE_MATCH] 완전일치 {requested_vibe} → +18점")
                 else:
-                    # 유사 vibe 체크
-                    healing_vibes = {"힐링", "여유로운", "차분한", "조용한", "편안한", "잔잔한"}
-                    fun_vibes = {"즐거운", "신나는", "재밌는", "활기찬", "흥미로운", "재미있는"}
+                    # 🔥 Vibe 계열 정의
+                    vibe_groups = {
+                        "healing": {"힐링", "여유로운", "차분한", "조용한", "편안한", "잔잔한"},
+                        "fun": {"즐거운", "신나는", "재밌는", "흥미로운", "재미있는"},
+                        "active": {"격렬한", "활기찬", "에너지 넘치는", "신나는"}  # 신나는 중복 OK
+                    }
 
-                    is_similar = False
-                    if requested_vibe in healing_vibes and meeting_vibe in healing_vibes:
-                        is_similar = True
-                        adjustment += 10.0
-                        logger.info(f"[VIBE_SIMILAR] 힐링계열 유사 → +10점")
-                    elif requested_vibe in fun_vibes and meeting_vibe in fun_vibes:
-                        is_similar = True
-                        adjustment += 10.0
-                        logger.info(f"[VIBE_SIMILAR] 즐거운계열 유사 → +10점")
+                    # 같은 그룹인지 체크
+                    def find_group(vibe):
+                        for group_name, vibes in vibe_groups.items():
+                            if vibe in vibes:
+                                return group_name
+                        return None
 
-                    if not is_similar:
-                        adjustment -= 30.0  # ✅ 매우 큰 패널티
+                    req_group = find_group(requested_vibe)
+                    meet_group = find_group(meeting_vibe)
+
+                    if req_group and meet_group and req_group == meet_group:
+                        adjustment += 10.0
+                        logger.info(f"[VIBE_SIMILAR] {req_group}계열 유사 ({requested_vibe}/{meeting_vibe}) → +10점")
+                    else:
+                        adjustment -= 30.0
                         logger.info(f"[VIBE_MISMATCH] 요청={requested_vibe}, 모임={meeting_vibe} → -30점")
 
         # NEUTRAL은 가산/감산 없이 location_type만 체크

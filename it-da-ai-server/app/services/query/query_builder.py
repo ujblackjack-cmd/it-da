@@ -69,7 +69,11 @@ class QueryBuilder:
         location_type = self.normalizer.normalize_location_type(gpt_location_type) if gpt_location_type else None
 
         # ✅ 8) vibe 추가
-        vibe = self.normalizer.normalize_vibe(enriched_query.get("vibe"))
+        raw_vibe = enriched_query.get("vibe")  # 원본 vibe
+        vibe = self.normalizer.normalize_vibe(raw_vibe)
+
+        # 🔥 디버그 로그 추가!
+        logger.info(f"🔥 [VIBE_DEBUG] raw_vibe={raw_vibe}, normalized_vibe={vibe}")
 
         # 9) payload 구성
         payload = {

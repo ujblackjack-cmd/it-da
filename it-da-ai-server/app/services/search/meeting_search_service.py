@@ -25,6 +25,102 @@ class MeetingSearchService:
         self.search_strategy = search_strategy
         self.normalizer = normalizer
 
+    async def _do_search(self, query: dict, user_ctx: dict) -> List[dict]:
+        """실제 검색 수행"""
+
+        search_mode = query.get("search_mode")
+        cat = query.get("category")
+        vibe = query.get("vibe")
+
+        # ✅ Vibe 전용 모드
+        if search_mode == "vibe_only" or (not cat and vibe):
+            logger.info(
+                f"[SEARCH] Vibe 전용 검색: vibe='{vibe}' "
+                f"(전체 카테고리 검색 후 필터링)"
+            )
+
+            # 모든 카테고리 검색
+            all_meetings = []
+            categories = ['스포츠', '맛집', '카페', '문화예술', '스터디', '취미활동', '소셜']
+
+            for cat_name in categories:
+                payload = self.query_builder.build_payload({
+                    **query,
+                    "category": cat_name,
+                }, user_ctx)
+
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        response = await client.post(
+                            f"{self.spring_boot_url}/api/meetings/search",
+                            json=payload
+                        )
+                        response.raise_for_status()
+                        meetings = response.json()
+                        all_meetings.extend(meetings)
+                except Exception as e:
+                    logger.warning(f"⚠️ {cat_name} 검색 실패: {e}")
+                    continue
+
+            logger.info(f"[SEARCH] 전체 카테고리 검색 완료: {len(all_meetings)}개 모임")
+
+            # ✅ Vibe 필터링
+            if vibe and all_meetings:
+                filtered = self._filter_by_vibe(all_meetings, vibe)
+                logger.info(
+                    f"[VIBE_FILTER] {len(all_meetings)}개 → {len(filtered)}개 "
+                    f"(vibe='{vibe}')"
+                )
+                return filtered
+
+            return all_meetings
+
+    def _filter_by_vibe(self, meetings: List[dict], requested_vibe: str) -> List[dict]:
+        """Vibe 기반 필터링"""
+
+        if not requested_vibe:
+            return meetings
+
+        vibe_groups = {
+            "active": ["즐거운", "활기찬", "격렬한", "신나는"],
+            "calm": ["여유로운", "차분한", "힐링", "평온한", "편안한"],
+        }
+
+        req_group = None
+        for group_name, vibes in vibe_groups.items():
+            if requested_vibe in vibes:
+                req_group = group_name
+                break
+
+        if not req_group:
+            return meetings[:100]  # 그룹 없으면 상위 100개
+
+        # 우선순위: 완전 일치 > 같은 그룹 > 나머지
+        exact_match = []
+        same_group = []
+        others = []
+
+        for m in meetings:
+            m_vibe = (m.get("vibe") or "").strip()
+
+            if m_vibe == requested_vibe:
+                exact_match.append(m)
+            elif any(m_vibe in vibes and requested_vibe in vibes
+                     for vibes in vibe_groups.values()):
+                same_group.append(m)
+            else:
+                others.append(m)
+
+        # 우선순위대로 합치기
+        result = exact_match + same_group + others[:20]
+
+        logger.info(
+            f"[VIBE_FILTER] 완전일치={len(exact_match)}, "
+            f"유사={len(same_group)}, 기타={len(others)}"
+        )
+
+        return result[:200]  # 최대 200개
+
     async def search_with_relaxation(
             self,
             base_query: dict,
@@ -40,13 +136,24 @@ class MeetingSearchService:
 
         base_cat = (base_query.get("category") or "").strip() or None
 
+        original_vibe = base_query.get("vibe")
+        if original_vibe:
+            normalized_vibe = self._normalize_vibe(original_vibe)
+            base_query["vibe"] = normalized_vibe
+
+            if normalized_vibe != original_vibe:
+                logger.info(
+                    f"[VIBE_NORMALIZE] {original_vibe} → {normalized_vibe}"
+                )
+
         # L0: conf 기반 시작 쿼리 정규화
         q0 = self.search_strategy.pre_relax_query_by_conf(base_query)
 
-        # vibe는 explicit_quiet 아닐 때만 제거
-        if conf < 0.85:
-            if conf < 0.85 and not explicit_quiet:
-                q0.pop("vibe", None)
+        # ✅ vibe는 제거하지 않음 (Spring/Scorer에서 처리)
+        # 기존 vibe 제거 로직 삭제
+        # if conf < 0.85:
+        #     if conf < 0.85 and not explicit_quiet:
+        #         q0.pop("vibe", None)
 
         # L0 시도
         cands = await self._try_search("L0(conf 반영)", q0, 0, user_context, trace_steps, user_prompt)
@@ -104,6 +211,17 @@ class MeetingSearchService:
 
         logger.warning("🔥 [RELAX_END] 모든 단계 실패 - 빈 리스트 반환")
         return []
+
+    def _normalize_vibe(self, vibe: str) -> str:
+        """DB에 없는 vibe를 실제 DB vibe로 매핑"""
+        VIBE_MAP = {
+            '격렬한': '활기찬',
+            '차분한': '편안한',
+            '여유로운': '힐링',
+            '집중': '차분한',
+            '나른한': '편안한',
+        }
+        return VIBE_MAP.get(vibe, vibe)
 
     async def _try_search(
             self,

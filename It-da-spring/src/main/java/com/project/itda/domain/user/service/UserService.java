@@ -1,5 +1,7 @@
 package com.project.itda.domain.user.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.itda.domain.review.repository.ReviewRepository;
 import com.project.itda.domain.user.dto.request.UserContextDTO;
 import com.project.itda.domain.user.dto.request.UserSignupRequest;
@@ -40,6 +42,16 @@ public class UserService {
     private final GeocodingService geocodingService;
     private final ReviewRepository reviewRepository;
     private final UserFollowService userFollowService;
+    private final ObjectMapper objectMapper;  // ✅ 추가
+
+    // ✅ interests 매핑 테이블
+    private static final Map<String, String> INTEREST_MAPPING = Map.ofEntries(
+            Map.entry("아웃도어", "스포츠"),
+            Map.entry("게임", "소셜"),
+            Map.entry("음악", "문화예술"),
+            Map.entry("요리", "취미활동"),
+            Map.entry("사진", "문화예술")
+    );
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
@@ -78,6 +90,11 @@ public class UserService {
                 user.getUserId(), user.getLatitude(), user.getLongitude());
 
         if (request.getPreferences() != null) {
+            // ✅ interests 매핑 적용
+            String originalInterests = request.getPreferences().getInterests();
+            String mappedInterests = mapInterests(originalInterests);
+            log.info("🔄 회원가입 interests 매핑: {} → {}", originalInterests, mappedInterests);
+
             UserPreference preference = UserPreference.builder()
                     .user(user)
                     .energyType(EnergyType.valueOf(request.getPreferences().getEnergyType()))
@@ -87,10 +104,10 @@ public class UserService {
                     .budgetType(BudgetType.valueOf(request.getPreferences().getBudgetType()))
                     .leadershipType(LeadershipType.valueOf(request.getPreferences().getLeadershipType()))
                     .timePreference(String.valueOf(TimePreference.valueOf(request.getPreferences().getTimePreference())))
-                    .interests(request.getPreferences().getInterests())
+                    .interests(mappedInterests)  // ✅ 매핑된 값 사용
                     .build();
             userPreferenceRepository.save(preference);
-            log.info("✅ 선호도 저장 완료: userId={}", user.getUserId());
+            log.info("✅ 선호도 저장 완료: userId={}, interests={}", user.getUserId(), mappedInterests);
         }
 
         UserSetting setting = UserSetting.builder()
@@ -136,37 +153,35 @@ public class UserService {
             );
             log.info("1. 엔티티 기본 정보 업데이트 성공");
 
-        String newAddress = request.getAddress();
-        log.info("🔍 주소 → {}", newAddress);
+            String newAddress = request.getAddress();
+            log.info("🔍 주소 → {}", newAddress);
 
-        // ✅ address가 "실제로 변경"된 경우만 위경도 갱신
-        if (newAddress != null && !newAddress.trim().isEmpty()
-                && (oldAddress == null || !oldAddress.equals(newAddress))) {
+            // ✅ address가 "실제로 변경"된 경우만 위경도 갱신
+            if (newAddress != null && !newAddress.trim().isEmpty()
+                    && (oldAddress == null || !oldAddress.equals(newAddress))) {
 
-            log.info("🔍 주소 변경 감지 → 위경도 재계산: {}", newAddress);
-            GeocodingService.Coordinates coords = geocodingService.getCoordinates(newAddress);
+                log.info("🔍 주소 변경 감지 → 위경도 재계산: {}", newAddress);
+                GeocodingService.Coordinates coords = geocodingService.getCoordinates(newAddress);
 
-            if (coords != null) {
-                user.setLatitude(coords.getLatitude());
-                user.setLongitude(coords.getLongitude());
-                log.info("✅ 위경도 업데이트 성공: ({}, {})", user.getLatitude(), user.getLongitude());
-            } else {
-                // ✅ 실패 시 기존 좌표 유지 (null로 덮지 말기)
-                log.warn("⚠️ 위경도 조회 실패 → 기존 좌표 유지. userId={}", userId);
+                if (coords != null) {
+                    user.setLatitude(coords.getLatitude());
+                    user.setLongitude(coords.getLongitude());
+                    log.info("✅ 위경도 업데이트 성공: ({}, {})", user.getLatitude(), user.getLongitude());
+                } else {
+                    log.warn("⚠️ 위경도 조회 실패 → 기존 좌표 유지. userId={}", userId);
+                }
             }
-        }
 
-        userFollowService.notifyProfileUpdate(userId);
-        log.info("✅ 프로필 업데이트 및 알림 전송: userId={}", userId);
+            userFollowService.notifyProfileUpdate(userId);
+            log.info("✅ 프로필 업데이트 및 알림 전송: userId={}", userId);
 
         } catch (Exception e) {
-            log.error("❌ 프로필 업데이트 중 상세 오류 발생: ", e); // 이 로그가 백엔드 콘솔에 찍힙니다.
+            log.error("❌ 프로필 업데이트 중 상세 오류 발생: ", e);
             throw e;
         }
 
         return UserResponse.from(user);
     }
-
 
     @Transactional
     public void deleteUser(Long userId) {
@@ -207,9 +222,6 @@ public class UserService {
                 .build();
     }
 
-    /**
-     * 사용자 선호도 정보 조회 (AI 서버용)
-     */
     public Map<String, Object> getUserPreferences(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
@@ -219,24 +231,21 @@ public class UserService {
 
         Map<String, Object> result = new HashMap<>();
 
-        // 기본 위치 정보
         result.put("latitude", user.getLatitude() != null ? user.getLatitude() : 37.5665);
         result.put("longitude", user.getLongitude() != null ? user.getLongitude() : 126.9780);
 
         if (pref != null) {
-            result.put("timePreference", pref.getTimePreference()); // MORNING, AFTERNOON, EVENING, NIGHT
-            result.put("locationType", pref.getLocationType()); // INDOOR, OUTDOOR
-            result.put("interests", pref.getInterests()); // "맛집, 카페, 문화예술"
-            result.put("budgetType", pref.getBudgetType()); // low, value, medium, high, premium
+            result.put("timePreference", pref.getTimePreference());
+            result.put("locationType", pref.getLocationType());
+            result.put("interests", pref.getInterests());
+            result.put("budgetType", pref.getBudgetType());
         } else {
-            // 기본값
             result.put("timePreference", "EVENING");
             result.put("locationType", "INDOOR");
             result.put("interests", "");
             result.put("budgetType", "value");
         }
 
-        // 사용자 통계 (평균 평점, 참여 횟수, 평점 표준편차)
         result.put("avgRating", calculateUserAvgRating(userId));
         result.put("meetingCount", getUserMeetingCount(userId));
         result.put("ratingStd", calculateUserRatingStd(userId));
@@ -244,22 +253,64 @@ public class UserService {
         return result;
     }
 
-    // ===== 헬퍼 메서드 (실제 로직에 맞게 수정) =====
+    /**
+     * ✅ interests JSON을 DB 카테고리로 매핑
+     */
+    private String mapInterests(String interestsJson) {
+        if (interestsJson == null || interestsJson.trim().isEmpty()) {
+            log.warn("⚠️ interests가 비어있음");
+            return "[]";
+        }
+
+        try {
+            // JSON 파싱 시도
+            List<String> interests = objectMapper.readValue(
+                    interestsJson,
+                    new TypeReference<List<String>>() {}
+            );
+
+            // 매핑 적용 + 중복 제거
+            List<String> mapped = interests.stream()
+                    .map(String::trim)
+                    .map(interest -> INTEREST_MAPPING.getOrDefault(interest, interest))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 다시 JSON으로 변환
+            String result = objectMapper.writeValueAsString(mapped);
+            log.debug("🔍 interests 매핑 결과: {} → {}", interestsJson, result);
+            return result;
+
+        } catch (Exception e) {
+            // JSON 파싱 실패 시 쉼표 구분 처리
+            log.warn("⚠️ JSON 파싱 실패, 쉼표 구분 방식으로 처리: {}", interestsJson);
+
+            List<String> interests = List.of(interestsJson.split(","));
+            List<String> mapped = interests.stream()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(interest -> INTEREST_MAPPING.getOrDefault(interest, interest))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            try {
+                return objectMapper.writeValueAsString(mapped);
+            } catch (Exception ex) {
+                log.error("❌ interests 변환 실패, 원본 반환: {}", interestsJson);
+                return interestsJson;
+            }
+        }
+    }
 
     private Double calculateUserAvgRating(Long userId) {
-        // TODO: 사용자가 준 평점들의 평균
-        // 예: reviewRepository.getAvgRatingByUserId(userId);
-        return 4.2; // 임시
+        return 4.2;
     }
 
     private Integer getUserMeetingCount(Long userId) {
-        // TODO: 사용자가 참여한 모임 수
-        // 예: participationRepository.countByUserId(userId);
-        return 10; // 임시
+        return 10;
     }
 
     private Double calculateUserRatingStd(Long userId) {
-        // TODO: 사용자가 준 평점들의 표준편차
-        return 0.8; // 임시
+        return 0.8;
     }
 }

@@ -234,66 +234,86 @@ const SignupPage = () => {
   ];
 
   const interestOptions = [
-    { value: "스포츠", emoji: "⚽", title: "스포츠" },
-    { value: "맛집", emoji: "🍴", title: "맛집" },
-    { value: "카페", emoji: "☕", title: "카페" },
-    { value: "문화예술", emoji: "🎭", title: "문화예술" },
-    { value: "스터디", emoji: "📚", title: "스터디" },
-    { value: "취미활동", emoji: "🎉", title: "취미활동" },
-    { value: "소셜", emoji: "💬", title: "소셜" },
-    { value: "아웃도어", emoji: "⛰️", title: "아웃도어" },
-    { value: "게임", emoji: "🎮", title: "게임" },
-    { value: "음악", emoji: "🎵", title: "음악" },
-    { value: "요리", emoji: "🍳", title: "요리" },
-    { value: "사진", emoji: "📷", title: "사진" },
+    {
+      value: "스포츠",
+      emoji: "⚽",
+      title: "스포츠·액티비티",
+      desc: "러닝, 축구, 등산 등",
+    },
+    { value: "맛집", emoji: "🍴", title: "맛집", desc: "한식, 일식, 양식 등" },
+    { value: "카페", emoji: "☕", title: "카페", desc: "브런치, 디저트 등" },
+    {
+      value: "문화예술",
+      emoji: "🎭",
+      title: "문화·예술",
+      desc: "전시, 공연, 사진 등",
+    },
+    {
+      value: "스터디",
+      emoji: "📚",
+      title: "스터디·세미나",
+      desc: "영어, 코딩, 독서 등",
+    },
+    {
+      value: "취미활동",
+      emoji: "🎉",
+      title: "취미·여가",
+      desc: "요리, 베이킹, 댄스 등",
+    },
+    {
+      value: "소셜",
+      emoji: "💬",
+      title: "친목·네트워킹",
+      desc: "보드게임, 볼링 등",
+    },
   ];
 
-    const handleFinalSubmit = async () => {
-        if (interests.length < 3) {
-            toast.error("관심 분야를 최소 3개 선택해주세요!");
-            return;
-        }
+  const handleFinalSubmit = async () => {
+    if (interests.length < 3) {
+      toast.error("관심 분야를 최소 3개 선택해주세요!");
+      return;
+    }
 
-        // ✅ address 조합
-        const fullAddress = formData.addressDetail
-            ? `${formData.address} ${formData.addressDetail}`.trim()
-            : formData.address;
+    // ✅ address 조합
+    const fullAddress = formData.addressDetail
+      ? `${formData.address} ${formData.addressDetail}`.trim()
+      : formData.address;
 
-        // ✅ 올바른 구조로 데이터 구성
-        const signupData = {
-            email: formData.email,
-            password: formData.password,
-            username: formData.username,
-            address: fullAddress,
-            nickname: formData.nickname || undefined,
-            phone: formData.phone || undefined,
-            preferences: {
-                energyType: preferences.energyType,
-                purposeType: preferences.purposeType,
-                frequencyType: preferences.frequencyType,
-                locationType: preferences.locationType,
-                budgetType: preferences.budgetType,
-                leadershipType: preferences.leadershipType,
-                timePreference: timePreferences[0] || "FLEXIBLE",
-                interests: JSON.stringify(interests),
-            },
-        };
-
-        console.log("=" .repeat(50));
-        console.log("📝 SignupPage에서 생성한 데이터:");
-        console.log(JSON.stringify(signupData, null, 2));
-        console.log("=" .repeat(50));
-
-        try {
-            await signup(signupData);
-            toast.success("회원가입 완료!");
-            navigate("/login");
-        } catch (error: any) {
-            console.error("❌ 회원가입 오류:", error);
-            console.error("❌ 에러 응답:", error.response?.data);
-            toast.error(error.response?.data?.message || "회원가입에 실패했습니다.");
-        }
+    // ✅ 올바른 구조로 데이터 구성
+    const signupData = {
+      email: formData.email,
+      password: formData.password,
+      username: formData.username,
+      address: fullAddress,
+      nickname: formData.nickname || undefined,
+      phone: formData.phone || undefined,
+      preferences: {
+        energyType: preferences.energyType,
+        purposeType: preferences.purposeType,
+        frequencyType: preferences.frequencyType,
+        locationType: preferences.locationType,
+        budgetType: preferences.budgetType,
+        leadershipType: preferences.leadershipType,
+        timePreference: timePreferences[0] || "FLEXIBLE",
+        interests: JSON.stringify(interests),
+      },
     };
+
+    console.log("=".repeat(50));
+    console.log("📝 SignupPage에서 생성한 데이터:");
+    console.log(JSON.stringify(signupData, null, 2));
+    console.log("=".repeat(50));
+
+    try {
+      await signup(signupData);
+      toast.success("회원가입 완료!");
+      navigate("/login");
+    } catch (error: any) {
+      console.error("❌ 회원가입 오류:", error);
+      console.error("❌ 에러 응답:", error.response?.data);
+      toast.error(error.response?.data?.message || "회원가입에 실패했습니다.");
+    }
+  };
 
   const handleOptionClick = (key: string, value: string) => {
     setPreferences({ ...preferences, [key]: value });

@@ -1,5 +1,7 @@
 package com.project.itda.domain.user.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.itda.domain.user.dto.request.UserPreferenceRequest;
 import com.project.itda.domain.user.dto.response.UserPreferenceResponse;
 import com.project.itda.domain.user.entity.User;
@@ -12,6 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @Transactional(readOnly = true)
@@ -20,6 +26,16 @@ public class UserPreferenceService {
 
     private final UserPreferenceRepository userPreferenceRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+
+    // ✅ interests 매핑 테이블 추가
+    private static final Map<String, String> INTEREST_MAPPING = Map.ofEntries(
+            Map.entry("아웃도어", "스포츠"),
+            Map.entry("게임", "소셜"),
+            Map.entry("음악", "문화예술"),
+            Map.entry("요리", "취미활동"),
+            Map.entry("사진", "문화예술")
+    );
 
     /**
      * 사용자 선호도 조회
@@ -39,6 +55,10 @@ public class UserPreferenceService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
+        // ✅ interests 매핑 적용
+        String mappedInterests = mapInterests(request.getInterests());
+        log.info("🔄 interests 매핑: {} → {}", request.getInterests(), mappedInterests);
+
         // 기존 선호도가 있는지 확인
         UserPreference preference = userPreferenceRepository.findByUserUserId(userId)
                 .orElse(null);
@@ -54,10 +74,10 @@ public class UserPreferenceService {
                     .budgetType(BudgetType.valueOf(request.getBudgetType()))
                     .leadershipType(LeadershipType.valueOf(request.getLeadershipType()))
                     .timePreference(request.getTimePreference())
-                    .interests(request.getInterests())
+                    .interests(mappedInterests)  // ✅ 매핑된 값 저장
                     .build();
 
-            log.info("✅ 사용자 선호도 생성: userId={}", userId);
+            log.info("✅ 사용자 선호도 생성: userId={}, interests={}", userId, mappedInterests);
         } else {
             // 수정
             preference.updatePreference(
@@ -68,10 +88,10 @@ public class UserPreferenceService {
                     BudgetType.valueOf(request.getBudgetType()),
                     LeadershipType.valueOf(request.getLeadershipType()),
                     request.getTimePreference(),
-                    request.getInterests()
+                    mappedInterests  // ✅ 매핑된 값 저장
             );
 
-            log.info("✅ 사용자 선호도 수정: userId={}", userId);
+            log.info("✅ 사용자 선호도 수정: userId={}, interests={}", userId, mappedInterests);
         }
 
         preference = userPreferenceRepository.save(preference);
@@ -83,6 +103,55 @@ public class UserPreferenceService {
      */
     public boolean existsByUserId(Long userId) {
         return userPreferenceRepository.findByUserUserId(userId).isPresent();
+    }
+
+    /**
+     * ✅ interests JSON을 DB 카테고리로 매핑
+     */
+    private String mapInterests(String interestsJson) {
+        if (interestsJson == null || interestsJson.trim().isEmpty()) {
+            log.warn("⚠️ interests가 비어있음");
+            return "[]";
+        }
+
+        try {
+            // JSON 파싱 시도
+            List<String> interests = objectMapper.readValue(
+                    interestsJson,
+                    new TypeReference<List<String>>() {}
+            );
+
+            // 매핑 적용 + 중복 제거
+            List<String> mapped = interests.stream()
+                    .map(String::trim)
+                    .map(interest -> INTEREST_MAPPING.getOrDefault(interest, interest))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 다시 JSON으로 변환
+            String result = objectMapper.writeValueAsString(mapped);
+            log.debug("🔍 interests 매핑 결과: {} → {}", interestsJson, result);
+            return result;
+
+        } catch (Exception e) {
+            // JSON 파싱 실패 시 쉼표 구분 처리
+            log.warn("⚠️ JSON 파싱 실패, 쉼표 구분 방식으로 처리: {}", interestsJson);
+
+            List<String> interests = List.of(interestsJson.split(","));
+            List<String> mapped = interests.stream()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(interest -> INTEREST_MAPPING.getOrDefault(interest, interest))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            try {
+                return objectMapper.writeValueAsString(mapped);
+            } catch (Exception ex) {
+                log.error("❌ interests 변환 실패, 원본 반환: {}", interestsJson);
+                return interestsJson;
+            }
+        }
     }
 
     /**

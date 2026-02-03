@@ -112,20 +112,13 @@ public class AISearchService {
                     },
                     "vibe=" + vibeReq
             );
+
+            // ✅✅✅ 여기 추가! vibe 필터 직후 카테고리별로 섞기
+            if (!meetings.isEmpty()) {
+                meetings = shuffleByCategory(meetings);
+                log.info("🎨 [CATEGORY_SHUFFLE] vibe 필터 후 카테고리별로 섞음: {}개", meetings.size());
+            }
         }
-
-        log.info("🧪 [REQ] category='{}', subcategory='{}', locationType='{}', vibe='{}'",
-                request.getCategory(), request.getSubcategory(), request.getLocationType(), request.getVibe());
-
-        log.info("🧪 [CAND_BEFORE_SUB] size={}, subcats={}",
-                meetings.size(),
-                meetings.stream().map(Meeting::getSubcategory).filter(Objects::nonNull)
-                        .map(String::trim).distinct().limit(20).toList());
-
-        log.info("🧪 [CAND_AFTER_SUB] size={}, subcats={}",
-                meetings.size(),
-                meetings.stream().map(Meeting::getSubcategory).filter(Objects::nonNull)
-                        .map(String::trim).distinct().limit(20).toList());
 
         // 5) timeSlot (소프트)
         if (hasText(request.getTimeSlot())) {
@@ -196,6 +189,15 @@ public class AISearchService {
         List<AIMeetingDTO> meetingDTOs = meetings.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+
+        // ✅ 디버깅: 상위 5개 ID 출력
+        log.info("🔝 Spring 최종 상위 5개 ID: {}",
+                meetingDTOs.stream()
+                        .limit(5)
+                        .map(AIMeetingDTO::getMeetingId)
+                        .collect(Collectors.toList()));
+
+        log.info("✅ AI 검색 완료: {}개 모임 반환", meetingDTOs.size());
 
         log.info("✅ AI 검색 완료: {}개 모임 반환", meetingDTOs.size());
 
@@ -416,5 +418,94 @@ public class AISearchService {
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+
+    // =========================
+// ✅ 카테고리 인터리빙 (카페만 100개 방지)
+// =========================
+
+    /**
+     * 카테고리별로 골고루 섞어서 반환
+     * 예: [카페1, 맛집1, 스포츠1, 카페2, 맛집2, 스포츠2, ...]
+     */
+    private List<Meeting> interleaveByCategory(List<Meeting> meetings) {
+        if (meetings == null || meetings.size() <= 10) return meetings;
+
+        // 1) 카테고리별로 그룹핑
+        Map<String, List<Meeting>> byCategory = meetings.stream()
+                .collect(Collectors.groupingBy(
+                        m -> m.getCategory() != null ? m.getCategory() : "기타",
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        // 2) 라운드 로빈 방식으로 섞기
+        List<Meeting> interleaved = new ArrayList<>();
+        int maxSize = byCategory.values().stream()
+                .mapToInt(List::size)
+                .max()
+                .orElse(0);
+
+        for (int i = 0; i < maxSize; i++) {
+            for (List<Meeting> categoryList : byCategory.values()) {
+                if (i < categoryList.size()) {
+                    interleaved.add(categoryList.get(i));
+                }
+            }
+        }
+
+        log.info("🎨 [INTERLEAVE] 카테고리 분포: {}",
+                byCategory.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().size()
+                        ))
+        );
+
+        return interleaved;
+    }
+
+    // =========================
+// ✅ 카테고리별 섞기 (카페만 100개 방지)
+// =========================
+
+    /**
+     * 카테고리별로 골고루 섞어서 반환
+     * 예: [카페1, 맛집1, 스포츠1, 사진1, 카페2, 맛집2, ...]
+     */
+    private List<Meeting> shuffleByCategory(List<Meeting> meetings) {
+        if (meetings == null || meetings.size() <= 10) return meetings;
+
+        // 1) 카테고리별로 그룹핑
+        Map<String, List<Meeting>> byCategory = new LinkedHashMap<>();
+        for (Meeting m : meetings) {
+            String cat = m.getCategory() != null ? m.getCategory() : "기타";
+            byCategory.computeIfAbsent(cat, k -> new ArrayList<>()).add(m);
+        }
+
+        // 2) 라운드 로빈 방식으로 섞기
+        List<Meeting> shuffled = new ArrayList<>();
+        int maxSize = byCategory.values().stream()
+                .mapToInt(List::size)
+                .max()
+                .orElse(0);
+
+        for (int i = 0; i < maxSize; i++) {
+            for (List<Meeting> categoryList : byCategory.values()) {
+                if (i < categoryList.size()) {
+                    shuffled.add(categoryList.get(i));
+                }
+            }
+        }
+
+        log.info("🎨 [SHUFFLE] 카테고리 분포: {}",
+                byCategory.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().size()
+                        ))
+        );
+
+        return shuffled;
     }
 }
