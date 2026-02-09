@@ -372,217 +372,226 @@ const ChatRoomPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const initChat = async () => {
-      if (!roomId || !currentUser) return;
-      console.log("🔍 [ChatRoom] Initializing with RoomID:", roomId);
+    useEffect(() => {
+        const initChat = async () => {
+            if (!roomId || !currentUser) return;
+            console.log("🔍 [ChatRoom] Initializing with RoomID:", roomId);
 
-      if (!isMounted.current) {
-        try {
-          await chatApi.markAsRead(Number(roomId));
-          markAllAsRead();
-        } catch (e) {
-          console.warn("⚠️ 읽음 처리 실패:", e);
-        }
-        isMounted.current = true;
-      }
-
-      try {
-        try {
-          const history = await chatApi.getChatMessages(Number(roomId), 0, 50);
-          const validatedHistory: ChatMessage[] = (history as any[]).map(
-            (msg) => ({
-              ...msg,
-              senderNickname: msg.senderNickname || "사용자",
-              content: msg.content || "",
-              unreadCount: Number(msg.unreadCount ?? 0),
-              sentAt: msg.sentAt || new Date().toISOString(),
-              type: msg.type as ChatMessage["type"],
-              metadata: msg.metadata || null,
-            }),
-          );
-          setMessages(validatedHistory);
-        } catch (e) {
-          console.error("❌ 메시지 로드 실패:", e);
-        }
-
-        try {
-          const rooms = await chatApi.getRooms();
-          const currentRoom = rooms.find(
-            (r: any) => r.chatRoomId === Number(roomId),
-          );
-          if (currentRoom) {
-            setRoomTitle(currentRoom.roomName);
-            setNotice(currentRoom.notice || "");
-
-            // ✅ 서버 응답 필드명이 meetingId인지, 혹은 객체 형태인지 확인하여 할당
-            const mId = currentRoom.meetingId || currentRoom.meeting?.id;
-            if (mId) {
-              setLinkedMeetingId(Number(mId));
-              console.log("🔗 연결된 모임 ID 설정 완료:", mId);
-            } else {
-              console.warn("⚠️ 이 채팅방에 연결된 모임 ID가 없습니다.");
+            if (!isMounted.current) {
+                try {
+                    await chatApi.markAsRead(Number(roomId));
+                    markAllAsRead();
+                } catch (e) {
+                    console.warn("⚠️ 읽음 처리 실패:", e);
+                }
+                isMounted.current = true;
             }
-          }
-        } catch (e) {
-          console.warn("⚠️ 방 정보 로드 실패", e);
-        }
 
-        try {
-          const rawMembers: RawMemberResponse[] = await chatApi.getRoomMembers(
-            Number(roomId),
-          );
-          const formattedMembers: User[] = rawMembers.map(
-            (m: RawMemberResponse) => ({
-              id: m.userId,
-              userId: m.userId,
-              name: m.nickname?.trim() ? m.nickname : m.username,
-              username: m.username,
-              nickname: m.nickname,
-              email: m.email,
-              status: (m.status || "ACTIVE") as User["status"],
-              createdAt: m.createdAt || new Date().toISOString(),
-              updatedAt: m.updatedAt || new Date().toISOString(),
-              profileImageUrl: m.profileImageUrl || "",
-              role: m.role === "ORGANIZER" ? "LEADER" : "MEMBER",
-              isFollowing: m.isFollowing,
-            }),
-          );
-          setMembers(formattedMembers);
-          setRoomMembers(
-            rawMembers.map((m) => ({
-              userId: m.userId,
-              nickname: m.nickname?.trim() ? m.nickname : m.username,
-            })),
-          );
-        } catch (e) {
-          console.error("❌ 멤버 로드 실패:", e);
-          setMembers([]);
-        }
-      } catch (e) {
-        console.error("🚨 예상치 못한 치명적 오류:", e);
-      }
-      await fetchRoomMembers();
-    };
+            try {
+                try {
+                    const history = await chatApi.getChatMessages(Number(roomId), 0, 50);
+                    const validatedHistory: ChatMessage[] = (history as any[]).map(
+                        (msg) => ({
+                            ...msg,
+                            senderNickname: msg.senderNickname || "사용자",
+                            content: msg.content || "",
+                            unreadCount: Number(msg.unreadCount ?? 0),
+                            sentAt: msg.sentAt || new Date().toISOString(),
+                            type: msg.type as ChatMessage["type"],
+                            metadata: msg.metadata || null,
+                        }),
+                    );
+                    setMessages(validatedHistory);
+                } catch (e) {
+                    console.error("❌ 메시지 로드 실패:", e);
+                }
 
-    initChat();
+                try {
+                    const rooms = await chatApi.getRooms();
+                    const currentRoom = rooms.find(
+                        (r: any) => r.chatRoomId === Number(roomId),
+                    );
+                    if (currentRoom) {
+                        setRoomTitle(currentRoom.roomName);
+                        setNotice(currentRoom.notice || "");
 
-    let isSubscribed = true;
+                        const mId = currentRoom.meetingId || currentRoom.meeting?.id;
+                        if (mId) {
+                            setLinkedMeetingId(Number(mId));
+                            console.log("🔗 연결된 모임 ID 설정 완료:", mId);
+                        } else {
+                            console.warn("⚠️ 이 채팅방에 연결된 모임 ID가 없습니다.");
+                        }
+                    }
+                } catch (e) {
+                    console.warn("⚠️ 방 정보 로드 실패", e);
+                }
 
-    if (roomId && currentUser?.email) {
-      // ✅ 연결 전에 기존 연결 완전히 정리
-      chatApi.disconnect();
-
-      console.log("🔄 WebSocket 연결 시작...");
-
-      chatApi.connect(Number(roomId), currentUser.email, (newMsg: any) => {
-        if (!isSubscribed) {
-          console.warn("⚠️ 구독 해제된 상태, 메시지 무시");
-          return;
-        }
-
-        console.log("📨 수신:", {
-          messageId: newMsg.messageId,
-          type: newMsg.type, // ✅ 타입도 로그에 추가
-          content: newMsg.content?.substring(0, 20),
-        });
-
-        // ✅ messageId 필수 체크
-        if (!newMsg.messageId) {
-          console.error("❌ messageId 없음, 무시");
-          return;
-        }
-
-        // ✅ 빈 메시지 체크 (IMAGE, POLL도 포함)
-        if (
-          !newMsg.content?.trim() &&
-          !["IMAGE", "POLL", "BILL", "LOCATION", "VOTE"].includes(newMsg.type) // ✅ VOTE 추가
-        ) {
-          console.warn("⚠️ 빈 메시지 무시");
-          return;
-        }
-
-        if (newMsg.type === "READ") {
-          console.log("📖 읽음 신호 수신:", newMsg);
-          if (currentUser && newMsg.email !== currentUser.email) {
-            decrementUnreadCount();
-            const currentMessages = useChatStore.getState().messages;
-            const updatedMessages = currentMessages.map((msg) => ({
-              ...msg,
-              unreadCount: msg.unreadCount > 0 ? msg.unreadCount - 1 : 0,
-            }));
-            setMessages(updatedMessages);
-          }
-          return;
-        }
-
-        if (newMsg.type === "BILL_UPDATE") {
-          const targetId = Number(
-            newMsg.targetMessageId || newMsg.metadata.messageId,
-          );
-          addMessage({
-            ...newMsg,
-            messageId: targetId,
-            type: "BILL",
-            metadata:
-              typeof newMsg.metadata === "string"
-                ? JSON.parse(newMsg.metadata)
-                : newMsg.metadata,
-          });
-          return;
-        }
-
-        if (newMsg.type === "NOTICE") {
-          setTimeout(() => {
-            fetchRoomMembers();
-          }, 500);
-        }
-
-        // ✅ 읽음 처리 대상에 POLL 추가
-        if (
-          newMsg.type === "TALK" ||
-          newMsg.type === "IMAGE" ||
-          newMsg.type === "LOCATION" ||
-          newMsg.type === "POLL" || // ✅ 추가!
-          newMsg.type === "VOTE"
-        ) {
-          if (
-            currentUser &&
-            Number(newMsg.senderId) !== Number(currentUser.userId)
-          ) {
-            chatApi.markAsRead(Number(roomId));
-          }
-        }
-
-        const serverCount = Number(newMsg.unreadCount ?? 0);
-
-        const validatedMsg: ChatMessage = {
-          ...newMsg,
-          unreadCount: serverCount,
-          senderNickname: newMsg.senderNickname || "사용자",
-          sentAt: newMsg.sentAt || new Date().toISOString(),
-          senderId: Number(newMsg.senderId),
-          messageId: Number(newMsg.messageId),
-          metadata:
-            typeof newMsg.metadata === "string"
-              ? JSON.parse(newMsg.metadata)
-              : newMsg.metadata,
+                try {
+                    const rawMembers: RawMemberResponse[] = await chatApi.getRoomMembers(
+                        Number(roomId),
+                    );
+                    const formattedMembers: User[] = rawMembers.map(
+                        (m: RawMemberResponse) => ({
+                            id: m.userId,
+                            userId: m.userId,
+                            name: m.nickname?.trim() ? m.nickname : m.username,
+                            username: m.username,
+                            nickname: m.nickname,
+                            email: m.email,
+                            status: (m.status || "ACTIVE") as User["status"],
+                            createdAt: m.createdAt || new Date().toISOString(),
+                            updatedAt: m.updatedAt || new Date().toISOString(),
+                            profileImageUrl: m.profileImageUrl || "",
+                            role: m.role === "ORGANIZER" ? "LEADER" : "MEMBER",
+                            isFollowing: m.isFollowing,
+                        }),
+                    );
+                    setMembers(formattedMembers);
+                    setRoomMembers(
+                        rawMembers.map((m) => ({
+                            userId: m.userId,
+                            nickname: m.nickname?.trim() ? m.nickname : m.username,
+                        })),
+                    );
+                } catch (e) {
+                    console.error("❌ 멤버 로드 실패:", e);
+                    setMembers([]);
+                }
+            } catch (e) {
+                console.error("🚨 예상치 못한 치명적 오류:", e);
+            }
+            await fetchRoomMembers();
         };
 
-        console.log(
-          "✅ 메시지 추가:",
-          validatedMsg.messageId,
-          validatedMsg.type,
-        ); // ✅ 로그 추가
-        addMessage(validatedMsg);
-      });
-    }
-    return () => {
-      console.log("🧹 컴포넌트 정리 시작");
-      isSubscribed = false;
-      chatApi.disconnect();
-    };
-  }, [roomId, currentUser]); // ✅ 의존성 배열 최소화
+        initChat();
+
+        let isSubscribed = true;
+
+        if (roomId && currentUser?.email) {
+            chatApi.disconnect();
+            console.log("🔄 WebSocket 연결 시작...");
+
+            chatApi.connect(Number(roomId), currentUser.email, (newMsg: any) => {
+                if (!isSubscribed) {
+                    console.warn("⚠️ 구독 해제된 상태, 메시지 무시");
+                    return;
+                }
+
+                console.log("📨 수신:", {
+                    messageId: newMsg.messageId,
+                    type: newMsg.type,
+                    email: newMsg.email,
+                    unreadCount: newMsg.unreadCount,
+                });
+
+                // ✅ READ 신호 처리 (최우선)
+                if (newMsg.type === "READ") {
+                    console.log("📖 읽음 신호 수신:", newMsg);
+
+                    if (currentUser && newMsg.email === currentUser.email) {
+                        console.log("✅ 내가 읽음 - 모든 메시지 unreadCount = 0");
+                        markAllAsRead();
+                    } else {
+                        console.log("🔽 다른 사용자가 읽음 - unreadCount 감소");
+                        decrementUnreadCount();
+                    }
+                    return;
+                }
+
+                if (!newMsg.messageId) {
+                    console.error("❌ messageId 없음, 무시");
+                    return;
+                }
+
+                if (
+                    !newMsg.content?.trim() &&
+                    !["IMAGE", "POLL", "BILL", "LOCATION", "VOTE"].includes(newMsg.type)
+                ) {
+                    console.warn("⚠️ 빈 메시지 무시");
+                    return;
+                }
+
+                if (newMsg.type === "BILL_UPDATE") {
+                    const targetId = Number(
+                        newMsg.targetMessageId || newMsg.metadata.messageId,
+                    );
+                    addMessage({
+                        ...newMsg,
+                        messageId: targetId,
+                        type: "BILL",
+                        metadata:
+                            typeof newMsg.metadata === "string"
+                                ? JSON.parse(newMsg.metadata)
+                                : newMsg.metadata,
+                    });
+                    return;
+                }
+
+                if (newMsg.type === "NOTICE") {
+                    setTimeout(() => {
+                        fetchRoomMembers();
+                    }, 500);
+                }
+
+                // ✅ unreadCount는 서버가 계산한 값을 그대로 사용
+                const finalUnreadCount = Number(newMsg.unreadCount ?? 0);
+
+                console.log("📊 서버 계산 unreadCount:", finalUnreadCount);
+
+                // ✅ 다른 사람이 보낸 메시지일 때만 자동 읽음 처리
+                if (currentUser && newMsg.email !== currentUser.email) {
+                    console.log("📩 다른 사람의 메시지 - 자동 읽음 처리");
+
+                    // 자동 읽음 처리
+                    if (
+                        newMsg.type === "TALK" ||
+                        newMsg.type === "TEXT" ||
+                        newMsg.type === "IMAGE" ||
+                        newMsg.type === "LOCATION" ||
+                        newMsg.type === "POLL" ||
+                        newMsg.type === "VOTE"
+                    ) {
+                        if (currentUser && newMsg.email !== currentUser.email) {
+                            chatApi.markAsRead(Number(roomId));
+                        }
+                        console.log("✅ READ 신호 전송 (타인의 메시지 수신)");
+                    }
+                } else if (currentUser && newMsg.email === currentUser.email) {
+                    console.log("✅ 내가 보낸 메시지 - 읽음 처리 안 함");
+                }
+
+                const validatedMsg: ChatMessage = {
+                    ...newMsg,
+                    unreadCount: finalUnreadCount,
+                    senderNickname: newMsg.senderNickname || "사용자",
+                    sentAt: newMsg.sentAt || new Date().toISOString(),
+                    senderId: Number(newMsg.senderId),
+                    messageId: Number(newMsg.messageId),
+                    metadata:
+                        typeof newMsg.metadata === "string"
+                            ? JSON.parse(newMsg.metadata)
+                            : newMsg.metadata,
+                };
+
+                console.log(
+                    "✅ 메시지 추가:",
+                    validatedMsg.messageId,
+                    validatedMsg.type,
+                    "unreadCount:",
+                    validatedMsg.unreadCount
+                );
+                addMessage(validatedMsg);
+            });
+        }
+
+        return () => {
+            console.log("🧹 컴포넌트 정리 시작");
+            isSubscribed = false;
+            chatApi.disconnect();
+        };
+    }, [roomId, currentUser]);
+
 
   const fetchRoomMembers = async () => {
     if (!roomId) return;
@@ -623,29 +632,34 @@ const ChatRoomPage: React.FC = () => {
     navigate(`/meetings/${linkedMeetingId}`);
   };
 
-  const handleSendMessage = () => {
-    if (
-      !roomId ||
-      !currentUser?.email ||
-      !currentUser?.userId ||
-      !inputValue.trim()
-    ) {
-      if (!inputValue.trim()) return;
-      toast.error("로그인 세션이 만료되었습니다.");
-      return;
-    }
-    chatApi.sendMessage(
-      Number(roomId),
-      currentUser.email,
-      currentUser.userId,
-      inputValue,
-      "TALK",
-      {},
-    );
+    const handleSendMessage = () => {
+        if (
+            !roomId ||
+            !currentUser?.email ||
+            !currentUser?.userId ||
+            !inputValue.trim()
+        ) {
+            if (!inputValue.trim()) return;
+            toast.error("로그인 세션이 만료되었습니다.");
+            return;
+        }
 
-    setInputValue("");
-  };
+        chatApi.sendMessage(
+            Number(roomId),
+            currentUser.email,
+            currentUser.userId,
+            inputValue,
+            "TALK",
+            {},
+        );
 
+        // ❌ 제거: 불필요한 READ 신호
+        // setTimeout(() => {
+        //     chatApi.markAsRead(Number(roomId));
+        // }, 100);
+
+        setInputValue("");
+    };
   const handleFeatureAction = (feature: string) => {
     if (!roomId || !currentUser?.email) return;
 

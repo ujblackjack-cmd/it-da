@@ -19,12 +19,13 @@ public class WebSocketEventListener {
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
 
-        String userEmail = (String) headerAccessor.getSessionAttributes().get("userEmail");
+        String email = (String) headerAccessor.getSessionAttributes().get("userEmail");
         Long roomId = (Long) headerAccessor.getSessionAttributes().get("roomId");
 
-        if (userEmail != null && roomId != null) {
-            chatRoomService.userLeft(roomId, userEmail);
-            log.info("WebSocket 연결 해제: 사용자={}, 방={}", userEmail, roomId);
+        if (email != null && roomId != null) {
+            chatRoomService.userLeft(roomId, email);
+            log.info("✅ WebSocket 연결 해제: roomId={}, email={}", roomId, email);
         }
     }
+
 }

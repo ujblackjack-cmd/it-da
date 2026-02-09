@@ -28,15 +28,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException {
 
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(true); // ✅ 세션 생성
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-        // ✅ 1. 추출 메소드를 사용하여 final 변수에 할당 (effectively final 상태로 만듦)
         final String email = extractEmail(oAuth2User);
 
-        log.info("✅ OAuth2 로그인 성공 - 추출된 email: {}", email);
+        log.info("==================== OAuth2 로그인 성공 ====================");
+        log.info("추출된 email: {}", email);
 
-        // ✅ 2. DB 조회 (람다 내부에서 email 참조 시 에러 발생 안 함)
         if (email == null) {
             throw new RuntimeException("OAuth2 인증 객체에서 이메일을 추출할 수 없습니다.");
         }
@@ -44,7 +43,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + email));
 
-        // ✅ 3. SessionUser 객체 구성 (Builder 패턴 사용)
+        // ✅ SessionUser 객체 생성
         SessionUser sessionUser = SessionUser.builder()
                 .userId(user.getUserId())
                 .email(user.getEmail())
@@ -53,27 +52,41 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .picture(user.getProfileImageUrl())
                 .build();
 
-        session.setAttribute("user", sessionUser);
+        // ✅ 세션에 저장 (두 가지 방식 모두!)
+        session.setAttribute("user", sessionUser); // SessionAuthenticationFilter용
+        session.setAttribute("userId", user.getUserId()); // 개별 속성 (보험)
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("username", user.getUsername());
+        session.setAttribute("nickname", user.getNickname() != null ? user.getNickname() : user.getUsername());
 
-        log.info("✅ 세션 저장 완료: {}", sessionUser.getEmail());
+        log.info("✅ 세션 저장 완료:");
+        log.info("  - 세션 ID: {}", session.getId());
+        log.info("  - userId: {}", user.getUserId());
+        log.info("  - email: {}", user.getEmail());
+        log.info("  - SessionUser: {}", sessionUser);
 
+        // ✅ 프론트엔드로 리다이렉트
         String targetUrl = "http://localhost:3000/auth/callback";
+        log.info("리다이렉트: {}", targetUrl);
+
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
-    // ✅ 이메일 추출 로직 통합 (네이트/카카오/네이버 대응)
+    /**
+     * ✅ 이메일 추출 (카카오/네이버/구글 대응)
+     */
     private String extractEmail(OAuth2User oAuth2User) {
-        // 1. 기본 email 필드 확인
+        // 1. 기본 email 필드
         Object email = oAuth2User.getAttribute("email");
         if (email != null) return email.toString();
 
-        // 2. 카카오 계정 대응
+        // 2. 카카오 계정
         Map<String, Object> kakaoAccount = oAuth2User.getAttribute("kakao_account");
         if (kakaoAccount != null && kakaoAccount.get("email") != null) {
             return kakaoAccount.get("email").toString();
         }
 
-        // 3. 네이버 계정 대응
+        // 3. 네이버 계정
         Map<String, Object> naverResponse = oAuth2User.getAttribute("response");
         if (naverResponse != null && naverResponse.get("email") != null) {
             return naverResponse.get("email").toString();

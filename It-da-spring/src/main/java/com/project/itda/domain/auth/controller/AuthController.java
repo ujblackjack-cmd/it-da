@@ -18,6 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
@@ -107,34 +110,83 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body("회원가입이 완료되었습니다.");
     }
 
+
     /**
-     * 로그아웃
+     * ✅ 세션 확인 API (React용)
+     * GET /api/auth/session
      */
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            log.info("🔓 로그아웃 - SessionId: {}", session.getId());
-            session.invalidate(); // Redis에서 세션 삭제
+    @GetMapping("/session")
+    public ResponseEntity<?> getSession(HttpSession session) {
+        log.info("==================== 세션 조회 요청 ====================");
+        log.info("세션 ID: {}", session != null ? session.getId() : "null");
+
+        if (session == null) {
+            log.warn("⚠️ 세션이 존재하지 않음");
+            return ResponseEntity.status(401)
+                    .body(createErrorResponse("세션이 없습니다."));
         }
-        return ResponseEntity.ok().build();
+
+        // ✅ 1. SessionUser 객체로 조회
+        SessionUser sessionUser = (SessionUser) session.getAttribute("user");
+
+        if (sessionUser != null) {
+            log.info("✅ SessionUser 발견: userId={}, email={}",
+                    sessionUser.getUserId(), sessionUser.getEmail());
+
+            return ResponseEntity.ok(Map.of(
+                    "userId", sessionUser.getUserId(),
+                    "email", sessionUser.getEmail(),
+                    "username", sessionUser.getUsername(),
+                    "nickname", sessionUser.getNickname() != null ? sessionUser.getNickname() : sessionUser.getUsername(),
+                    "profileImageUrl", sessionUser.getPicture() != null ? sessionUser.getPicture() : ""
+            ));
+        }
+
+        // ✅ 2. 개별 속성으로 조회 (대체 방법)
+        Long userId = (Long) session.getAttribute("userId");
+        String email = (String) session.getAttribute("email");
+        String username = (String) session.getAttribute("username");
+        String nickname = (String) session.getAttribute("nickname");
+
+        if (userId != null) {
+            log.info("✅ 개별 속성 발견: userId={}", userId);
+
+            return ResponseEntity.ok(Map.of(
+                    "userId", userId,
+                    "email", email != null ? email : "",
+                    "username", username != null ? username : "",
+                    "nickname", nickname != null ? nickname : ""
+            ));
+        }
+
+        log.warn("⚠️ 세션에 유저 정보 없음");
+        return ResponseEntity.status(401)
+                .body(createErrorResponse("로그인이 필요합니다."));
     }
 
     /**
-     * 현재 세션 정보 조회
+     * ✅ 로그아웃 API
+     * POST /api/auth/logout
      */
-    @GetMapping("/session")
-    public ResponseEntity<SessionInfoResponse> getSession(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpSession session) {
+        log.info("==================== 로그아웃 요청 ====================");
+
+        if (session != null) {
+            log.info("세션 무효화: {}", session.getId());
+            session.invalidate();
         }
 
-        return ResponseEntity.ok(SessionInfoResponse.builder()
-                .userId((Long) session.getAttribute("userId"))
-                .email((String) session.getAttribute("email"))
-                .username((String) session.getAttribute("username"))
-                .nickname((String) session.getAttribute("nickname"))
-                .build());
+        return ResponseEntity.ok(Map.of("message", "로그아웃 성공"));
+    }
+
+    /**
+     * ✅ 에러 응답 생성 헬퍼 메서드
+     */
+    private Map<String, Object> createErrorResponse(String message) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", message);
+        error.put("authenticated", false);
+        return error;
     }
 }

@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_completed", columnList = "completed_at")
         }
 )
+@Setter
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

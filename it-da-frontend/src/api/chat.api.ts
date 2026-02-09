@@ -50,52 +50,55 @@ class ChatApi {
     return response.data;
   }
 
-  connect(
-    roomId: number,
-    userEmail: string,
-    onMessageReceived: (msg: any) => void,
-  ) {
-    // ✅ 기존 연결이 있다면 완전히 정리
-    if (this.client?.connected) {
-      console.warn("⚠️ 기존 연결이 있습니다. 정리 후 재연결합니다.");
-      this.disconnect();
-    }
+    connect(
+        roomId: number,
+        userEmail: string,
+        onMessageReceived: (msg: any) => void,
+    ) {
+        // ✅ 이메일 저장 (markAsRead에서 사용)
+        localStorage.setItem("userEmail", userEmail);
 
-    const socket = new SockJS(`${API_BASE_URL}/ws`);
-
-    this.client = new Client({
-      webSocketFactory: () => socket,
-      onConnect: () => {
-        console.log(`✅ 채팅방 ${roomId} 연결 성공`);
-
-        // 읽음 처리
-        this.sendReadEvent(roomId, userEmail);
-
-        // ✅ 이전 구독 정리
-        if (this.subscription) {
-          this.subscription.unsubscribe();
-          this.subscription = null;
+        // ✅ 기존 연결이 있다면 완전히 정리
+        if (this.client?.connected) {
+            console.warn("⚠️ 기존 연결이 있습니다. 정리 후 재연결합니다.");
+            this.disconnect();
         }
 
-        // ✅ 새 구독 등록
-        this.subscription = this.client!.subscribe(
-          `/topic/room/${roomId}`,
-          (message: IMessage) => {
-            const data = JSON.parse(message.body);
-            onMessageReceived(data);
-          },
-        );
+        const socket = new SockJS(`${API_BASE_URL}/ws`);
 
-        console.log(`📡 /topic/room/${roomId} 구독 완료`);
-      },
-      onDisconnect: () => {
-        console.log("🔌 WebSocket 연결 해제");
-        this.subscription = null;
-      },
-    });
+        this.client = new Client({
+            webSocketFactory: () => socket,
+            onConnect: () => {
+                console.log(`✅ 채팅방 ${roomId} 연결 성공`);
 
-    this.client.activate();
-  }
+                // 읽음 처리
+                this.sendReadEvent(roomId, userEmail);
+
+                // ✅ 이전 구독 정리
+                if (this.subscription) {
+                    this.subscription.unsubscribe();
+                    this.subscription = null;
+                }
+
+                // ✅ 새 구독 등록
+                this.subscription = this.client!.subscribe(
+                    `/topic/room/${roomId}`,
+                    (message: IMessage) => {
+                        const data = JSON.parse(message.body);
+                        onMessageReceived(data);
+                    },
+                );
+
+                console.log(`📡 /topic/room/${roomId} 구독 완료`);
+            },
+            onDisconnect: () => {
+                console.log("🔌 WebSocket 연결 해제");
+                this.subscription = null;
+            },
+        });
+
+        this.client.activate();
+    }
 
   disconnect() {
     // ✅ 구독 정리
@@ -138,27 +141,26 @@ class ChatApi {
     }
   }
 
-  // ✅ [수정됨] body 제거 (백엔드가 세션에서 유저 정보를 가져옴)
-  async markAsRead(roomId: number) {
-    try {
-      // POST 요청이지만 body는 비워둡니다 (백엔드 Controller 수정 반영)
-      await axios.post(
-        `${API_BASE_URL}/api/social/chat/rooms/${roomId}/read`,
-        {},
-        { withCredentials: true },
-      );
-    } catch (error: any) {
-      const status = error.response?.status;
-      if (status === 401) {
-        console.error("🔒 인증 에러(401): 유효한 세션 쿠키가 없습니다.");
-      } else if (status === 404) {
-        console.warn("⚠️ 404 에러: 읽음 처리 API 경로를 찾을 수 없습니다.");
-      } else {
-        console.warn(`⚠️ API 에러(${status}):`, error.message);
-      }
+    /**
+     * ✅ 읽음 처리 (REST API + WebSocket READ 신호)
+     */
+    async markAsRead(roomId: number) {
+        const storedEmail = localStorage.getItem("userEmail");
+
+        if (this.client?.connected && storedEmail) {
+            this.client.publish({
+                destination: `/app/chat/read/${roomId}`,
+                body: JSON.stringify({ email: storedEmail }),
+            });
+            console.log("✅ WebSocket READ 신호 전송:", roomId);
+        } else {
+            console.warn("⚠️ WebSocket 미연결 - READ 신호 전송 실패");
+        }
     }
-  }
-  async getRoomMembers(roomId: number) {
+
+
+
+    async getRoomMembers(roomId: number) {
     // ✅ 404 에러 직접 해결 지점: 백엔드 포트 8080 및 정확한 경로 명시
     const response = await axios.get(
       `${API_BASE_URL}/api/social/chat/rooms/${roomId}/members`,
@@ -166,14 +168,21 @@ class ChatApi {
     );
     return response.data;
   }
-  sendReadEvent(roomId: number, email: string) {
-    if (this.client?.connected) {
-      this.client.publish({
-        destination: `/app/chat/read/${roomId}`,
-        body: JSON.stringify({ roomId, email }),
-      });
+    /**
+     * ✅ READ 이벤트 전송 (별도 메서드, 기존 코드 유지)
+     */
+    sendReadEvent(roomId: number, email: string) {
+        if (this.client?.connected) {
+            this.client.publish({
+                destination: `/app/chat/read/${roomId}`,
+                body: JSON.stringify({ roomId, email }),
+            });
+            console.log("✅ sendReadEvent 호출:", { roomId, email });
+        } else {
+            console.warn("⚠️ WebSocket 미연결 - sendReadEvent 실패");
+        }
     }
-  }
+
   async uploadImage(roomId: number, file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file); // 백엔드 @RequestParam("file")과 일치

@@ -26,6 +26,19 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     @Query("SELECT cp.lastReadAt FROM ChatParticipant cp WHERE cp.chatRoom.id = :roomId")
     List<LocalDateTime> findAllLastReadAtByRoomId(@Param("roomId") Long roomId);
 
+
+    /**
+     * ✅ 특정 시각 이전에 마지막으로 읽은 참여자 수 (= 해당 메시지를 읽지 않은 사람 수)
+     */
+    @Query("SELECT COUNT(cp) FROM ChatParticipant cp " +
+            "WHERE cp.chatRoom.id = :roomId " +
+            "AND (cp.lastReadAt IS NULL OR cp.lastReadAt < :messageCreatedAt)")
+    long countByRoomIdAndLastReadAtBefore(
+            @Param("roomId") Long roomId,
+            @Param("messageCreatedAt") LocalDateTime messageCreatedAt
+    );
+
+
     @Query("SELECT COUNT(cp) > 0 FROM ChatParticipant cp WHERE cp.chatRoom.id = :chatRoomId AND cp.user.userId = :userId")
     boolean existsByChatRoomIdAndUserId(@Param("chatRoomId") Long chatRoomId, @Param("userId") Long userId);
 }

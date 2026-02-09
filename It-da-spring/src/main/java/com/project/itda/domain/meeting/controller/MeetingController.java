@@ -13,13 +13,16 @@ import com.project.itda.domain.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,7 +45,7 @@ public class MeetingController {
     private final UserRepository userRepository;
 
     /**
-     * 모임 생성
+     * ✅ 모임 생성 (SecurityContext 사용)
      */
     @Operation(
             summary = "모임 생성",
@@ -50,27 +53,48 @@ public class MeetingController {
     )
     @PostMapping
     public ResponseEntity<MeetingResponse> createMeeting(
-            HttpSession session,
-//            @AuthenticationPrincipal Long userId,
-            @Valid @RequestBody MeetingCreateRequest request
+            HttpServletRequest request,
+            @Valid @RequestBody MeetingCreateRequest requestDto
     ) {
-        SessionUser sessionUser = (SessionUser) session.getAttribute("user");
+        log.info("==================== 모임 생성 요청 ====================");
 
-        if (sessionUser == null) {
-            log.error("❌ 인증되지 않은 사용자 요청");
+        // ✅ SecurityContext에서 인증 정보 가져오기
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            log.error("❌ SecurityContext에 인증 정보 없음");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        Long userId = sessionUser.getUserId();
 
-        log.info("📍 POST /api/meetings - userId: {}", userId);
+        // ✅ Principal에서 userId 추출 (이제 Long 타입으로 저장됨)
+        Object principal = authentication.getPrincipal();
+        log.info("Principal 타입: {}, 값: {}", principal.getClass().getSimpleName(), principal);
 
+        Long userId;
+        try {
+            userId = (Long) principal;  // ✅ Long으로 캐스팅
+            log.info("✅ 인증된 사용자 ID: {}", userId);
+        } catch (ClassCastException e) {
+            log.error("❌ Principal 타입 오류: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // ✅ 세션 디버깅 (선택 사항)
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            log.info("세션 ID: {}", session.getId());
+            log.info("세션이 새로 생성됨?: {}", session.isNew());
+        }
+
+        // ✅ 사용자 조회 및 모임 생성
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        MeetingResponse response = meetingService.createMeeting(user, request);
+        MeetingResponse response = meetingService.createMeeting(user, requestDto);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
 
     /**
      * 모임 목록 조회 (React용 GET)

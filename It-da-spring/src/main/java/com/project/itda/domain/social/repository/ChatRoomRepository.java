@@ -4,6 +4,8 @@ import com.project.itda.domain.social.entity.ChatRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +20,17 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoom> findByRoomNameContaining(String roomName);
 
     Optional<ChatRoom> findByMeetingId(Long meetingId);
+
+    /**
+     * 특정 시각 이전에 마지막으로 읽은 참여자 수
+     * = 해당 메시지를 읽지 않은 사람 수
+     */
+    @Query("SELECT COUNT(cp) FROM ChatParticipant cp " +
+            "WHERE cp.chatRoom.id = :roomId " +
+            "AND (cp.lastReadAt IS NULL OR cp.lastReadAt < :messageCreatedAt)")
+    long countByRoomIdAndLastReadAtBefore(
+            @Param("roomId") Long roomId,
+            @Param("messageCreatedAt") LocalDateTime messageCreatedAt
+    );
+
 }

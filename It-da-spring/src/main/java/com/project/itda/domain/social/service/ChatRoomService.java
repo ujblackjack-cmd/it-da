@@ -46,24 +46,11 @@ public class ChatRoomService {
     // 실시간 접속자 관리
     private final Map<Long, Set<String>> connectedUsers = new ConcurrentHashMap<>();
 
+    private final Map<Long, Set<String>> activeUsersInRoom = new ConcurrentHashMap<>();
+
     // 현재 방에 접속 중인 인원수 반환
     public int getConnectedCount(Long roomId) {
         return connectedUsers.getOrDefault(roomId, new HashSet<>()).size();
-    }
-
-    // 유저가 방에 입장했을 때
-    public void userJoined(Long roomId, String email) {
-        connectedUsers.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(email);
-    }
-
-    // 유저가 방에서 나갔을 때
-    public void userLeft(Long roomId, String email) {
-        if (connectedUsers.containsKey(roomId)) {
-            connectedUsers.get(roomId).remove(email);
-            if (connectedUsers.get(roomId).isEmpty()) {
-                connectedUsers.remove(roomId);
-            }
-        }
     }
 
     @Transactional
@@ -332,4 +319,40 @@ public class ChatRoomService {
                         }
                 );
     }
+
+    public void userJoined(Long roomId, String email) {
+        // lastReadAt 업데이트
+        ChatParticipant participant = chatParticipantRepository
+                .findByChatRoomIdAndUserEmail(roomId, email)
+                .orElseThrow();
+
+        participant.setLastReadAt(LocalDateTime.now());
+        chatParticipantRepository.save(participant);
+
+        // ✅ 활성 사용자 목록에 추가
+        activeUsersInRoom.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(email);
+
+        log.info("✅ 사용자 접속: roomId={}, email={}", roomId, email);
+    }
+
+    public void userLeft(Long roomId, String email) {
+        // ✅ 활성 사용자 목록에서 제거
+        Set<String> users = activeUsersInRoom.get(roomId);
+        if (users != null) {
+            users.remove(email);
+        }
+
+        log.info("✅ 사용자 퇴장: roomId={}, email={}", roomId, email);
+    }
+
+    public int getActiveUserCount(Long roomId) {
+        Set<String> users = activeUsersInRoom.get(roomId);
+        return users != null ? users.size() : 0;
+    }
+
+    public boolean isUserActive(Long roomId, String email) {
+        Set<String> users = activeUsersInRoom.get(roomId);
+        return users != null && users.contains(email);
+    }
+
 }
