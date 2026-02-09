@@ -3,10 +3,10 @@
 # ===============================
 
 # 1. 가상환경 생성 (이미 있으면 생략)
-# py -3.11 -m venv .venv
+# py -3.11 -m venv venv
 
 # 2. 가상환경 활성화 (Windows)
-# .\.venv\Scripts\activate
+# .\venv\Scripts\activate
 
 # 3. pip 업그레이드
 # python -m pip install --upgrade pip
@@ -25,6 +25,7 @@
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
 pydantic==2.6.1
+pydantic-settings==2.1.0
 python-multipart==0.0.9
 
 # Core numerical (🔥 NumPy 2.x 금지)
@@ -45,3 +46,6 @@ requests==2.31.0
 
 # Utils
 python-dotenv==1.0.1
+
+# OpenAI
+openai
