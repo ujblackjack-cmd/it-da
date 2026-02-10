@@ -233,4 +233,4 @@ it-da/
 
 ---
 
-© 2024 it-da Project. All Rights Reserved.
+© 2025-26 it-da Project. All Rights Reserved.
