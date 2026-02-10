@@ -38,20 +38,20 @@ Spring Boot를 메인 API 서버로 두고, AI 추론을 담당하는 Python(Fas
 
 ```mermaid
 graph TD
-    Client(Web/Mobile Client) -->|HTTP/WebSocket| Gateway[Nginx / Load Balancer]
+    Client(Web/Mobile Client) -->|HTTP/WebSocket| Gateway["Nginx / Load Balancer"]
     
     subgraph "Backend Services"
-        Gateway -->|API Request| SpringBoot[Spring Boot API Server]
-        Gateway -->|WS Connection| SpringBoot
-        SpringBoot -->|Event Publish| Redis[(Redis Pub/Sub & Cache)]
-        Redis -->|Event Subscribe| SpringBoot
-        SpringBoot -->|Data Access| MySQL[(MySQL DB)]
+        Gateway -->|"API Request"| SpringBoot["Spring Boot API Server"]
+        Gateway -->|"WS Connection"| SpringBoot
+        SpringBoot -->|"Event Publish"| Redis[("Redis Pub/Sub & Cache")]
+        Redis -->|"Event Subscribe"| SpringBoot
+        SpringBoot -->|"Data Access"| MySQL[("MySQL DB")]
     end
     
     subgraph "AI Services"
-        SpringBoot -->|추론 요청 (HTTP)| FastAPI[Python FastAPI AI Server]
-        FastAPI -->|Data Load| MySQL
-        FastAPI -->|Model Loading| Models[AI Models (LightGBM/KoELECTRA)]
+        SpringBoot -->|"추론 요청 (HTTP)"| FastAPI["Python FastAPI AI Server"]
+        FastAPI -->|"Data Load"| MySQL
+        FastAPI -->|"Model Loading"| Models["AI Models (LightGBM/KoELECTRA)"]
     end
 
 ```
@@ -233,4 +233,4 @@ it-da/
 
 ---
 
-© 2025-26 it-da Project. All Rights Reserved.
+© 2024 it-da Project. All Rights Reserved.
