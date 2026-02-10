@@ -1,4 +1,3 @@
----
 
 # it-da (잇다) - AI 기반 감정/맥락 인지 취미 매칭 플랫폼
 
@@ -38,7 +37,7 @@ Spring Boot를 메인 API 서버로 두고, AI 추론을 담당하는 Python(Fas
 
 ```mermaid
 graph TD
-    Client(Web/Mobile Client) -->|HTTP/WebSocket| Gateway["Nginx / Load Balancer"]
+    Client("Web/Mobile Client") -->|"HTTP/WebSocket"| Gateway["Nginx / Load Balancer"]
     
     subgraph "Backend Services"
         Gateway -->|"API Request"| SpringBoot["Spring Boot API Server"]
